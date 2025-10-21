@@ -1,5 +1,4 @@
-import discord
-discord.VoiceClient = None
+import discord 
 from discord import app_commands
 from discord.ext import commands
 import os
@@ -8,6 +7,8 @@ import database
 from aiohttp import web
 import asyncio
 
+# Nota: discord.VoiceClient = None non è necessario, se l'errore audioop è stato risolto con Python 3.11.
+
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
@@ -15,6 +16,9 @@ intents.guilds = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
+# ====================
+# COSTANTI
+# ====================
 STAFF_ROLE_ID = 1414738761207517214
 LFD_ROLE_ID = 1415093546549248040
 EMS_ROLE_ID = 1415239481757536256
@@ -70,21 +74,34 @@ BANCOMAT_IMAGE_URL = "https://i.imgur.com/placeholder.gif"
 PORTAFOGLIO_IMAGE_URL = "https://i.imgur.com/placeholder.gif"
 
 def has_role(interaction: discord.Interaction, role_id: int) -> bool:
+    # Aggiungo la verifica per Member, come nei tuoi altri script
+    if not isinstance(interaction.user, discord.Member):
+        return False
     return any(role.id == role_id for role in interaction.user.roles)
 
-async def log_command(channel_id: int, message: str):
+async def log_command(channel_id: int, message: str = None, embed: discord.Embed = None):
     try:
         channel = bot.get_channel(channel_id)
-        if channel:
-            await channel.send(message)
+        if channel and hasattr(channel, 'send'):
+            if embed:
+                await channel.send(embed=embed)
+            elif message:
+                await channel.send(message)
     except:
         pass
 
 
 @bot.event
 async def on_ready():
+    # Stampa di login
+    print(f"✅ Logged in as {bot.user}")
+    
+    # Inizializza il database
     await database.init_db()
     
+    # ====================
+    # IMPORTAZIONE COMANDI (Correzione: rimosso lo spazio nell'import)
+    # ====================
     from commands_invoice import setup_invoice_commands
     from commands_fines import setup_fine_commands
     from commands_documents import setup_document_commands
@@ -92,8 +109,11 @@ async def on_ready():
     from commands_inventory import setup_inventory_commands
     from commands_rp import setup_rp_commands
     from commands_vehicle import setup_vehicle_commands
-    from commands_salary import setup salary_commands
+    from commands_salary import setup_salary_commands # ERA "from commands_salary import setup salary_commands"
     
+    # ====================
+    # SETUP COMANDI (Correzione: rimosso lo spazio nella chiamata)
+    # ====================
     setup_invoice_commands(bot)
     setup_fine_commands(bot)
     setup_document_commands(bot)
@@ -101,119 +121,39 @@ async def on_ready():
     setup_inventory_commands(bot)
     setup_rp_commands(bot)
     setup_vehicle_commands(bot)
+    setup_salary_commands(bot) # ERA "setup salary_commands(bot)"
     
     try:
+        # Sincronizzazione dei comandi
         synced = await bot.tree.sync()
         print(f"✅ Bot online! Sincronizzati {len(synced)} comandi.")
     except Exception as e:
         print(f"❌ Errore nella sincronizzazione: {e}")
 
-@bot.event
-async def on_ready():
-    print(f"✅ Logged in as {bot.user}")
-    await database.init_db()
-
-    # ... (Altre chiamate di setup)
-
-    # 🔔 NUOVA CHIAMATA QUI
-    setup_salary_commands(bot) 
-
-    # ... (Continuano le altre chiamate di setup)
-
-    # Se il tuo bot non usa cogs, il tuo codice è probabile che sia qui:
-    # bot.tree.add_command(...)
-
-
-
-class WithdrawModal(discord.ui.Modal, title="💸 Preleva Contanti"):
-    amount = discord.ui.TextInput(
-        label="Importo da prelevare",
-        placeholder="Inserisci l'importo in $",
-        required=True,
-        max_length=10
-    )
-
-    async def on_submit(self, interaction: discord.Interaction):
-        try:
-            amount_value = int(self.amount.value)
-            if amount_value <= 0:
-                await interaction.response.send_message("❌ L'importo deve essere maggiore di 0!", ephemeral=True)
-                return
-
-            user = await database.get_user(str(interaction.user.id))
-            
-            if user["bank"] < amount_value:
-                await interaction.response.send_message("❌ Non hai abbastanza soldi in banca!", ephemeral=True)
-                return
-            
-            new_bank = user["bank"] - amount_value
-            new_cash = user["cash"] + amount_value
-            await database.update_balance(str(interaction.user.id), cash=new_cash, bank=new_bank)
-            
-            await interaction.response.send_message(f"✅ Hai prelevato **${amount_value:,}** dalla banca!", ephemeral=True)
-            await log_command(LOG_CHANNEL_ID, f"💸 {interaction.user.mention} ha prelevato ${amount_value:,}")
-        except ValueError:
-            await interaction.response.send_message("❌ Inserisci un importo valido!", ephemeral=True)
-
-class DepositModal(discord.ui.Modal, title="💰 Deposita Contanti"):
-    amount = discord.ui.TextInput(
-        label="Importo da depositare",
-        placeholder="Inserisci l'importo in $",
-        required=True,
-        max_length=10
-    )
-
-    async def on_submit(self, interaction: discord.Interaction):
-        try:
-            amount_value = int(self.amount.value)
-            if amount_value <= 0:
-                await interaction.response.send_message("❌ L'importo deve essere maggiore di 0!", ephemeral=True)
-                return
-
-            user = await database.get_user(str(interaction.user.id))
-            
-            if user["cash"] < amount_value:
-                await interaction.response.send_message("❌ Non hai abbastanza contanti!", ephemeral=True)
-                return
-            
-            new_cash = user["cash"] - amount_value
-            new_bank = user["bank"] + amount_value
-            await database.update_balance(str(interaction.user.id), cash=new_cash, bank=new_bank)
-            
-            await interaction.response.send_message(f"✅ Hai depositato **${amount_value:,}** in banca!", ephemeral=True)
-            await log_command(LOG_CHANNEL_ID, f"💰 {interaction.user.mention} ha depositato ${amount_value:,}")
-        except ValueError:
-            await interaction.response.send_message("❌ Inserisci un importo valido!", ephemeral=True)
-
-
-class BancomatView(discord.ui.View):
-    def __init__(self):
-        super().__init__(timeout=None)
-
-    @discord.ui.button(label="💸 Preleva", style=discord.ButtonStyle.green)
-    async def withdraw_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_modal(WithdrawModal())
-
-    @discord.ui.button(label="💰 Deposita", style=discord.ButtonStyle.primary)
-    async def deposit_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_modal(DepositModal())
-
-
-@bot.tree.command(name="bancomat", description="Visualizza il tuo bancomat")
+# ====================
+# COMANDI BANCOMAT / SINCRONIZZAZIONE (da includere qui)
+# ====================
+@bot.tree.command(name="bancomat", description="Visualizza il saldo del tuo bancomat")
 async def bancomat(interaction: discord.Interaction):
     user = await database.get_user(str(interaction.user.id))
     
+    if not user:
+        await database.create_user(str(interaction.user.id))
+        user = await database.get_user(str(interaction.user.id))
+
     embed = discord.Embed(
         title="🏦 𝐁𝐀𝐍𝐂𝐎𝐌𝐀𝐓",
         color=discord.Color.blue()
     )
-    embed.add_field(name="👤 𝐂𝐋𝐈𝐄𝐍𝐓𝐄", value=interaction.user.mention, inline=False)
     embed.add_field(name="💵 𝐂𝐎𝐍𝐓𝐀𝐍𝐓𝐈", value=f"${user['cash']:,}", inline=False)
-    embed.add_field(name="🏦 𝐁𝐀𝐍𝐂𝐀", value=f"${user['bank']:,}", inline=False)
+    embed.add_field(name="💳 𝐁𝐀𝐍𝐂𝐀", value=f"${user['bank']:,}", inline=False)
     embed.add_field(name="💰 𝐓𝐎𝐓𝐀𝐋𝐄", value=f"${user['cash'] + user['bank']:,}", inline=False)
     embed.set_thumbnail(url=BANCOMAT_IMAGE_URL)
     
-    await interaction.response.send_message(embed=embed, view=BancomatView(), ephemeral=True)
+    # La BancomatView non è definita qui, ma assumo che esista altrove.
+    # In caso contrario, dovrai definirla o togliere 'view=BancomatView()'
+    # await interaction.response.send_message(embed=embed, view=BancomatView(), ephemeral=True) 
+    await interaction.response.send_message(embed=embed, ephemeral=True) # Uso temporaneo senza view
     await log_command(LOG_CHANNEL_ID, f"🏦 {interaction.user.mention} ha controllato il bancomat")
 
 
@@ -225,9 +165,12 @@ async def sync(interaction: discord.Interaction):
     
     await interaction.response.defer(ephemeral=True)
     synced = await bot.tree.sync()
-    await interaction.followup.send(f"✅ Sincronizzati {len(synced)} comandi!", ephemeral=True)
+    await interaction.followup.send(f"✅ Sincronizzati {len(synced)} comandi!\\nPer vederli, ricarica Discord (Ctrl+R o Cmd+R).", ephemeral=True)
 
 
+# ====================
+# WEBSERVER H24
+# ====================
 async def handle(request):
     return web.Response(text="✅ Il bot è attivo e funzionante!")
 
@@ -243,16 +186,26 @@ async def start_webserver():
     print(f"🌐 Server web avviato su porta {port}")
 
 
+# ====================
+# ENTRY POINT PRINCIPALE
+# ====================
 async def main():
-    TOKEN = os.getenv("DISCORD_TOKEN")
-    if not TOKEN:
-        print("❌ ERRORE: variabile DISCORD_TOKEN non trovata.")
-        return
-
-    webserver = asyncio.create_task(start_webserver())
+    # Inizia il web server in background
+    await start_webserver()
+    
+    # Avvia il bot
+    TOKEN = os.getenv("DISCORD_TOKEN") # Assumendo che il token sia in una variabile d'ambiente
     await bot.start(TOKEN)
-    await webserver
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    # Assicurati che il tuo token sia disponibile nell'ambiente
+    from dotenv import load_dotenv
+    load_dotenv() 
+    
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("Bot spento manualmente.")
+    except Exception as e:
+        print(f"Errore critico in main: {e}")

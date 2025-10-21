@@ -108,6 +108,22 @@ async def on_ready():
     except Exception as e:
         print(f"❌ Errore nella sincronizzazione: {e}")
 
+@bot.event
+async def on_ready():
+    print(f"✅ Logged in as {bot.user}")
+    await database.init_db()
+
+    # ... (Altre chiamate di setup)
+
+    # 🔔 NUOVA CHIAMATA QUI
+    setup_salary_commands(bot) 
+
+    # ... (Continuano le altre chiamate di setup)
+
+    # Se il tuo bot non usa cogs, il tuo codice è probabile che sia qui:
+    # bot.tree.add_command(...)
+
+
 
 class WithdrawModal(discord.ui.Modal, title="💸 Preleva Contanti"):
     amount = discord.ui.TextInput(

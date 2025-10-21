@@ -90,7 +90,6 @@ async def log_command(channel_id: int, message: str = None, embed: discord.Embed
     except:
         pass
 
-
 @bot.event
 async def on_ready():
     # Stampa di login
@@ -100,7 +99,7 @@ async def on_ready():
     await database.init_db()
     
     # ====================
-    # IMPORTAZIONE COMANDI (Correzione: rimosso lo spazio nell'import)
+    # IMPORTAZIONE COMANDI (CORRETTA)
     # ====================
     from commands_invoice import setup_invoice_commands
     from commands_fines import setup_fine_commands
@@ -109,10 +108,11 @@ async def on_ready():
     from commands_inventory import setup_inventory_commands
     from commands_rp import setup_rp_commands
     from commands_vehicle import setup_vehicle_commands
-    from commands_salary import setup_salary_commands # ERA "from commands_salary import setup salary_commands"
+    from commands_salary import setup_salary_commands 
+    from commands_bonifico import setup_bonifico_commands # ⬅️ NUOVO IMPORT AGGIUNTO QUI!
     
     # ====================
-    # SETUP COMANDI (Correzione: rimosso lo spazio nella chiamata)
+    # SETUP COMANDI 
     # ====================
     setup_invoice_commands(bot)
     setup_fine_commands(bot)
@@ -121,8 +121,8 @@ async def on_ready():
     setup_inventory_commands(bot)
     setup_rp_commands(bot)
     setup_vehicle_commands(bot)
-    setup_salary_commands(bot) # ERA "setup salary_commands(bot)"
-    setup_bonifico_commands(bot)
+    setup_salary_commands(bot) 
+    setup_bonifico_commands(bot) # Questa riga ora funzionerà
     
     try:
         # Sincronizzazione dei comandi
@@ -130,6 +130,7 @@ async def on_ready():
         print(f"✅ Bot online! Sincronizzati {len(synced)} comandi.")
     except Exception as e:
         print(f"❌ Errore nella sincronizzazione: {e}")
+
 
 # ====================
 # COMANDI BANCOMAT / SINCRONIZZAZIONE (da includere qui)

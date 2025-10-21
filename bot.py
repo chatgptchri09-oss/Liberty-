@@ -92,6 +92,7 @@ async def on_ready():
     from commands_inventory import setup_inventory_commands
     from commands_rp import setup_rp_commands
     from commands_vehicle import setup_vehicle_commands
+    from commands_salary import setup salary_commands
     
     setup_invoice_commands(bot)
     setup_fine_commands(bot)

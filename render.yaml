@@ -1,7 +1,0 @@
-services:
-  - type: web
-    name: nome-del-tuo-bot
-    env: python
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: "python bot.py"
-    runtime: python3.11

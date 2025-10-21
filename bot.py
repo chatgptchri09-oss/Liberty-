@@ -122,6 +122,7 @@ async def on_ready():
     setup_rp_commands(bot)
     setup_vehicle_commands(bot)
     setup_salary_commands(bot) # ERA "setup salary_commands(bot)"
+    setup_bonifico_commands(bot)
     
     try:
         # Sincronizzazione dei comandi

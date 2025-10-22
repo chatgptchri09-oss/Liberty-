@@ -2,9 +2,13 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 import aiosqlite
-import database # Per riutilizzare le funzioni come get_user e create_user
+# import database <--- RIMOZIONE CRITICA PER EVITARE CRASH DI CARICAMENTO
 
 # Nomi delle costanti e funzioni dedotti dai tuoi altri script
+DATABASE_NAME = "economy_bot.db"
+LOG_CHANNEL_ID = 1415297578022604850
+# ... (il resto del file rimane identico)
+
 DATABASE_NAME = "economy_bot.db"
 LOG_CHANNEL_ID = 1415297578022604850
 

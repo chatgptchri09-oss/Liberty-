@@ -97,40 +97,34 @@ async def on_ready():
     
     # Inizializza il database
     await database.init_db()
-    
-    # ====================
-    # IMPORTAZIONE COMANDI (CORRETTA)
-    # ====================
-    from commands_invoice import setup_invoice_commands
-    from commands_fines import setup_fine_commands
-    from commands_documents import setup_document_commands
-    from commands_wallet import setup_wallet_commands
-    from commands_inventory import setup_inventory_commands
-    from commands_rp import setup_rp_commands
-    from commands_vehicle import setup_vehicle_commands
-    from commands_salary import setup_salary_commands 
-    from commands_bonifico import setup_bonifico_commands # ⬅️ NUOVO IMPORT AGGIUNTO QUI!
-    
-    # ====================
-    # SETUP COMANDI 
-    # ====================
-    setup_invoice_commands(bot)
-    setup_fine_commands(bot)
-    setup_document_commands(bot)
-    setup_wallet_commands(bot)
-    setup_inventory_commands(bot)
-    setup_rp_commands(bot)
-    setup_vehicle_commands(bot)
-    setup_salary_commands(bot) 
-    setup_bonifico_commands(bot) # Questa riga ora funzionerà
-    
-    try:
-        # Sincronizzazione dei comandi
-        synced = await bot.tree.sync()
-        print(f"✅ Bot online! Sincronizzati {len(synced)} comandi.")
-    except Exception as e:
-        print(f"❌ Errore nella sincronizzazione: {e}")
 
+# Nel tuo file bot.py, all'interno della funzione on_ready:
+
+# ====================
+# IMPORTAZIONE COMANDI 
+# ====================
+from commands_invoice import setup_invoice_commands
+from commands_fines import setup_fine_commands
+from commands_documents import setup_document_commands
+from commands_wallet import setup_wallet_commands
+from commands_inventory import setup_inventory_commands
+from commands_rp import setup_rp_commands
+from commands_vehicle import setup_vehicle_commands
+from commands_salary import setup_salary_commands 
+from commands_bonifico import setup_bonifico_commands # <--- DEVE ESSERCI
+
+# ====================
+# SETUP COMANDI 
+# ====================
+setup_invoice_commands(bot)
+setup_fine_commands(bot)
+setup_document_commands(bot)
+setup_wallet_commands(bot)
+setup_inventory_commands(bot)
+setup_rp_commands(bot)
+setup_vehicle_commands(bot)
+setup_salary_commands(bot) 
+setup_bonifico_commands(bot) # <--- DEVE ESSERE CHIAMATO
 
 # ====================
 # COMANDI BANCOMAT / SINCRONIZZAZIONE (da includere qui)

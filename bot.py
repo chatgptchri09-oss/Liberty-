@@ -128,33 +128,145 @@ setup_salary_commands(bot)
 setup_bonifico_commands(bot) # <--- DEVE ESSERE CHIAMATO
 setup_admin_commands(bot)
 
+
+
 # ====================
-# COMANDI BANCOMAT / SINCRONIZZAZIONE (da includere qui)
+# MODAL PER PRELIEVO/DEPOSITO
 # ====================
-@bot.tree.command(name="bancomat", description="Visualizza il saldo del tuo bancomat")
-async def bancomat(interaction: discord.Interaction):
-    user = await database.get_user(str(interaction.user.id))
+
+class MoneyTransferModal(discord.ui.Modal, title="Trasferimento di Denaro"):
+    amount_input = discord.ui.TextInput(label="Importo", placeholder="La cifra da trasferire (solo numeri)", required=True)
+
+    def __init__(self, bot: commands.Bot, action: str):
+        super().__init__()
+        self.bot = bot
+        self.action = action # 'preleva' o 'deposita'
+        self.title = "💸 Preleva Contanti" if action == 'preleva' else "🏦 Deposita Denaro"
+        self.amount_input.label = f"Importo da {action}"
+
+
+    async def on_submit(self, interaction: discord.Interaction):
+        user_id = str(interaction.user.id)
+        
+        # 1. Validazione input
+        try:
+            amount_str = self.amount_input.value.replace(',', '').replace('$', '').strip()
+            amount = int(amount_str)
+            
+            if amount <= 0:
+                await interaction.response.send_message("❌ L'importo deve essere maggiore di zero!", ephemeral=True)
+                return
+        except ValueError:
+            await interaction.response.send_message("❌ Importo non valido! Inserisci solo numeri interi.", ephemeral=True)
+            return
+
+        # 2. Recupera i saldi
+        user = await database.get_user(user_id)
+        current_cash = user['cash']
+        current_bank = user['bank']
+        
+        new_cash = current_cash
+        new_bank = current_bank
+        
+        error_message = None
+
+        # 3. Esegue il trasferimento
+        if self.action == 'preleva':
+            if amount > current_bank:
+                error_message = f"❌ Non hai abbastanza soldi in banca per prelevare **${amount:,}**! (Disponibile: ${current_bank:,})"
+            else:
+                new_cash = current_cash + amount
+                new_bank = current_bank - amount
+                
+        elif self.action == 'deposita':
+            if amount > current_cash:
+                error_message = f"❌ Non hai abbastanza contanti per depositare **${amount:,}**! (Disponibile: ${current_cash:,})"
+            else:
+                new_cash = current_cash - amount
+                new_bank = current_bank + amount
+
+        if error_message:
+            await interaction.response.send_message(error_message, ephemeral=True)
+            return
+
+        # 4. Aggiorna il database
+        await database.update_balance(user_id, cash=new_cash, bank=new_bank)
+
+        # 5. Risposta
+        action_text = "prelevati" if self.action == 'preleva' else "depositati"
+        await interaction.response.send_message(
+            f"✅ Hai **{action_text}** **${amount:,}** con successo!",
+            ephemeral=True
+        )
+        
+        # 6. Log
+        log_msg = f"🏦 {interaction.user.mention} ha {self.action} ${amount:,}"
+        await log_command(self.bot, LOG_CHANNEL_ID, log_msg)
+        
+        # Dopo l'azione, aggiorna l'embed del messaggio originale (se possibile)
+        # Questo richiede una logica più complessa (trovare il messaggio originale, ri-renderizzare la view, ecc.)
+        # Per ora, invitiamo l'utente a rifare /bancomat.
+
+
+# ====================
+# VIEW PER BOTTONI
+# ====================
+
+class BancomatView(discord.ui.View):
+    def __init__(self, bot: commands.Bot, user_id: str):
+        super().__init__(timeout=None)
+        self.bot = bot
+        self.user_id = user_id
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if str(interaction.user.id) != self.user_id:
+            await interaction.response.send_message("❌ Questo non è il tuo bancomat!", ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(label="💸 Preleva", style=discord.ButtonStyle.green, emoji="💸")
+    async def preleva_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        modal = MoneyTransferModal(self.bot, action='preleva')
+        await interaction.response.send_modal(modal)
+
+    @discord.ui.button(label="🏦 Deposita", style=discord.ButtonStyle.blurple, emoji="🏦")
+    async def deposita_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        modal = MoneyTransferModal(self.bot, action='deposita')
+        await interaction.response.send_modal(modal)
+
+
+# ====================
+# FUNZIONE DI SETUP
+# ====================
+
+def setup_bancomat_commands(bot: commands.Bot):
     
-    if not user:
-        await database.create_user(str(interaction.user.id))
+    @bot.tree.command(name="bancomat", description="Visualizza il saldo del tuo bancomat")
+    async def bancomat(interaction: discord.Interaction):
         user = await database.get_user(str(interaction.user.id))
+        
+        # La funzione get_user crea l'utente se non esiste, quindi user non è None.
+        user_id = str(interaction.user.id)
+        user_mention = interaction.user.mention
+        
+        embed = discord.Embed(
+            title="🏦 𝐁𝐀𝐍𝐂𝐎𝐌𝐀𝐓",
+            color=discord.Color.blue()
+        )
+        # Nuova sezione CLIENTE
+        embed.add_field(name="👤 𝐂𝐋𝐈𝐄𝐍𝐓𝐄", value=user_mention, inline=False)
+        embed.add_field(name="💵 𝐂𝐎𝐍𝐓𝐀𝐍𝐓𝐈", value=f"${user['cash']:,}", inline=False)
+        embed.add_field(name="💳 𝐁𝐀𝐍𝐂𝐀", value=f"${user['bank']:,}", inline=False)
+        embed.add_field(name="💰 𝐓𝐎𝐓𝐀𝐋𝐄", value=f"${user['cash'] + user['bank']:,}", inline=False)
+        # Rimosso embed.set_thumbnail(url=BANCOMAT_IMAGE_URL)
 
-    embed = discord.Embed(
-        title="🏦 𝐁𝐀𝐍𝐂𝐎𝐌𝐀𝐓",
-        color=discord.Color.blue()
-    )
-    embed.add_field(name="👤 𝐂𝐋𝐈𝐄𝐍𝐓𝐄", value=ctx.author.mention)
-    embed.add_field(name="💵 𝐂𝐎𝐍𝐓𝐀𝐍𝐓𝐈", value=f"${user['cash']:,}", inline=False)
-    embed.add_field(name="💳 𝐁𝐀𝐍𝐂𝐀", value=f"${user['bank']:,}", inline=False)
-    embed.add_field(name="💰 𝐓𝐎𝐓𝐀𝐋𝐄", value=f"${user['cash'] + user['bank']:,}", inline=False)
-    embed.set_thumbnail(url=BANCOMAT_IMAGE_URL)
+        view = BancomatView(bot, user_id)
+        
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+        await log_command(bot, LOG_CHANNEL_ID, f"🏦 {interaction.user.mention} ha controllato il bancomat")
     
-    # La BancomatView non è definita qui, ma assumo che esista altrove.
-    # In caso contrario, dovrai definirla o togliere 'view=BancomatView()'
-    # await interaction.response.send_message(embed=embed, view=BancomatView(), ephemeral=True) 
-    await interaction.response.send_message(embed=embed, ephemeral=True) # Uso temporaneo senza view
-    await log_command(LOG_CHANNEL_ID, f"🏦 {interaction.user.mention} ha controllato il bancomat")
-
+    # Non è necessario bot.tree.add_command(bancomat) perché usiamo il decoratore
+    pass
 
 @bot.tree.command(name="sync", description="[STAFF] Sincronizza i comandi")
 async def sync(interaction: discord.Interaction):

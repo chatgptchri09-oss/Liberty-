@@ -149,6 +149,10 @@ class StipendioView(discord.ui.View):
 
 def setup_salary_commands(bot: commands.Bot):
     """Registra i comandi al tree del bot e li rende disponibili."""
+
+# ... (tutto il codice prima rimane invariato)
+def setup_salary_commands(bot: commands.Bot):
+    """Registra i comandi al tree del bot e li rende disponibili."""
     
     @bot.tree.command(name="richiesta-stipendio", description="Richiedi uno stipendio")
     @app_commands.describe(
@@ -168,6 +172,5 @@ def setup_salary_commands(bot: commands.Bot):
         modal = RichiestaStipendioModal(bot, lavoro_svolto, allegato)
         await interaction.response.send_modal(modal)
 
-    # Aggiunge il comando al tree
-    bot.tree.add_command(richiesta_stipendio)
-
+    # LA RIGA SEGUENTE DEVE ESSERE RIMOSSA O COMMENTATA!
+    # bot.tree.add_command(richiesta_stipendio) 

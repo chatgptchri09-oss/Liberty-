@@ -92,22 +92,17 @@ def setup_bonifico_commands(bot: commands.Bot):
                 
             await db.commit()
 
-        # 5. Risposta all'utente e notifica
-        
-        # Invia la notifica in DM all'utente che ha ricevuto il bonifico
-        try:
-            await utente.send(
-                f"💸 **BONIFICO RICEVUTO!**\n"
-                f"Hai ricevuto un bonifico di **${importo:,}** da {interaction.user.mention}."
-            )
-        except discord.Forbidden:
-            # Se i DM sono bloccati
-            pass
-            
+# ... (punto 5: Risposta e notifica)
+
         # Risposta sul canale Discord
-        await interaction.response.send_message(
+        await interaction.followup.send(
             f"✅ Bonifico completato! Hai inviato **${importo:,}** a {utente.mention} dal tuo conto bancario.", 
             ephemeral=True
         )
 
-                await log_command(bot, LOG_CHANNEL_ID, f"💸 {interaction.user.mention} ha inviato bonifico di ${importo:,} a {utente.mention}") 
+        # 6. Log
+        # LA RIGA QUI SOTTO DEVE AVERE 8 SPAZI DI INDENTAZIONE
+        await log_command(bot, LOG_CHANNEL_ID, f"💸 {interaction.user.mention} ha inviato bonifico di ${importo:,} a {utente.mention}")
+
+    # Registrazione del comando (e verifica che questa sia stata rimossa come richiesto)
+    # bot.tree.add_command(bonifico) 

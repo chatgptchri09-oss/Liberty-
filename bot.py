@@ -209,12 +209,12 @@ class BancomatView(View):
             return False
         return True
 
-    @discord.ui.button(label="💸 Preleva", style=discord.ButtonStyle.green, emoji="💸")
+    @discord.ui.button(label="Preleva", style=discord.ButtonStyle.green, emoji="💸")
     async def preleva_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         modal = MoneyTransferModal(action='preleva')
         await interaction.response.send_modal(modal)
 
-    @discord.ui.button(label="🏦 Deposita", style=discord.ButtonStyle.blurple, emoji="🏦")
+    @discord.ui.button(label="Deposita", style=discord.ButtonStyle.blurple, emoji="🏦")
     async def deposita_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         modal = MoneyTransferModal(action='deposita')
         await interaction.response.send_modal(modal)

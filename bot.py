@@ -112,6 +112,7 @@ from commands_rp import setup_rp_commands
 from commands_vehicle import setup_vehicle_commands
 from commands_salary import setup_salary_commands 
 from commands_bonifico import setup_bonifico_commands # <--- DEVE ESSERCI
+from commands_admin import setup_admin_commands
 
 # ====================
 # SETUP COMANDI 
@@ -125,6 +126,7 @@ setup_rp_commands(bot)
 setup_vehicle_commands(bot)
 setup_salary_commands(bot) 
 setup_bonifico_commands(bot) # <--- DEVE ESSERE CHIAMATO
+setup_admin_commands(bot)
 
 # ====================
 # COMANDI BANCOMAT / SINCRONIZZAZIONE (da includere qui)

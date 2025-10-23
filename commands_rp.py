@@ -86,7 +86,7 @@ def setup_rp_commands(bot: commands.Bot):
                 await db.commit()
 
             embed = discord.Embed(
-                title="🟢 Turno lavorativo 🧹",
+                title="🟢 𝐓𝐮𝐫𝐧𝐨 𝐥𝐚𝐯𝐨𝐫𝐚𝐭𝐢𝐯𝐨 🧹",
                 description=f"{interaction.user.mention} ha **INIZIATO** il proprio turno di {lavoro.mention}",
                 color=discord.Color.green()
             )
@@ -123,7 +123,7 @@ def setup_rp_commands(bot: commands.Bot):
                 await db.commit()
 
             embed = discord.Embed(
-                title="🔴 Turno lavorativo 🚬",
+                title="🔴 𝐓𝐮𝐫𝐧𝐨 𝐥𝐚𝐯𝐨𝐫𝐚𝐭𝐢𝐯𝐨 🚬",
                 description=(
                     f"{interaction.user.mention} ha **TERMINATO** il proprio turno di {lavoro.mention}\n\n"
                     f"**Tempo Lavorativo:** {hours}h e {minutes}min"

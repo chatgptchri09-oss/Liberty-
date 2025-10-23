@@ -110,5 +110,4 @@ def setup_bonifico_commands(bot: commands.Bot):
             ephemeral=True
         )
 
-        # 6. Log
-        await log_command(bot, LOG_CHANNEL_ID, f"💸 {interaction.user.mention} ha inviato bonifico di ${importo:,} a {utente.mention}"
+                await log_command(bot, LOG_CHANNEL_ID, f"💸 {interaction.user.mention} ha inviato bonifico di ${importo:,} a {utente.mention}") 

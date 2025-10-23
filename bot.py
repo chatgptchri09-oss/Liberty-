@@ -143,6 +143,7 @@ async def bancomat(interaction: discord.Interaction):
         title="🏦 𝐁𝐀𝐍𝐂𝐎𝐌𝐀𝐓",
         color=discord.Color.blue()
     )
+    embed.add_field(name="👤 𝐂𝐋𝐈𝐄𝐍𝐓𝐄", value=ctx.author.mention)
     embed.add_field(name="💵 𝐂𝐎𝐍𝐓𝐀𝐍𝐓𝐈", value=f"${user['cash']:,}", inline=False)
     embed.add_field(name="💳 𝐁𝐀𝐍𝐂𝐀", value=f"${user['bank']:,}", inline=False)
     embed.add_field(name="💰 𝐓𝐎𝐓𝐀𝐋𝐄", value=f"${user['cash'] + user['bank']:,}", inline=False)

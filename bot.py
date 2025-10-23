@@ -107,7 +107,7 @@ async def log_command(channel_id: int, message: str = None, embed: discord.Embed
 def create_bancomat_embed(user: dict, user_mention: str) -> discord.Embed:
     """Crea l'embed del bancomat."""
     embed = discord.Embed(
-        title="🏦 𝐁𝐀𝐍𝐂𝐎𝐌𝐀𝐓",
+        title="<:cartadicredito:1415105697959378985> 𝐁𝐀𝐍𝐂𝐎𝐌𝐀𝐓",
         color=discord.Color.blue()
     )
     embed.add_field(name="👤 𝐂𝐋𝐈𝐄𝐍𝐓𝐄", value=user_mention, inline=False)

@@ -3,6 +3,7 @@ from discord import app_commands
 from discord.ext import commands
 import aiosqlite
 from datetime import datetime
+import database
 
 DATABASE_NAME = "economy_bot.db"
 LOG_CHANNEL_ID = 1415297578022604850
@@ -177,3 +178,85 @@ def setup_rp_commands(bot: commands.Bot):
 
         await interaction.response.send_message(embed=embed)
         await log_command(bot, LOG_CHANNEL_ID, f"🔍 {interaction.user.mention} ha nascosto un oggetto")
+
+    # ====================
+    # NUOVO COMANDO: /me (Azione RP Visibile a Tutti)
+    # ====================
+    @bot.tree.command(name="me", description="Esegui un'azione RP visibile a tutti.")
+    @app_commands.describe(azione="L'azione che vuoi eseguire")
+    async def me(interaction: discord.Interaction, azione: str):
+        
+        # Non è necessario il defer perché non ci sono operazioni lente.
+        
+        embed = discord.Embed(
+            title="🎬 𝐀𝐳𝐢𝐨𝐧𝐞...",
+            description=f"{interaction.user.mention}: *{azione}*",
+            color=discord.Color.from_rgb(44, 47, 51) # Colore neutro (Grigio Scura Discord)
+        )
+
+        # Risposta di conferma effimera e invio del messaggio visibile a tutti
+        await interaction.response.send_message("✅ Azione RP inviata!", ephemeral=True)
+        await interaction.channel.send(embed=embed)
+        
+        await log_command(bot, LOG_CHANNEL_ID, f"🎬 {interaction.user.mention} ha eseguito l'azione: {azione}")
+
+    # ====================
+    # NUOVO COMANDO: /revoca-patente (Rimozione Licenza da LFD)
+    # ====================
+    @bot.tree.command(name="revoca-patente", description="[LFD] Rimuovi la licenza di guida a un utente.")
+    @app_commands.describe(utente="L'utente a cui revocare la patente")
+    async def revoca_patente(interaction: discord.Interaction, utente: discord.Member):
+        user_id = str(utente.id)
+        
+        # 1. Controllo Ruolo LFD (ID fornito nel tuo script)
+        if not has_role(interaction, LFD_ROLE_ID):
+            await interaction.response.send_message("❌ Solo i LFD possono usare questo comando!", ephemeral=True)
+            return
+            
+        await interaction.response.defer(ephemeral=True, thinking=True)
+
+        async with aiosqlite.connect(DATABASE_NAME) as db:
+            # 2. Verifica l'esistenza di una patente di tipo 'Guida'
+            # Assumo che le patenti di guida abbiano license_type = 'Guida'
+            async with db.execute(
+                "SELECT id FROM licenses WHERE user_id = ? AND license_type = 'Guida'",
+                (user_id,)
+            ) as cursor:
+                license_data = await cursor.fetchone()
+
+            if not license_data:
+                await interaction.followup.send(
+                    f"❌ {utente.mention} non possiede una patente di guida nel database (licenses).", 
+                    ephemeral=True
+                )
+                return
+
+            # 3. Rimuove la patente
+            await db.execute(
+                "DELETE FROM licenses WHERE user_id = ? AND license_type = 'Guida'",
+                (user_id,)
+            )
+            await db.commit()
+            
+        # 4. Notifica l'utente revocato in DM
+        try:
+            embed_dm = discord.Embed(
+                title="🚨 Patente Revocata",
+                description=f"La tua patente di guida è stata revocata da {interaction.user.mention}.",
+                color=discord.Color.red()
+            )
+            embed_dm.set_footer(text="Contatta un membro LFD per chiarimenti.")
+            await utente.send(embed=embed_dm)
+            dm_status = "Notifica DM inviata."
+        except:
+            dm_status = "Notifica DM non inviabile (DM bloccati)."
+
+        # 5. Risposta LFD e Log
+        await interaction.followup.send(
+            f"✅ Patente di guida revocata a {utente.mention} con successo. ({dm_status})", 
+            ephemeral=True
+        )
+
+        log_msg = f"🚫 {interaction.user.mention} (LFD) ha revocato la patente di guida a {utente.mention}"
+        await log_command(bot, LOG_CHANNEL_ID, log_msg)
+

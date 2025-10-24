@@ -292,6 +292,151 @@ async def sync(interaction: discord.Interaction):
     synced = await bot.tree.sync()
     await interaction.followup.send(f"✅ Sincronizzati {len(synced)} comandi!\\nPer vederli, ricarica Discord (Ctrl+R o Cmd+R).", ephemeral=True)
 
+@bot.tree.command(name="controlla-bancomat", description="Visualizza il saldo del bancomat di un altro utente e invia una notifica.")
+@app_commands.describe(utente="L'utente di cui controllare il bancomat")
+async def controlla_bancomat(interaction: discord.Interaction, utente: discord.Member):
+    checker_member = interaction.user
+    
+    # Non ci sono controlli sui ruoli, è utilizzabile da tutti.
+        
+    if utente.bot:
+        await interaction.response.send_message("❌ Non puoi controllare il bancomat di un bot.", ephemeral=True)
+        return
+
+    # Non puoi controllare te stesso, devi usare /bancomat
+    if utente.id == checker_member.id:
+        await interaction.response.send_message("❌ Usa il comando `/bancomat` per vedere il tuo saldo.", ephemeral=True)
+        return
+
+    await interaction.response.defer(ephemeral=True, thinking=True)
+    
+    try:
+        # 2. Recupera i dati dell'utente Controllato
+        user_data = await database.get_user(str(utente.id))
+        
+        # 3. Creazione dell'embed (usa la funzione esistente)
+        embed = create_bancomat_embed(user_data, utente.mention)
+        embed.title = f"🔎 SALDO VISTO: {utente.display_name}" # Titolo aggiornato per RP
+        embed.color = discord.Color.gold()
+        embed.set_footer(text=f"Visualizzato da: {checker_member.display_name}")
+        
+        # 4. Invia la notifica DM all'utente controllato
+        try:
+            notification_embed = discord.Embed(
+                title="🚨 ATTENZIONE ‼️",
+                description=f"{checker_member.mention} ha visualizzato il tuo conto bancario‼️",
+                color=discord.Color.red()
+            )
+            await utente.send(embed=notification_embed)
+            dm_status = "Notifica DM inviata all'utente."
+        except:
+            dm_status = "Notifica DM non inviabile (DM bloccati)."
+
+        # 5. Risposta a chi ha eseguito il comando
+        await interaction.followup.send(
+            content=f"✅ Visualizzazione completata. ({dm_status})",
+            embed=embed,
+            ephemeral=True # Solo l'esecutore vede l'embed
+        )
+        
+        # 6. Log
+        log_msg = f"👁️ {checker_member.mention} ha controllato il bancomat di {utente.mention} (Visibile a tutti)."
+        await log_command(LOG_CHANNEL_ID, log_msg)
+
+    except Exception as e:
+        print(f"Errore in /controlla-bancomat: {e}")
+        await interaction.followup.send("❌ Si è verificato un errore nel controllo del bancomat.", ephemeral=True)
+
+@bot.tree.command(name="help", description="Mostra la lista aggiornata dei comandi del bot")
+async def help_command(interaction: discord.Interaction):
+    embed = discord.Embed(
+        title="📖 LISTA COMANDI DEL BOT",
+        description="Ecco tutti i comandi disponibili nel server, suddivisi per categoria. Usa quelli del tuo lavoro!",
+        color=discord.Color.blurple()
+    )
+
+    embed.add_field(
+        name="👮‍♂️ COMANDI DI POLIZIA",
+        value=(
+            "**/ammanetto** – Ammanetta un cittadino.\n"
+            "**/controllatarga** – Controlla la targa di un veicolo.\n"
+            "**/controllomulta** – Mostra le multe di un cittadino.\n"
+            "**/dissequestraveicolo** – Rimuove un sequestro da un veicolo.\n"
+            "**/modificaveicolo** – Modifica i dati di un veicolo.\n"
+            "**/multa** – Emetti una multa.\n"
+            "**/revoca-patente** – Revoca la patente di un cittadino.\n"
+            "**/sequestraveicolo** – Sequestra un veicolo."
+        ),
+        inline=False
+    )
+
+    embed.add_field(
+        name="🔧 COMANDI OFFICINA",
+        value=(
+            "**/assicurazione** – Gestisci o verifica un’assicurazione.\n"
+            "**/modificaveicolo** – Modifica i dati di un veicolo (solo officina)."
+        ),
+        inline=False
+    )
+
+    embed.add_field(
+        name="📄 COMANDI DOCUMENTI",
+        value=(
+            "**/documento** – Mostra il tuo documento d’identità.\n"
+            "**/dailibretto** – Rilascia un libretto di circolazione.\n"
+            "**/daipatente** – Rilascia una patente.\n"
+            "**/daiportodarmi** – Consegna un porto d’armi.\n"
+            "**/daicertificatobalistico** – Rilascia un certificato balistico.\n"
+            "**/daicertificatomedico** – Rilascia un certificato medico.\n"
+            "**/rimuovilibretto** – Rimuove un libretto di circolazione.\n"
+            "**/rimuovicertificatobalistico** – Revoca un certificato balistico.\n"
+            "**/rimuovicertificatomedico** – Revoca un certificato medico."
+        ),
+        inline=False
+    )
+
+    embed.add_field(
+        name="💰 COMANDI ECONOMICI",
+        value=(
+            "**/bancomat** – Accedi al tuo conto bancario.\n"
+            "**/bonifico** – Invia un bonifico a un altro cittadino.\n"
+            "**/portafoglio** – Mostra i tuoi contanti.\n"
+            "**/controlla-bancomat** – Controlla il conto di un altro utente.\n"
+            "**/fattura** – Emetti una fattura lavorativa.\n"
+            "**/pagafattura** – Paga una fattura ricevuta.\n"
+            "**/pagamulta** – Paga una multa.\n"
+            "**/richiesta-stipendio** – Richiedi il tuo stipendio lavorativo."
+        ),
+        inline=False
+    )
+
+    embed.add_field(
+        name="🎒 COMANDI INVENTARIO E MERCATO",
+        value=(
+            "**/invzaino** – Mostra il contenuto del tuo zaino.\n"
+            "**/itemshop** – Mostra gli oggetti acquistabili.\n"
+            "**/dai-item** – Dai un oggetto a un altro cittadino.\n"
+            "**/utilizza-item** – Usa un oggetto dal tuo zaino.\n"
+            "**/vendizaino** – Vendi un oggetto dal tuo zaino.\n"
+            "**/item-sell** – Vendi un oggetto del negozio."
+        ),
+        inline=False
+    )
+
+    embed.add_field(
+        name="🗣️ COMANDI SOCIAL / RP",
+        value=(
+            "**/me** – Descrivi un’azione RP.\n"
+            "**/anonimo** – Invia un messaggio anonimo.\n"
+            "**/nascondo** – Nasconditi per evitare di essere localizzato.\n"
+            "**/turno** – Inizia o termina il turno lavorativo."
+        ),
+        inline=False
+    )
+
+    embed.set_footer(text="📌 Usa /help per consultare la lista dei comandi in qualsiasi momento.")
+
+    await interaction.response.send_message(embed=embed, ephemeral=True)
 
 # ====================
 # WEBSERVER H24

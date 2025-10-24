@@ -201,14 +201,14 @@ def setup_rp_commands(bot: commands.Bot):
         await log_command(bot, LOG_CHANNEL_ID, f"🎬 {interaction.user.mention} ha eseguito l'azione: {azione}")
 
     # ====================
-    # NUOVO COMANDO: /revoca-patente (Rimozione Licenza da LFD)
+    # COMANDO: /revoca-patente (Rimozione Licenza da LFD) - CORRETTO
     # ====================
     @bot.tree.command(name="revoca-patente", description="[LFD] Rimuovi la licenza di guida a un utente.")
     @app_commands.describe(utente="L'utente a cui revocare la patente")
     async def revoca_patente(interaction: discord.Interaction, utente: discord.Member):
         user_id = str(utente.id)
         
-        # 1. Controllo Ruolo LFD (ID fornito nel tuo script)
+        # 1. Controllo Ruolo LFD
         if not has_role(interaction, LFD_ROLE_ID):
             await interaction.response.send_message("❌ Solo i LFD possono usare questo comando!", ephemeral=True)
             return
@@ -216,35 +216,40 @@ def setup_rp_commands(bot: commands.Bot):
         await interaction.response.defer(ephemeral=True, thinking=True)
 
         async with aiosqlite.connect(DATABASE_NAME) as db:
-            # 2. Verifica l'esistenza di una patente di tipo 'Guida'
-            # Assumo che le patenti di guida abbiano license_type = 'Guida'
+            
+            # 2. Verifica l'esistenza di QUALSIASI patente (licenses)
+            # Rimuoviamo il filtro sul 'license_type' per trovarla se c'è
             async with db.execute(
-                "SELECT id FROM licenses WHERE user_id = ? AND license_type = 'Guida'",
+                "SELECT id, license_type FROM licenses WHERE user_id = ?",
                 (user_id,)
             ) as cursor:
-                license_data = await cursor.fetchone()
+                licenses = await cursor.fetchall()
 
-            if not license_data:
+            if not licenses:
                 await interaction.followup.send(
-                    f"❌ {utente.mention} non possiede una patente di guida nel database (licenses).", 
+                    f"❌ {utente.mention} non possiede **alcuna patente (licenses)** nel database.", 
                     ephemeral=True
                 )
                 return
 
-            # 3. Rimuove la patente
+            # 3. Rimuove TUTTE le patenti di tipo generico per l'utente.
+            # Se vuoi lasciare altre licenze (ad esempio porto d'armi), dovrai specificare il 'license_type' esatto.
+            # Assumo che 'licenses' sia per la patente di guida. Se hai un'altra tabella per Porto d'Armi (gun_licenses), va bene così.
             await db.execute(
-                "DELETE FROM licenses WHERE user_id = ? AND license_type = 'Guida'",
+                "DELETE FROM licenses WHERE user_id = ?",
                 (user_id,)
             )
+            rows_deleted = db.cursor.rowcount
             await db.commit()
             
         # 4. Notifica l'utente revocato in DM
         try:
             embed_dm = discord.Embed(
                 title="🚨 Patente Revocata",
-                description=f"La tua patente di guida è stata revocata da {interaction.user.mention}.",
+                description=f"La tua patente di guida (e qualsiasi altra licenza generica) è stata revocata da {interaction.user.mention} (LFD).",
                 color=discord.Color.red()
             )
+            embed_dm.add_field(name="Numero di licenze rimosse", value=f"**{rows_deleted}**")
             embed_dm.set_footer(text="Contatta un membro LFD per chiarimenti.")
             await utente.send(embed=embed_dm)
             dm_status = "Notifica DM inviata."
@@ -253,10 +258,9 @@ def setup_rp_commands(bot: commands.Bot):
 
         # 5. Risposta LFD e Log
         await interaction.followup.send(
-            f"✅ Patente di guida revocata a {utente.mention} con successo. ({dm_status})", 
+            f"✅ **{rows_deleted}** patente/licenze rimosse a {utente.mention} con successo. ({dm_status})", 
             ephemeral=True
         )
 
-        log_msg = f"🚫 {interaction.user.mention} (LFD) ha revocato la patente di guida a {utente.mention}"
+        log_msg = f"🚫 {interaction.user.mention} (LFD) ha revocato {rows_deleted} patenti a {utente.mention}"
         await log_command(bot, LOG_CHANNEL_ID, log_msg)
-

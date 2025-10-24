@@ -201,7 +201,7 @@ def setup_rp_commands(bot: commands.Bot):
         await log_command(bot, LOG_CHANNEL_ID, f"🎬 {interaction.user.mention} ha eseguito l'azione: {azione}")
 
     # ====================
-    # COMANDO: /revoca-patente (Rimozione Licenza da LFD) - CORRETTO
+    # COMANDO: /revoca-patente (Rimozione Licenza da LFD) - MASSIMA VELOCITÀ
     # ====================
     @bot.tree.command(name="revoca-patente", description="[LFD] Rimuovi la licenza di guida a un utente.")
     @app_commands.describe(utente="L'utente a cui revocare la patente")
@@ -215,52 +215,55 @@ def setup_rp_commands(bot: commands.Bot):
             
         await interaction.response.defer(ephemeral=True, thinking=True)
 
-        async with aiosqlite.connect(DATABASE_NAME) as db:
-            
-            # 2. Verifica l'esistenza di QUALSIASI patente (licenses)
-            # Rimuoviamo il filtro sul 'license_type' per trovarla se c'è
-            async with db.execute(
-                "SELECT id, license_type FROM licenses WHERE user_id = ?",
-                (user_id,)
-            ) as cursor:
-                licenses = await cursor.fetchall()
-
-            if not licenses:
+        rows_deleted = 0
+        
+        try:
+            async with aiosqlite.connect(DATABASE_NAME) as db:
+                
+                # 2. Rimuove TUTTE le licenze generiche (licenses) per l'utente in un'unica operazione
+                cursor = await db.execute(
+                    "DELETE FROM licenses WHERE user_id = ?",
+                    (user_id,)
+                )
+                rows_deleted = cursor.rowcount
+                await db.commit()
+                
+            # 3. Gestione del risultato e Notifica
+            if rows_deleted == 0:
                 await interaction.followup.send(
-                    f"❌ {utente.mention} non possiede **alcuna patente (licenses)** nel database.", 
+                    f"❌ {utente.mention} non possiede **alcuna licenza (licenses)** nel database da revocare.", 
                     ephemeral=True
                 )
                 return
 
-            # 3. Rimuove TUTTE le patenti di tipo generico per l'utente.
-            # Se vuoi lasciare altre licenze (ad esempio porto d'armi), dovrai specificare il 'license_type' esatto.
-            # Assumo che 'licenses' sia per la patente di guida. Se hai un'altra tabella per Porto d'Armi (gun_licenses), va bene così.
-            await db.execute(
-                "DELETE FROM licenses WHERE user_id = ?",
-                (user_id,)
-            )
-            rows_deleted = db.cursor.rowcount
-            await db.commit()
-            
-        # 4. Notifica l'utente revocato in DM
-        try:
-            embed_dm = discord.Embed(
-                title="🚨 Patente Revocata",
-                description=f"La tua patente di guida (e qualsiasi altra licenza generica) è stata revocata da {interaction.user.mention} (LFD).",
-                color=discord.Color.red()
-            )
-            embed_dm.add_field(name="Numero di licenze rimosse", value=f"**{rows_deleted}**")
-            embed_dm.set_footer(text="Contatta un membro LFD per chiarimenti.")
-            await utente.send(embed=embed_dm)
-            dm_status = "Notifica DM inviata."
-        except:
-            dm_status = "Notifica DM non inviabile (DM bloccati)."
+            # Notifica l'utente revocato in DM
+            try:
+                embed_dm = discord.Embed(
+                    title="🚨 Patente Revocata",
+                    description=f"La tua patente di guida e altre licenze generiche sono state revocate da {interaction.user.mention} (LFD).",
+                    color=discord.Color.red()
+                )
+                embed_dm.add_field(name="Numero di licenze rimosse", value=f"**{rows_deleted}**")
+                embed_dm.set_footer(text="Contatta un membro LFD per chiarimenti.")
+                await utente.send(embed=embed_dm)
+                dm_status = "Notifica DM inviata."
+            except:
+                dm_status = "Notifica DM non inviabile (DM bloccati)."
 
-        # 5. Risposta LFD e Log
-        await interaction.followup.send(
-            f"✅ **{rows_deleted}** patente/licenze rimosse a {utente.mention} con successo. ({dm_status})", 
-            ephemeral=True
-        )
+            # 4. Risposta LFD e Log
+            await interaction.followup.send(
+                f"✅ **{rows_deleted}** licenza/e rimosse a {utente.mention} con successo. ({dm_status})", 
+                ephemeral=True
+            )
 
-        log_msg = f"🚫 {interaction.user.mention} (LFD) ha revocato {rows_deleted} patenti a {utente.mention}"
-        await log_command(bot, LOG_CHANNEL_ID, log_msg)
+            log_msg = f"🚫 {interaction.user.mention} (LFD) ha revocato {rows_deleted} licenze a {utente.mention}"
+            await log_command(bot, LOG_CHANNEL_ID, log_msg)
+
+        except Exception as e:
+            # Cattura qualsiasi errore di blocco o SQL
+            print(f"ERRORE CRITICO DURANTE REVOCA-PATENTE: {e}")
+            await log_command(bot, LOG_CHANNEL_ID, f"❌ ERRORE REVOCA-PATENTE: {interaction.user.mention} ha fallito a revocare {utente.mention}. Errore: {e}")
+            await interaction.followup.send(
+                f"❌ Si è verificato un errore critico nel database durante la revoca.",
+                ephemeral=True
+            )

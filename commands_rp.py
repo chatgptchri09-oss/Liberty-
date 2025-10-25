@@ -268,7 +268,7 @@ def setup_rp_commands(bot: commands.Bot):
                 ephemeral=True
             )
 
-Import discord
+import discord
 from discord import app_commands
 from discord.ext import commands
 import aiosqlite

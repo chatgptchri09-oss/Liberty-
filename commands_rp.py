@@ -189,7 +189,7 @@ def setup_rp_commands(bot: commands.Bot):
         # Non è necessario il defer perché non ci sono operazioni lente.
         
         embed = discord.Embed(
-            title="🎬 𝐀𝐳𝐢𝐨𝐧𝐞...",
+            title="<a:Ciak:1431629051545653369> 𝐀𝐳𝐢𝐨𝐧𝐞 <a:Caricamento:1431628673315766282> ",
             description=f"{interaction.user.mention}: *{azione}*",
             color=discord.Color.from_rgb(44, 47, 51) # Colore neutro (Grigio Scura Discord)
         )

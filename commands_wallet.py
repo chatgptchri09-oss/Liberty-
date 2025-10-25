@@ -14,7 +14,15 @@ async def log_command(bot, channel_id: int, message: str):
     except:
         pass
 
+# In commands_wallet.py
+
 def setup_wallet_commands(bot: commands.Bot):
+    # L'istanza 'bot' esiste qui dentro come parametro
+    
+    @bot.tree.command(...) # 🥳 Ora 'bot' è visibile e definito
+    async def portafoglio(...):
+        # ...
+
     
     class WalletSelect(discord.ui.Select):
         def __init__(self, user_id: str):

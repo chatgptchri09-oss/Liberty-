@@ -570,6 +570,6 @@ def setup_rp_commands(bot: commands.Bot):
 
         # Risposta di conferma effimera e invio del messaggio visibile a tutti
         await interaction.response.send_message("✅ Azione Cura inviata!", ephemeral=True)
-        await interaction.channel.send(embed=embed)
+        await interaction.channel.send(content=content_message, embed=embed)
         
         await log_command(bot, LOG_CHANNEL_ID, f"🩹 {interaction.user.mention} ha curato {cittadino.mention} per '{ferita}' tramite {tramite.name}")

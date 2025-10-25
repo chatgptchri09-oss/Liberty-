@@ -573,5 +573,3 @@ def setup_rp_commands(bot: commands.Bot):
         await interaction.channel.send(embed=embed)
         
         await log_command(bot, LOG_CHANNEL_ID, f"🩹 {interaction.user.mention} ha curato {cittadino.mention} per '{ferita}' tramite {tramite.name}")
-
-Da questo comando voglio che si veda anche quando inviato la scritta sopra lembed tipo {@tag} ha usato e poi il comando come in allegato

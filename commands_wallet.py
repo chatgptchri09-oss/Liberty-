@@ -186,17 +186,18 @@ def setup_wallet_commands(bot: commands.Bot):
             await interaction.response.send_message(self.message, embed=self.embed)
             await log_command(bot, LOG_CHANNEL_ID, f"📢 {interaction.user.mention} ha mostrato un documento in chat")
     
-    @bot.tree.command(name="portafoglio", description="Visualizza il tuo portafoglio")
-    async def portafoglio(interaction: discord.Interaction):
-        embed = discord.Embed(
-            title="📂 𝐏𝐎𝐑𝐓𝐀𝐅𝐎𝐆𝐋𝐈𝐎",
-            description="Seleziona il documento che vuoi visualizzare dal menu a tendina qui sotto",
-            color=discord.Color.gold()
-        )
-        embed.set_image(url="https://cdn.discordapp.com/attachments/1425847773424652288/1425847891532054628/IMG_3374.gif?ex=68ebb6d4&is=68ea6554&hm=3d3b214929a2630a2afca1c6678f7084e41359b9e5c5b102e24dbbedc826b001&")
+@bot.tree.command(name="portafoglio", description="Visualizza il tuo portafoglio")
+async def portafoglio(interaction: discord.Interaction):
+    embed = discord.Embed(
+        title="<:Portafoglio:1431695497034203256> 𝐏𝐎𝐑𝐓𝐀𝐅𝐎𝐆𝐋𝐈𝐎",
+        description="Seleziona il documento che vuoi visualizzare dal menu a tendina qui sotto",
+        color=discord.Color.gold()
+    )
+    # MODIFICA EFFETTUATA QUI: set_image cambiato in set_thumbnail
+    embed.set_thumbnail(url="https://cdn.discordapp.com/attachments/1425847773424652288/1425847891532054628/IMG_3374.gif?ex=68ebb6d4&is=68ea6554&hm=3d3b214929a2630a2afca1c6678f7084e41359b9e5c5b102e24dbbedc826b001&")
 
-        view = discord.ui.View()
-        view.add_item(WalletSelect(str(interaction.user.id)))
-        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
-        
-        await log_command(bot, LOG_CHANNEL_ID, f"📂 {interaction.user.mention} ha aperto il portafoglio")
+    view = discord.ui.View()
+    view.add_item(WalletSelect(str(interaction.user.id)))
+    await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+    
+    await log_command(bot, LOG_CHANNEL_ID, f"<:Portafoglio:1431695497034203256> {interaction.user.mention} ha aperto il portafoglio")

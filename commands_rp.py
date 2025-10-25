@@ -143,7 +143,7 @@ def setup_rp_commands(bot: commands.Bot):
     @app_commands.describe(messaggio="Il messaggio da inviare anonimamente")
     async def anonimo(interaction: discord.Interaction, messaggio: str):
         embed = discord.Embed(
-            title="<a:Hacked:1431683990443786240> 𝐌𝐄𝐒𝐒𝐀𝐆𝐆𝐈𝐎 𝐀𝐍𝐎𝐍𝐈𝐌𝐎 <a:Skullhack:1431684263056638154>",
+            title="<a:Hacked:1431683990443786240> 𝝰𝛈𝞂𝛈𝖏𝒎𝞂 <a:Skullhack:1431684263056638154>",
             description=messaggio,
             color=discord.Color.dark_gray()
         )

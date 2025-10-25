@@ -537,47 +537,41 @@ def setup_rp_commands(bot: commands.Bot):
                 f"❌ Si è verificato un errore critico nel database durante la revoca.",
                 ephemeral=True
             )
-    
-# ====================
-# NUOVO COMANDO: /cura (Azione Curativa Visibile a Tutti)
-# ====================
-@bot.tree.command(name="cura", description="Cura un cittadino per una ferita specifica.")
-@app_commands.describe(
-    cittadino="La persona da curare",
-    tramite="Il metodo di cura utilizzato",
-    ferita="La ferita che stai curando (es. 'gamba rotta')"
-)
-@app_commands.choices(tramite=[
-    app_commands.Choice(name="Medikit", value="Medikit"),
-    app_commands.Choice(name="Ospedale", value="Ospedale"),
-    app_commands.Choice(name="Ambulanza", value="Ambulanza"),
-])
-async def cura(interaction: discord.Interaction, cittadino: discord.Member, tramite: app_commands.Choice[str], ferita: str):
-    
-    # 1. Crea il testo che apparirà sopra l'embed
-    #    Formato: {@user} ha usato #comando
-    content_message = f"{interaction.user.mention} ha usato </cura:{interaction.command.id}>" 
-    # NOTA: Uso </comando:ID> per un link cliccabile al comando slash, che è il modo moderno.
-    # Se il tuo bot non supporta i link ai comandi, usa semplicemente:
-    # content_message = f"{interaction.user.mention} ha usato **#cura**"
-    
-    # Prepara la descrizione con il testo sottolineato per la ferita
-    descrizione = (
-        f"{interaction.user.mention} ha curato **__{ferita}__** "
-        f"a {cittadino.mention} tramite **{tramite.name}**"
-    )
-    
-    # Crea l'Embed
-    embed = discord.Embed(
-        title="<a:Ambulanza:1431690856280232058> 𝐂𝐮𝐫𝐚 <a:Cuore:1431691069703065640>",
-        description=descrizione,
-        color=discord.Color.from_rgb(0xE9, 0x1E, 0x63) # #e91e63 in RGB
-    )
 
-    # 2. Invia la risposta effimera di conferma
-    await interaction.response.send_message("✅ Azione Cura inviata!", ephemeral=True)
-    
-    # 3. Invia il messaggio visibile a tutti, usando 'content' per il testo sopra l'embed
-    await interaction.channel.send(content=content_message, embed=embed)
-    
-    await log_command(bot, LOG_CHANNEL_ID, f"🩹 {interaction.user.mention} ha curato {cittadino.mention} per '{ferita}' tramite {tramite.name}")
+# ====================
+    # NUOVO COMANDO: /cura (Azione Curativa Visibile a Tutti)
+    # ====================
+    @bot.tree.command(name="cura", description="Cura un cittadino per una ferita specifica.")
+    @app_commands.describe(
+        cittadino="La persona da curare",
+        tramite="Il metodo di cura utilizzato",
+        ferita="La ferita che stai curando (es. 'gamba rotta')"
+    )
+    @app_commands.choices(tramite=[
+        app_commands.Choice(name="Medikit", value="Medikit"),
+        app_commands.Choice(name="Ospedale", value="Ospedale"),
+        app_commands.Choice(name="Ambulanza", value="Ambulanza"),
+    ])
+    async def cura(interaction: discord.Interaction, cittadino: discord.Member, tramite: app_commands.Choice[str], ferita: str):
+        
+        # Prepara la descrizione con il testo sottolineato per la ferita
+        # Usa il markup Markdown "__testo__" per sottolineare
+        descrizione = (
+            f"{interaction.user.mention} ha curato **__{ferita}__** "
+            f"a {cittadino.mention} tramite **{tramite.name}**"
+        )
+        
+        # Crea l'Embed
+        embed = discord.Embed(
+            title="<a:Ambulanza:1431690856280232058> 𝐂𝐮𝐫𝐚 <a:Cuore:1431691069703065640>",
+            description=descrizione,
+            color=discord.Color.from_rgb(0xE9, 0x1E, 0x63) # #e91e63 in RGB
+        )
+
+        # Risposta di conferma effimera e invio del messaggio visibile a tutti
+        await interaction.response.send_message("✅ Azione Cura inviata!", ephemeral=True)
+        await interaction.channel.send(embed=embed)
+        
+        await log_command(bot, LOG_CHANNEL_ID, f"🩹 {interaction.user.mention} ha curato {cittadino.mention} per '{ferita}' tramite {tramite.name}")
+
+Da questo comando voglio che si veda anche quando inviato la scritta sopra lembed tipo {@tag} ha usato e poi il comando come in allegato

@@ -2,11 +2,25 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 import aiosqlite
+import os
+import math
+
+# ===================================================================================
+# COSTANTI E FUNZIONI DI SUPPORTO
+# ===================================================================================
 
 DATABASE_NAME = "economy_bot.db"
-LOG_CHANNEL_ID = 1415297578022604850
+# STAFF_ROLE_ID è usato per /add-money e /remove-money (1414738761207517214)
+STAFF_ROLE_ID = 1414738761207517214  
+# RESET_ROLE_ID è usato per /reset (1414735564632231988)
+RESET_ROLE_ID = 1414735564632231988 
+LOG_CHANNEL_ID = 1415297578022604850 
 
-# Funzione log_command aggiornata per accettare l'embed (anche se il tuo esempio non la usa)
+def has_role(interaction: discord.Interaction, role_id: int) -> bool:
+    if not isinstance(interaction.user, discord.Member):
+        return False
+    return any(role.id == role_id for role in interaction.user.roles)
+
 async def log_command(bot, channel_id: int, message: str = None, embed: discord.Embed = None):
     try:
         channel = bot.get_channel(channel_id)
@@ -15,212 +29,185 @@ async def log_command(bot, channel_id: int, message: str = None, embed: discord.
                 await channel.send(embed=embed)
             elif message:
                 await channel.send(message)
-    except:
+    except Exception:
         pass
 
 
-def setup_wallet_commands(bot: commands.Bot):
+def setup_admin_commands(bot: commands.Bot):
+    """Registra i comandi amministrativi al tree del bot."""
     
-    # --- Classi Interne (Select e View) ---
-    
-    class ShowDocumentView(discord.ui.View):
-        # Aggiungo 'bot' come parametro per poter chiamare log_command
-        def __init__(self, bot: commands.Bot, embed: discord.Embed, message: str):
-            super().__init__(timeout=300)
-            self.bot = bot
-            self.embed = embed
-            self.message = message
-        
-        @discord.ui.button(label="📢 Mostra", style=discord.ButtonStyle.secondary)
-        async def show_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-            await interaction.response.send_message(self.message, embed=self.embed)
-            # Uso self.bot per chiamare log_command
-            await log_command(self.bot, LOG_CHANNEL_ID, f"📢 {interaction.user.mention} ha mostrato un documento in chat")
+    # ====================
+    # COMANDO: /add-money
+    # ====================
+    @bot.tree.command(name="add-money", description="[STAFF] Aggiunge soldi al conto bancario di un utente.")
+    @app_commands.describe(
+        utente="L'utente a cui aggiungere i soldi",
+        importo="La cifra da aggiungere (va in Banca)"
+    )
+    async def add_money(interaction: discord.Interaction, utente: discord.Member, importo: int):
+        # 1. Controllo Ruolo (Permesso)
+        if not has_role(interaction, STAFF_ROLE_ID):
+            await interaction.response.send_message(
+                f"❌ Non hai i permessi per usare questo comando. (Richiesto: <@&{STAFF_ROLE_ID}>)", 
+                ephemeral=True
+            )
+            return
 
-    class WalletSelect(discord.ui.Select):
-        def __init__(self, bot: commands.Bot, user_id: str):
-            self.bot = bot # Salviamo l'istanza del bot qui
-            self.user_id = user_id
-            options = [
-                discord.SelectOption(label="Documento", value="documento", emoji="📄"),
-                discord.SelectOption(label="Patente", value="patente", emoji="🚗"),
-                discord.SelectOption(label="Porto D'armi", value="portodarmi", emoji="🔫"),
-                discord.SelectOption(label="Certificati", value="certificati", emoji="📋"),
-                discord.SelectOption(label="Libretti", value="libretti", emoji="📒"),
-            ]
-            super().__init__(placeholder="Seleziona il documento da visualizzare", options=options)
+        # 2. Validazione
+        if importo <= 0:
+            await interaction.response.send_message("❌ L'importo da aggiungere deve essere maggiore di zero!", ephemeral=True)
+            return
+            
+        if utente.bot:
+            await interaction.response.send_message("❌ Non puoi aggiungere soldi a un bot.", ephemeral=True)
+            return
+            
+        # 3. Aggiornamento Database
+        user_id = str(utente.id)
         
-        async def callback(self, interaction: discord.Interaction):
-            if str(interaction.user.id) != self.user_id:
-                await interaction.response.send_message("❌ Questo non è il tuo portafoglio!", ephemeral=True)
-                return
-            
-            selection = self.values[0]
-            
-            # --- Logica Documento ---
-            if selection == "documento":
-                async with aiosqlite.connect(DATABASE_NAME) as db:
-                    async with db.execute("SELECT * FROM documents WHERE user_id = ?", (self.user_id,)) as cursor:
-                        doc = await cursor.fetchone()
+        await interaction.response.defer(ephemeral=True)
+
+        async with aiosqlite.connect(DATABASE_NAME) as db:
+            async with db.execute("SELECT bank FROM users WHERE user_id = ?", (user_id,)) as cursor:
+                user_data = await cursor.fetchone()
+
+            if user_data:
+                # L'utente esiste: aggiorna il saldo in banca
+                new_bank = user_data[0] + importo
+                await db.execute("UPDATE users SET bank = ? WHERE user_id = ?", (new_bank, user_id))
+            else:
+                # L'utente non esiste: crea il record
+                # Assumo che il saldo iniziale in banca sia 20000 come nel database.py
+                initial_bank = 20000
+                new_bank = initial_bank + importo
+                await db.execute("INSERT OR IGNORE INTO users (user_id, cash, bank, has_backpack) VALUES (?, 0, ?, 0)", (user_id, new_bank))
                 
-                if not doc:
-                    await interaction.response.send_message("❌ Non hai un documento registrato!", ephemeral=True)
-                    return
-                
-                _, name, surname, birth_date, birth_place, nationality, photo_url = doc
-                
-                embed = discord.Embed(
-                    title="📄 DOCUMENTO D'IDENTITÀ",
-                    color=discord.Color.blue()
-                )
-                embed.add_field(name="👤 Nome", value=name, inline=True)
-                embed.add_field(name="👤 Cognome", value=surname, inline=True)
-                embed.add_field(name="📅 Data di nascita", value=birth_date, inline=False)
-                embed.add_field(name="🏙️ Luogo di nascita", value=birth_place, inline=False)
-                embed.add_field(name="🌍 Nazionalità", value=nationality, inline=False)
-                if photo_url:
-                    embed.set_thumbnail(url=photo_url)
-                
-                # Passiamo self.bot (l'istanza del bot)
-                view = ShowDocumentView(self.bot, embed, f"Questo è il documento di {interaction.user.mention}") 
-                await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
-            
-            # --- Logica Patente ---
-            elif selection == "patente":
-                async with aiosqlite.connect(DATABASE_NAME) as db:
-                    async with db.execute("SELECT * FROM licenses WHERE user_id = ?", (self.user_id,)) as cursor:
-                        licenses = await cursor.fetchall()
-                
-                if not licenses:
-                    await interaction.response.send_message("❌ Non hai patenti registrate!", ephemeral=True)
-                    return
-                
-                embed = discord.Embed(
-                    title="🚗 PATENTI",
-                    color=discord.Color.green()
-                )
-                
-                for license in licenses:
-                    _, user_id, name, surname, license_type = license
-                    embed.add_field(
-                        name=f"Patente Tipo {license_type}",
-                        value=f"**Nome:** {name} {surname}",
-                        inline=False
-                    )
-                
-                # Passiamo self.bot (l'istanza del bot)
-                view = ShowDocumentView(self.bot, embed, f"Queste sono le patenti di {interaction.user.mention}") 
-                await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
-            
-            # --- Logica Porto D'armi ---
-            elif selection == "portodarmi":
-                async with aiosqlite.connect(DATABASE_NAME) as db:
-                    async with db.execute("SELECT * FROM gun_licenses WHERE user_id = ?", (self.user_id,)) as cursor:
-                        gun_licenses = await cursor.fetchall()
-                
-                if not gun_licenses:
-                    await interaction.response.send_message("❌ Non hai porti d'armi registrati!", ephemeral=True)
-                    return
-                
-                embed = discord.Embed(
-                    title="🔫 PORTI D'ARMI",
-                    color=discord.Color.dark_red()
-                )
-                
-                for gun_license in gun_licenses:
-                    _, user_id, name, surname, age, level = gun_license
-                    embed.add_field(
-                        name=f"Porto d'Armi Livello {level}",
-                        value=f"**Nome:** {name} {surname}\n**Età:** {age}",
-                        inline=False
-                    )
-                
-                # Passiamo self.bot (l'istanza del bot)
-                view = ShowDocumentView(self.bot, embed, f"Questi sono i porti d'armi di {interaction.user.mention}")
-                await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
-            
-            # --- Logica Certificati ---
-            elif selection == "certificati":
-                async with aiosqlite.connect(DATABASE_NAME) as db:
-                    async with db.execute("SELECT * FROM medical_certificates WHERE user_id = ?", (self.user_id,)) as cursor:
-                        medical_certs = await cursor.fetchall()
-                    async with db.execute("SELECT * FROM ballistic_certificates WHERE user_id = ?", (self.user_id,)) as cursor:
-                        ballistic_certs = await cursor.fetchall()
-                
-                if not medical_certs and not ballistic_certs:
-                    await interaction.response.send_message("❌ Non hai certificati registrati!", ephemeral=True)
-                    return
-                
-                embed = discord.Embed(
-                    title="📋 CERTIFICATI",
-                    color=discord.Color.purple()
-                )
-                
-                for cert in medical_certs:
-                    _, user_id, patient_name, patient_surname, patient_age, result = cert
-                    embed.add_field(
-                        name="🏥 Certificato Medico",
-                        value=f"**Nome:** {patient_name} {patient_surname}\n**Età:** {patient_age}\n**Esito:** {result}",
-                        inline=False
-                    )
-                
-                for cert in ballistic_certs:
-                    _, user_id, client_name, client_surname, client_age, result = cert
-                    embed.add_field(
-                        name="🎯 Certificato Balistico",
-                        value=f"**Nome:** {client_name} {client_surname}\n**Età:** {client_age}\n**Esito:** {result}",
-                        inline=False
-                    )
-                
-                # Passiamo self.bot (l'istanza del bot)
-                view = ShowDocumentView(self.bot, embed, f"Questi sono i certificati di {interaction.user.mention}")
-                await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
-            
-            # --- Logica Libretti ---
-            elif selection == "libretti":
-                async with aiosqlite.connect(DATABASE_NAME) as db:
-                    async with db.execute("SELECT * FROM vehicle_registrations WHERE user_id = ? AND seized = 0", (self.user_id,)) as cursor:
-                        vehicles = await cursor.fetchall()
-                
-                if not vehicles:
-                    await interaction.response.send_message("❌ Non hai libretti registrati!", ephemeral=True)
-                    return
-                
-                embed = discord.Embed(
-                    title="📒 LIBRETTI",
-                    color=discord.Color.orange()
-                )
-                
-                for vehicle in vehicles:
-                    _, user_id, client_name, client_surname, vehicle_model, plate, insurance, modifications, seized = vehicle
-                    
-                    insurance_text = "✅ Assicurazione" if insurance else "❌ Assicurazione"
-                    modifications_text = modifications if modifications and modifications != "/////" else "/////"
-                    
-                    embed.add_field(
-                        name=f"🚗 {vehicle_model}",
-                        value=f"**Proprietario:** {client_name} {client_surname}\n**Targa:** {plate}\n**{insurance_text}**\n**Modifiche:** {modifications_text}",
-                        inline=False
-                    )
-                
-                # Passiamo self.bot (l'istanza del bot)
-                view = ShowDocumentView(self.bot, embed, f"Questi sono i libretti di {interaction.user.mention}")
-                await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
-    
-    # --- Definizione del Comando Slash (/portafoglio) ---
-    @bot.tree.command(name="portafoglio", description="Visualizza il tuo portafoglio")
-    async def portafoglio(interaction: discord.Interaction):
-        embed = discord.Embed(
-            title="<:Portafoglio:1431695497034203256> 𝐏𝐎𝐑𝐓𝐀𝐅𝐎𝐆𝐋𝐈𝐎",
-            description="Seleziona il documento che vuoi visualizzare dal menu a tendina qui sotto",
-            color=discord.Color.gold()
+            await db.commit()
+
+        # 4. Risposta e Log
+        try:
+            await utente.send(f"💸 Lo staff ({interaction.user.mention}) ha accreditato **${importo:,}** sul tuo conto bancario.")
+        except:
+            pass
+
+        await interaction.followup.send(
+            f"✅ Aggiunto **${importo:,}** al conto bancario di **{utente.mention}**.",
         )
-        # set_thumbnail per l'immagine più piccola a destra
-        embed.set_thumbnail(url="https://cdn.discordapp.com/attachments/1415106856245923941/1431696671091458313/IMG_3667.gif?ex=68fe5aee&is=68fd096e&hm=a3e32491df10551b1e621efcddd3442890ae09a4b66b4e07c12017014a390dab&")
+        await log_command(bot, LOG_CHANNEL_ID, f"💵 {interaction.user.mention} ha aggiunto ${importo:,} al conto bancario di {utente.mention}")
 
-        view = discord.ui.View()
-        # Passiamo l'istanza del bot qui
-        view.add_item(WalletSelect(bot, str(interaction.user.id)))
-        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+    
+    # ====================
+    # COMANDO: /remove-money
+    # ====================
+    @bot.tree.command(name="remove-money", description="[STAFF] Rimuovi soldi dal conto bancario di un utente.")
+    @app_commands.describe(
+        utente="L'utente a cui rimuovere i soldi",
+        importo="La cifra da rimuovere (dalla Banca)"
+    )
+    async def remove_money(interaction: discord.Interaction, utente: discord.Member, importo: int):
+        # 1. Controllo Ruolo (Permesso)
+        if not has_role(interaction, STAFF_ROLE_ID):
+            await interaction.response.send_message(
+                f"❌ Non hai i permessi per usare questo comando. (Richiesto: <@&{STAFF_ROLE_ID}>)", 
+                ephemeral=True
+            )
+            return
+
+        # 2. Validazione
+        if importo <= 0:
+            await interaction.response.send_message("❌ L'importo da rimuovere deve essere maggiore di zero!", ephemeral=True)
+            return
+            
+        if utente.bot:
+            await interaction.response.send_message("❌ Non puoi rimuovere soldi a un bot.", ephemeral=True)
+            return
+            
+        # 3. Aggiornamento Database
+        user_id = str(utente.id)
         
-        await log_command(bot, LOG_CHANNEL_ID, f"<:Portafoglio:1431695497034203256> {interaction.user.mention} ha aperto il portafoglio")
+        await interaction.response.defer(ephemeral=True)
+
+        async with aiosqlite.connect(DATABASE_NAME) as db:
+            async with db.execute("SELECT bank FROM users WHERE user_id = ?", (user_id,)) as cursor:
+                user_data = await cursor.fetchone()
+
+            if not user_data:
+                # Se l'utente non esiste, lo inseriamo con 0 e terminiamo
+                await db.execute("INSERT OR IGNORE INTO users (user_id, cash, bank, has_backpack) VALUES (?, 0, 0, 0)", (user_id,))
+                await db.commit()
+                await interaction.followup.send(f"❌ {utente.mention} non aveva un saldo in banca, quindi non è stato rimosso nulla.", ephemeral=True)
+                return
+
+            current_bank = user_data[0]
+            
+            # Calcola il nuovo saldo, assicurandosi che non scenda sotto zero
+            new_bank = max(0, current_bank - importo)
+            
+            # Aggiorna il database
+            await db.execute("UPDATE users SET bank = ? WHERE user_id = ?", (new_bank, user_id))
+            await db.commit()
+            
+            removed_amount = current_bank - new_bank # Quantità effettivamente rimossa
+
+        # 4. Risposta e Log
+        try:
+            await utente.send(f"⚠️ Lo staff ({interaction.user.mention}) ha rimosso **${removed_amount:,}** dal tuo conto bancario.")
+        except:
+            pass
+        
+        await interaction.followup.send(
+            f"✅ Rimosso **${removed_amount:,}** dal conto bancario di **{utente.mention}**."
+        )
+
+        await log_command(bot, LOG_CHANNEL_ID, f"➖ {interaction.user.mention} ha rimosso ${removed_amount:,} dal conto bancario di {utente.mention}")
+
+    
+    # ====================
+    # COMANDO: /reset
+    # ====================
+    @bot.tree.command(name="reset", description="[STAFF] Rimuovi tutti i soldi (cash e banca) di un utente.")
+    @app_commands.describe(utente="L'utente a cui azzerare i soldi")
+    async def reset(interaction: discord.Interaction, utente: discord.Member):
+        # 1. Controllo Ruolo (Permesso)
+        if not has_role(interaction, RESET_ROLE_ID):
+            await interaction.response.send_message(
+                f"❌ Non hai i permessi per usare questo comando. (Richiesto: <@&{RESET_ROLE_ID}>)", 
+                ephemeral=True
+            )
+            return
+
+        # 2. Controllo Self-Reset
+        if utente.bot:
+            await interaction.response.send_message("❌ Non puoi azzerare i soldi di un bot.", ephemeral=True)
+            return
+            
+        # 3. Aggiornamento Database
+        user_id = str(utente.id)
+        
+        async with aiosqlite.connect(DATABASE_NAME) as db:
+            # Azzeramento di 'cash' e 'bank'
+            await db.execute(
+                "UPDATE users SET cash = 0, bank = 0 WHERE user_id = ?",
+                (user_id,)
+            )
+            # Se l'utente non esisteva, lo inseriamo con saldo zero
+            await db.execute(
+                "INSERT OR IGNORE INTO users (user_id, cash, bank) VALUES (?, 0, 0)",
+                (user_id,)
+            )
+            await db.commit()
+        
+        # 4. Risposta e Log
+        try:
+            await utente.send(f"⚠️ Il tuo saldo (cash e banca) è stato azzerato dallo staff ({interaction.user.mention}).")
+        except:
+            pass
+
+        await interaction.response.send_message(
+            f"✅ Saldo (cash e banca) di **{utente.mention}** azzerato con successo!",
+            ephemeral=True
+        )
+
+        await log_command(bot, LOG_CHANNEL_ID, f"🔄 {interaction.user.mention} ha azzerato il saldo (cash e banca) di {utente.mention}")
+        
+    pass

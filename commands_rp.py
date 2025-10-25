@@ -87,7 +87,7 @@ def setup_rp_commands(bot: commands.Bot):
                 await db.commit()
 
             embed = discord.Embed(
-                title="🟢 𝐓𝐮𝐫𝐧𝐨 𝐥𝐚𝐯𝐨𝐫𝐚𝐭𝐢𝐯𝐨 🧹",
+                title="<a:Online:1431599470897922069> 𝐓𝐮𝐫𝐧𝐨 𝐥𝐚𝐯𝐨𝐫𝐚𝐭𝐢𝐯𝐨 🧹",
                 description=f"{interaction.user.mention} ha **INIZIATO** il proprio turno di {lavoro.mention}",
                 color=discord.Color.green()
             )

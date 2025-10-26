@@ -305,24 +305,26 @@ def setup_rp_commands(bot: commands.Bot):
         await log_command(bot, LOG_CHANNEL_ID, f"🩹 {interaction.user.mention} ha curato {cittadino.mention} per '{ferita}' tramite {tramite.name}")
 
     # =========================================
-    # NUOVO COMANDO: /sondaggio (Poll)
+    # COMANDO: /sondaggio (Poll) - CORRETTO PER IL TIMEOUT
     # =========================================
-    @bot.tree.command(name="sondaggio", description=" Crea un sondaggio rapido con opzioni SI/NO/PIÙ TARDI.")
+    @bot.tree.command(name="sondaggio", description="[POLL] Crea un sondaggio rapido con opzioni SI/NO/PIÙ TARDI.")
     @app_commands.describe(
         domanda="La domanda o l'oggetto del sondaggio"
     )
     async def sondaggio(interaction: discord.Interaction, domanda: str):
-        # L'ID del ruolo del sondaggio è corretto come da contesto
         POLL_ROLE_ID = 1414753824463126611 
+        
         if not has_role(interaction, POLL_ROLE_ID):
             await interaction.response.send_message("❌ Non hai i permessi per creare sondaggi (Ruolo Poll richiesto).", ephemeral=True)
             return
 
-        # 1. MODIFICATO PER IL FORMATO RICHIESTO: {@Utente} ha usato </comando:ID>
-        # Questo crea il testo cliccabile che appare sopra l'embed
+        # 1. RINVIO IMMEDIATO: Acknowledge the interaction to prevent timeout
+        # Mandiamo l'avviso "Bot sta pensando..."
+        await interaction.response.defer(ephemeral=True, thinking=True) 
+
+        # 2. Prepara il messaggio di testo e l'embed (come prima)
         content_message = f"{interaction.user.mention} ha usato </sondaggio:{interaction.command.id}>"
         
-        # 2. Costruzione della descrizione dell'Embed
         description_content = f"""
 > **{domanda}**
 
@@ -331,7 +333,6 @@ def setup_rp_commands(bot: commands.Bot):
  <a:Orologio:1431937656744448060> VENGO PIÙ TARDI
 """
         
-        # 3. Creazione dell'Embed
         embed = discord.Embed(
             title="<a:megafono:1431932605984542720> Sondaggio <a:megafono:1431932605984542720>",
             description=description_content,
@@ -339,13 +340,19 @@ def setup_rp_commands(bot: commands.Bot):
         )
         embed.set_footer(text=f"Sondaggio creato da {interaction.user.display_name}")
 
-        # 4. Risposta effimera di conferma
-        await interaction.response.send_message("✅ Sondaggio inviato!", ephemeral=True)
+        # 3. INVIO PUBBLICO (Usando followup.send dopo il defer)
+        # Usiamo `interaction.followup.send` per inviare il messaggio dopo il defer.
+        # Ritorna l'oggetto messaggio necessario per le reazioni.
+        poll_message = await interaction.followup.send(
+            content=content_message, 
+            embed=embed, 
+            ephemeral=False # Deve essere visibile a tutti
+        )
+        
+        # 4. Invia la conferma effimera (opzionale, ma utile)
+        await interaction.followup.send("✅ Sondaggio inviato e pubblicato!", ephemeral=True)
 
-        # 5. Invio del messaggio pubblico con BOTH content e embed
-        poll_message = await interaction.channel.send(content=content_message, embed=embed)
-
-        # 6. Aggiunta delle reazioni
+        # 5. Aggiunta delle reazioni
         try:
             await poll_message.add_reaction("<a:spunta:1431937738256552036>")
             await poll_message.add_reaction("<a:annulla:1431940396635652146>")
@@ -353,5 +360,5 @@ def setup_rp_commands(bot: commands.Bot):
         except Exception as e:
             await log_command(bot, LOG_CHANNEL_ID, f"🚨 Errore nell'aggiungere reazioni al sondaggio: {e}")
 
-        # 7. Logging
+        # 6. Logging
         await log_command(bot, LOG_CHANNEL_ID, f"🗳️ {interaction.user.mention} ha avviato un sondaggio: '{domanda}'")

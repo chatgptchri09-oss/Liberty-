@@ -39,7 +39,7 @@ def setup_rp_commands(bot: commands.Bot):
 
         embed = discord.Embed(
             title="<a:manette:1431626831076921507> 𝐀𝐌𝐌𝐀𝐍𝐄𝐓𝐓𝐀𝐌𝐄𝐍𝐓𝐎",
-            description=f"{interaction.user.mention} ha ammanettato {utente.mention}\n\n<a:sirena:1431792628332101723><a:Attenzione:1431795789205733467> Ha il diritto di rimanere in silenzio, qualsiasi cosa dirà potrà essere utilizzata contro di lei in tribunale. Ha diritto ad un avvocato, se non ne possiede uno gliene verrà fornito uno d'ufficio <a:Attenzione:1431795789205733467><a:sirena:1431792628332101723> ",
+            description=f"{interaction.user.mention} ha ammanettato {utente.mention}\n\nHa il diritto di rimanere in silenzio, qualsiasi cosa dirà potrà essere utilizzata contro di lei in tribunale. Ha diritto ad un avvocato, se non ne possiede uno gliene verrà fornito uno d'ufficio ",
             color=discord.Color.dark_red()
         )
 

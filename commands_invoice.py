@@ -65,17 +65,17 @@ def setup_invoice_commands(bot: commands.Bot):
     ])
     async def fattura(interaction: discord.Interaction, cliente: discord.Member, descrizione: str, prezzo: int, azienda: str):
         if not has_role(interaction, COMPANY_ROLES[azienda]):
-            await interaction.response.send_message("❌ Non hai il permesso di creare fatture per questa azienda!", ephemeral=True)
+            await interaction.response.send_message("<a:annulla:1431940396635652146> Non hai il permesso di creare fatture per questa azienda!", ephemeral=True)
             return
         
         if prezzo <= 0:
-            await interaction.response.send_message("❌ Il prezzo deve essere maggiore di 0!", ephemeral=True)
+            await interaction.response.send_message("<a:annulla:1431940396635652146> Il prezzo deve essere maggiore di 0!", ephemeral=True)
             return
         
         await database.create_invoice(str(cliente.id), str(interaction.user.id), descrizione, prezzo, azienda)
         
         embed = discord.Embed(
-            title="📄 FATTURA RICEVUTA",
+            title="<a:fattura:1432112195004796937> FATTURA RICEVUTA",
             color=discord.Color.orange()
         )
         embed.add_field(name="👤 Da", value=interaction.user.mention, inline=False)
@@ -88,7 +88,7 @@ def setup_invoice_commands(bot: commands.Bot):
         except:
             pass
         
-        await interaction.response.send_message(f"✅ Fattura inviata a {cliente.mention}!", ephemeral=True)
+        await interaction.response.send_message(f"<a:spunta:1431937738256552036> Fattura inviata a {cliente.mention}!", ephemeral=True)
         await log_command(bot, LOG_CHANNEL_ID, f"📄 {interaction.user.mention} ha inviato una fattura a {cliente.mention} per ${prezzo:,} ({azienda})")
     
     class InvoiceSelectMenu(discord.ui.Select):
@@ -112,27 +112,27 @@ def setup_invoice_commands(bot: commands.Bot):
         
         async def callback(self, interaction: discord.Interaction):
             if str(interaction.user.id) != self.user_id:
-                await interaction.response.send_message("❌ Questo non è il tuo menu!", ephemeral=True)
+                await interaction.response.send_message("<a:annulla:1431940396635652146> Questo non è il tuo menu!", ephemeral=True)
                 return
             
             invoice_id = int(self.values[0])
             invoice = await database.get_invoice(invoice_id)
             
             if not invoice:
-                await interaction.response.send_message("❌ Fattura non trovata!", ephemeral=True)
+                await interaction.response.send_message("<a:annulla:1431940396635652146> Fattura non trovata!", ephemeral=True)
                 return
             
             _, client_id, sender_id, description, price, company, paid, _ = invoice
             
             if paid:
-                await interaction.response.send_message("❌ Questa fattura è già stata pagata!", ephemeral=True)
+                await interaction.response.send_message("<a:annulla:1431940396635652146> Questa fattura è già stata pagata!", ephemeral=True)
                 return
             
             user = await database.get_user(client_id)
             total = user["cash"] + user["bank"]
             
             if total < price:
-                await interaction.response.send_message("❌ Non hai abbastanza soldi per pagare questa fattura!", ephemeral=True)
+                await interaction.response.send_message("<a:annulla:1431940396635652146> Non hai abbastanza soldi per pagare questa fattura!", ephemeral=True)
                 return
             
             new_cash = user["cash"]
@@ -155,7 +155,7 @@ def setup_invoice_commands(bot: commands.Bot):
             
             try:
                 sender_user = await bot.fetch_user(int(sender_id))
-                await sender_user.send(f"✅ Hai ricevuto il 25% della fattura: **${employee_cut:,}**")
+                await sender_user.send(f"<a:spunta:1431937738256552036> Hai ricevuto il 25% della fattura: **${employee_cut:,}**")
             except:
                 pass
             
@@ -174,7 +174,7 @@ def setup_invoice_commands(bot: commands.Bot):
                 
                 await log_command(bot, log_channel_id, embed=log_embed)
             
-            await interaction.response.send_message(f"✅ Hai pagato la fattura di **${price:,}**!", ephemeral=True)
+            await interaction.response.send_message(f"<a:spunta:1431937738256552036> Hai pagato la fattura di **${price:,}**!", ephemeral=True)
             await log_command(bot, LOG_CHANNEL_ID, f"💳 <@{client_id}> ha pagato una fattura di ${price:,} ({company})")
     
     @bot.tree.command(name="pagafattura", description="Paga una fattura ricevuta")
@@ -182,7 +182,7 @@ def setup_invoice_commands(bot: commands.Bot):
         invoices = await database.get_unpaid_invoices(str(interaction.user.id))
         
         if not invoices:
-            await interaction.response.send_message("❌ Non hai fatture da pagare!", ephemeral=True)
+            await interaction.response.send_message("<a:annulla:1431940396635652146> Non hai fatture da pagare!", ephemeral=True)
             return
         
         view = discord.ui.View()

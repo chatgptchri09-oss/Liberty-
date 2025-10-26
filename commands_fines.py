@@ -24,7 +24,7 @@ async def log_command(bot, channel_id: int, message: str = None, embed: discord.
     except:
         pass
 
-class FineModal(discord.ui.Modal, title="🚨 Multa"):
+class FineModal(discord.ui.Modal, title="<a:sirena:1431792628332101723> Multa"):
     name_input = discord.ui.TextInput(label="Nome", placeholder="Nome dell'arrestato", required=True)
     surname_input = discord.ui.TextInput(label="Cognome", placeholder="Cognome dell'arrestato", required=True)
     age_input = discord.ui.TextInput(label="Età", placeholder="Età", required=True, max_length=3)
@@ -66,7 +66,7 @@ class FineModal(discord.ui.Modal, title="🚨 Multa"):
         )
         
         embed = discord.Embed(
-            title="🚨 MULTA RICEVUTA",
+            title="<a:sirena:1431792628332101723> MULTA RICEVUTA",
             color=discord.Color.red()
         )
         embed.add_field(name="👤 Nome", value=self.name_input.value, inline=True)
@@ -174,7 +174,7 @@ def setup_fine_commands(bot: commands.Bot):
         fines = await database.get_unpaid_fines(str(interaction.user.id))
         
         if not fines:
-            await interaction.response.send_message("❌ Non hai multe da pagare!", ephemeral=True)
+            await interaction.response.send_message(" Non hai multe da pagare!", ephemeral=True)
             return
         
         view = discord.ui.View()

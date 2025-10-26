@@ -95,7 +95,7 @@ def setup_bonifico_commands(bot: commands.Bot):
                 
             # Risposta finale di successo
             await interaction.followup.send(
-                f"✅ Bonifico completato! Hai inviato **${importo:,}** a {utente.mention}.\n"
+                f"<a:spunta:1431937738256552036> Bonifico completato! Hai inviato **${importo:,}** a {utente.mention}.\n"
                 f"Il tuo nuovo saldo bancario è: **${new_sender_bank:,}**",
                 ephemeral=True
             )

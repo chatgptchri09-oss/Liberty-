@@ -322,10 +322,11 @@ def setup_rp_commands(bot: commands.Bot):
         # Uso le triple virgolette e i blocchi di citazione (>) per la formattazione richiesta
         description_content = f"""
 > **{domanda}**
-> 
-> <a:spunta:1431937738256552036> SI CI SARÒ 
-> <a:annulla:1431940396635652146> NO NON CI SARÒ 
-> <a:Orologio:1431937656744448060> VENGO PIÙ TARDI
+
+
+ <a:spunta:1431937738256552036> SI CI SARÒ 
+ <a:annulla:1431940396635652146> NO NON CI SARÒ 
+ <a:Orologio:1431937656744448060> VENGO PIÙ TARDI
 """
         
         # 3. Creazione dell'Embed

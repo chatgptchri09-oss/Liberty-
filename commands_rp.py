@@ -307,7 +307,7 @@ def setup_rp_commands(bot: commands.Bot):
     # =========================================
     # COMANDO: /sondaggio (Poll) - CORRETTO PER IL TIMEOUT
     # =========================================
-    @bot.tree.command(name="sondaggio", description="[POLL] Crea un sondaggio rapido con opzioni SI/NO/PIÙ TARDI.")
+    @bot.tree.command(name="sondaggio", description=" Crea un sondaggio rapido con opzioni SI/NO/PIÙ TARDI.")
     @app_commands.describe(
         domanda="La domanda o l'oggetto del sondaggio"
     )
@@ -348,9 +348,6 @@ def setup_rp_commands(bot: commands.Bot):
             embed=embed, 
             ephemeral=False # Deve essere visibile a tutti
         )
-        
-        # 4. Invia la conferma effimera (opzionale, ma utile)
-        await interaction.followup.send("✅ Sondaggio inviato e pubblicato!", ephemeral=True)
 
         # 5. Aggiunta delle reazioni
         try:

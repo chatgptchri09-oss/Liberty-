@@ -4,6 +4,8 @@ from discord.ext import commands
 import aiosqlite
 from datetime import datetime
 import database
+import asyncio # Aggiungi questo all'inizio del file, se non c'è
+
 
 DATABASE_NAME = "economy_bot.db"
 LOG_CHANNEL_ID = 1415297578022604850
@@ -340,14 +342,6 @@ def setup_rp_commands(bot: commands.Bot):
         )
         embed.set_footer(text=f"Sondaggio creato da {interaction.user.display_name}")
 
-        # 3. INVIO PUBBLICO (Usando followup.send dopo il defer)
-        # Usiamo `interaction.followup.send` per inviare il messaggio dopo il defer.
-        # Ritorna l'oggetto messaggio necessario per le reazioni.
-        poll_message = await interaction.followup.send(
-            content=content_message, 
-            embed=embed, 
-            ephemeral=False # Deve essere visibile a tutti
-        )
 
         # 5. Aggiunta delle reazioni
         try:

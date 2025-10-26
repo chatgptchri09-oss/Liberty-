@@ -307,26 +307,21 @@ def setup_rp_commands(bot: commands.Bot):
         await log_command(bot, LOG_CHANNEL_ID, f"🩹 {interaction.user.mention} ha curato {cittadino.mention} per '{ferita}' tramite {tramite.name}")
 
     # =========================================
-    # COMANDO: /sondaggio (Poll) - CORRETTO PER IL TIMEOUT
+    # NUOVO COMANDO: /sondaggio (Poll)
     # =========================================
-    @bot.tree.command(name="sondaggio", description=" Crea un sondaggio rapido con opzioni SI/NO/PIÙ TARDI.")
+    @bot.tree.command(name="sondaggio", description="Crea un sondaggio rapido con opzioni SI/NO/PIÙ TARDI.")
     @app_commands.describe(
         domanda="La domanda o l'oggetto del sondaggio"
     )
     async def sondaggio(interaction: discord.Interaction, domanda: str):
-        POLL_ROLE_ID = 1414753824463126611 
-        
+        # 1. Verifica dei permessi (Ruolo POLL_ROLE_ID)
+        POLL_ROLE_ID = 1414753824463126611 # ID del ruolo per il sondaggio (come da contesto)
         if not has_role(interaction, POLL_ROLE_ID):
             await interaction.response.send_message("❌ Non hai i permessi per creare sondaggi (Ruolo Poll richiesto).", ephemeral=True)
             return
 
-        # 1. RINVIO IMMEDIATO: Acknowledge the interaction to prevent timeout
-        # Mandiamo l'avviso "Bot sta pensando..."
-        await interaction.response.defer(ephemeral=True, thinking=True) 
-
-        # 2. Prepara il messaggio di testo e l'embed (come prima)
-        content_message = f"{interaction.user.mention} ha usato </sondaggio:{interaction.command.id}>"
-        
+        # 2. Costruzione della descrizione dell'Embed
+        # Uso le triple virgolette e i blocchi di citazione (>) per la formattazione richiesta
         description_content = f"""
 > **{domanda}**
 
@@ -335,6 +330,7 @@ def setup_rp_commands(bot: commands.Bot):
  <a:Orologio:1431937656744448060> VENGO PIÙ TARDI
 """
         
+        # 3. Creazione dell'Embed
         embed = discord.Embed(
             title="<a:megafono:1431932605984542720> Sondaggio <a:megafono:1431932605984542720>",
             description=description_content,
@@ -342,14 +338,21 @@ def setup_rp_commands(bot: commands.Bot):
         )
         embed.set_footer(text=f"Sondaggio creato da {interaction.user.display_name}")
 
+        # 4. Risposta effimera di conferma
+        await interaction.response.send_message("✅ Sondaggio inviato!", ephemeral=True)
 
-        # 5. Aggiunta delle reazioni
+        # 5. Invio del messaggio pubblico e acquisizione dell'oggetto messaggio
+        # Acquisiamo l'oggetto messaggio per poter aggiungere le reazioni
+        poll_message = await interaction.channel.send(embed=embed)
+
+        # 6. Aggiunta delle reazioni
         try:
             await poll_message.add_reaction("<a:spunta:1431937738256552036>")
             await poll_message.add_reaction("<a:annulla:1431940396635652146>")
             await poll_message.add_reaction("<a:Orologio:1431937656744448060>")
         except Exception as e:
+            # Logging in caso di fallimento nell'aggiungere le reazioni
             await log_command(bot, LOG_CHANNEL_ID, f"🚨 Errore nell'aggiungere reazioni al sondaggio: {e}")
 
-        # 6. Logging
+        # 7. Logging
         await log_command(bot, LOG_CHANNEL_ID, f"🗳️ {interaction.user.mention} ha avviato un sondaggio: '{domanda}'")

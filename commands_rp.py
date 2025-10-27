@@ -357,74 +357,56 @@ def setup_rp_commands(bot: commands.Bot):
         # 7. Logging
         await log_command(bot, LOG_CHANNEL_ID, f"🗳️ {interaction.user.mention} ha avviato un sondaggio: '{domanda}'")
 
+@bot.tree.command(name="stato-rp", description="Gestisce lo stato ON o OFF del RolePlay.")
+@app_commands.describe(
+    on_off="Seleziona lo stato attuale del RolePlay"
+)
+@app_commands.choices(on_off=[
+    app_commands.Choice(name="On", value="ON"),
+    app_commands.Choice(name="Off", value="OFF"),
+])
+async def stato_rp(interaction: discord.Interaction, on_off: app_commands.Choice[str]):
+    POLL_ROLE_ID = 1414753824463126611
+    MENTION_ROLE_ID = 1414752091607535727
 
-    # =========================================
-    # COMANDO: /stato-rp (On/Off) - OTTIMIZZATO
-    # =========================================
-    @bot.tree.command(name="stato-rp", description=" Gestisce lo stato ON o OFF del RolePlay.")
-    @app_commands.describe(
-        on_off="Seleziona lo stato attuale del RolePlay"
-    )
-    @app_commands.choices(on_off=[
-        app_commands.Choice(name="On", value="ON"),
-        app_commands.Choice(name="Off", value="OFF"),
-    ])
-    async def stato_rp(interaction: discord.Interaction, on_off: app_commands.Choice[str]):
-        # Verifica dei permessi (Ruolo POLL_ROLE_ID)
-        POLL_ROLE_ID = 1414753824463126611
-        MENTION_ROLE_ID = 1414752091607535727
-        
-        if not has_role(interaction, POLL_ROLE_ID):
-            await interaction.response.send_message("❌ Non hai i permessi per cambiare lo stato del RolePlay (Ruolo Poll richiesto).", ephemeral=True)
-            return
+    if not has_role(interaction, POLL_ROLE_ID):
+        await interaction.response.send_message("❌ Non hai i permessi per cambiare lo stato del RolePlay (Ruolo Poll richiesto).", ephemeral=True)
+        return
 
-        # 1. RINVIO IMMEDIATO: Avvisa Discord che stiamo lavorando
-        # Lo mettiamo effimero per nascondere il "ci sta lavorando" all'utente.
-        await interaction.response.defer(ephemeral=True, thinking=True) 
+    await interaction.response.defer(ephemeral=True, thinking=True)
 
-        # Inizializzazione
-        content_message = f"{interaction.user.mention} ha usato </stato-rp:{interaction.command.id}>"
-        embed = None
-        log_status = "" 
-        
-        # --- Logica ON ---
-        if on_off.value == "ON":
-            
-            embed = discord.Embed(
-                title="<a:Online:1431599470897922069> 𝐑𝐨𝐥𝐞𝐏𝐥𝐚𝐲 𝐎𝐧 <a:Online:1431599470897922069>",
-                color=discord.Color.from_rgb(144, 238, 144) # Verde chiaro
-            )
-            embed.description = (
-                f"**𝗛𝗼𝘀𝘁:** {interaction.user.mention}\n"
-                f"<@&{MENTION_ROLE_ID}>\n"
-                f"**𝐓𝐢 𝐚𝐮𝐠𝐮𝐫𝐢𝐚𝐦𝐨 𝐮𝐧 𝐛𝐮𝐨𝐧 𝐫𝐨𝐥𝐞𝐩𝐥𝐚𝐲**"
-            )
-            embed.set_image(url="https://cdn.discordapp.com/attachments/1235599658928308264/1250595400616771614/ServerOn.gif?ex=6900ab7a&is=68ff59fa&hm=fa91c25322c407b4fdd88d3cfbbc6f8db86c62e1fa8e74b0733cb0930c3285f3&")
-            log_status = "attivato il RolePlay (ON)"
+    embed = None
+    log_status = ""
 
-        # --- Logica OFF ---
-        elif on_off.value == "OFF":
-            
-            embed = discord.Embed(
-                title="<a:Caricamento:1432417274983219276> 𝐑𝐨𝐥𝐞𝐏𝐥𝐚𝐲 𝐎𝐟𝐟 <a:Caricamento:1432417274983219276>",
-                color=discord.Color.red()
-            )
-            embed.description = (
-                f"<@&{MENTION_ROLE_ID}>\n"
-                f"**𝐒𝐩𝐞𝐫𝐢𝐚𝐦𝐨 𝐭𝐢 𝐬𝐢𝐚 𝐝𝐢𝐯𝐞𝐫𝐭𝐢𝐭𝐨**\n"
-                f"_ricordati di chiudere il turno lavorativo_"
-            )
-            embed.set_image(url="https://cdn.discordapp.com/attachments/1235599658928308264/1250595400226963527/ServerOff.gif?ex=6900ab7a&is=68ff59fa&hm=b846c818c8e0180e4d5ad0230f5f123ec9b18cec632acf888d0675fe9a593bbd&")
-            log_status = "disattivato il RolePlay (OFF)"
+    if on_off.value == "ON":
+        embed = discord.Embed(
+            title="<a:Online:1431599470897922069> 𝐑𝐨𝐥𝐞𝐏𝐥𝐚𝐲 𝐎𝐧 <a:Online:1431599470897922069>",
+            color=discord.Color.from_rgb(144, 238, 144)
+        )
+        embed.description = (
+            f"**𝗛𝗼𝘀𝘁:** {interaction.user.mention}\n"
+            f"<@&{MENTION_ROLE_ID}>\n"
+            f"**𝐓𝐢 𝐚𝐮𝐠𝐮𝐫𝐢𝐚𝐦𝐨 𝐮𝐧 𝐛𝐮𝐨𝐧 𝐫𝐨𝐥𝐞𝐩𝐥𝐚𝐲!**"
+        )
+        embed.set_image(url="https://cdn.discordapp.com/attachments/1235599658928308264/1250595400616771614/ServerOn.gif")
+        log_status = "attivato il RolePlay (ON)"
 
-        # --- Aggiungi la foto profilo del server (Thumbnail) ---
-        if interaction.guild and interaction.guild.icon:
-            embed.set_thumbnail(url=interaction.guild.icon.url)
-        
+    elif on_off.value == "OFF":
+        embed = discord.Embed(
+            title="<a:Caricamento:1432417274983219276> 𝐑𝐨𝐥𝐞𝐏𝐥𝐚𝐲 𝐎𝐟𝐟 <a:Caricamento:1432417274983219276>",
+            color=discord.Color.red()
+        )
+        embed.description = (
+            f"<@&{MENTION_ROLE_ID}>\n"
+            f"**𝐒𝐩𝐞𝐫𝐢𝐚𝐦𝐨 𝐭𝐢 𝐬𝐢𝐚 𝐝𝐢𝐯𝐞𝐫𝐭𝐢𝐭𝐨!**\n"
+            f"_Ricordati di chiudere il turno lavorativo._"
+        )
+        embed.set_image(url="https://cdn.discordapp.com/attachments/1235599658928308264/1250595400226963527/ServerOff.gif")
+        log_status = "disattivato il RolePlay (OFF)"
 
-        # 5. INVIO PUBBLICO: Invia il messaggio finale come operazione separata
-        await interaction.channel.send(embed=embed)
-        
+    if interaction.guild and interaction.guild.icon:
+        embed.set_thumbnail(url=interaction.guild.icon.url)
 
-        # 6. Logging
-        await log_command(bot, LOG_CHANNEL_ID, f"🎲 {interaction.user.mention} ha {log_status}")
+    await interaction.channel.send(embed=embed)
+    await interaction.followup.send("✅ Stato RP aggiornato con successo!", ephemeral=True)
+    await log_command(bot, LOG_CHANNEL_ID, f"🎲 {interaction.user.mention} ha {log_status}")

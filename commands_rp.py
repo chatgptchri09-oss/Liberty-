@@ -421,14 +421,9 @@ def setup_rp_commands(bot: commands.Bot):
         if interaction.guild and interaction.guild.icon:
             embed.set_thumbnail(url=interaction.guild.icon.url)
         
-        # 4. RISOLUZIONE RAPIDA (per eliminare "ci sta lavorando")
-        # Sostituisce il messaggio "pensando" con una conferma effimera per l'utente.
-        await interaction.edit_original_response(
-            content=f"✅ Stato RolePlay aggiornato su {on_off.value}!"
-        )
 
         # 5. INVIO PUBBLICO: Invia il messaggio finale come operazione separata
-        await interaction.response.send_message(embed=embed)
+        await interaction.channel.send(embed=embed)
         
 
         # 6. Logging

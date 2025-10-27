@@ -429,7 +429,7 @@ def setup_rp_commands(bot: commands.Bot):
 
         # 5. INVIO PUBBLICO: Invia il messaggio finale come operazione separata
         await interaction.response.send_message(embed=embed)
-        )
+        
 
         # 6. Logging
         await log_command(bot, LOG_CHANNEL_ID, f"🎲 {interaction.user.mention} ha {log_status}")

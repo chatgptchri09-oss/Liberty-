@@ -217,7 +217,7 @@ def setup_wallet_commands(bot: commands.Bot):
             color=discord.Color.gold()
         )
         # set_thumbnail per l'immagine più piccola a destra
-        embed.set_thumbnail(url="https://cdn.discordapp.com/attachments/1415106856245923941/1431696671091458313/IMG_3667.gif?ex=68fe5aee&is=68fd096e&hm=a3e32491df10551b1e621efcddd3442890ae09a4b66b4e07c12017014a390dab&")
+        embed.set_thumbnail(url="https://cdn.discordapp.com/attachments/1425847773424652288/1432317062394548234/IMG_3719.gif?ex=69009cb6&is=68ff4b36&hm=5a1189d300bc123aade318943003a628a35bf964db9cca90c1556709dbe09bab&")
 
         view = discord.ui.View()
         # Passiamo l'istanza del bot qui

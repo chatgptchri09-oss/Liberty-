@@ -50,10 +50,10 @@ class FineModal(discord.ui.Modal, title="<a:sirena:1431792628332101723> Multa"):
         try:
             fine_amount = int(self.fine_amount_input.value)
             if fine_amount <= 0:
-                await interaction.response.send_message("❌ L'importo deve essere maggiore di 0!", ephemeral=True)
+                await interaction.response.send_message("<a:annulla:1431940396635652146> L'importo deve essere maggiore di 0!", ephemeral=True)
                 return
         except ValueError:
-            await interaction.response.send_message("❌ Importo non valido!", ephemeral=True)
+            await interaction.response.send_message("<a:annulla:1431940396635652146> Importo non valido!", ephemeral=True)
             return
         
         await database.create_fine(
@@ -81,8 +81,8 @@ class FineModal(discord.ui.Modal, title="<a:sirena:1431792628332101723> Multa"):
         except:
             pass
         
-        await interaction.response.send_message(f"✅ Multa inviata a <@{self.user_id}>!", ephemeral=True)
-        await log_command(self.bot, LOG_CHANNEL_ID, f"🚨 {interaction.user.mention} ha multato <@{self.user_id}> per ${fine_amount:,}")
+        await interaction.response.send_message(f"<a:spunta:1431937738256552036> Multa inviata a <@{self.user_id}>!", ephemeral=True)
+        await log_command(self.bot, LOG_CHANNEL_ID, f"<a:sirena:1431792628332101723> {interaction.user.mention} ha multato <@{self.user_id}> per ${fine_amount:,}")
 
 def setup_fine_commands(bot: commands.Bot):
     
@@ -90,7 +90,7 @@ def setup_fine_commands(bot: commands.Bot):
     @app_commands.describe(utente="L'utente da multare")
     async def multa(interaction: discord.Interaction, utente: discord.Member):
         if not has_role(interaction, LFD_ROLE_ID):
-            await interaction.response.send_message("❌ Solo i LFD possono usare questo comando!", ephemeral=True)
+            await interaction.response.send_message("<a:annulla:1431940396635652146> Solo i LFD possono usare questo comando!", ephemeral=True)
             return
         
         modal = FineModal(bot, str(utente.id))
@@ -117,27 +117,27 @@ def setup_fine_commands(bot: commands.Bot):
         
         async def callback(self, interaction: discord.Interaction):
             if str(interaction.user.id) != self.user_id:
-                await interaction.response.send_message("❌ Questo non è il tuo menu!", ephemeral=True)
+                await interaction.response.send_message("<a:annulla:1431940396635652146> Questo non è il tuo menu!", ephemeral=True)
                 return
             
             fine_id = int(self.values[0])
             fine = await database.get_fine(fine_id)
             
             if not fine:
-                await interaction.response.send_message("❌ Multa non trovata!", ephemeral=True)
+                await interaction.response.send_message("<a:annulla:1431940396635652146> Multa non trovata!", ephemeral=True)
                 return
             
             _, user_id, name, surname, age, infractions, fine_amount, paid, _ = fine
             
             if paid:
-                await interaction.response.send_message("❌ Questa multa è già stata pagata!", ephemeral=True)
+                await interaction.response.send_message("<a:annulla:1431940396635652146> Questa multa è già stata pagata!", ephemeral=True)
                 return
             
             user = await database.get_user(user_id)
             total = user["cash"] + user["bank"]
             
             if total < fine_amount:
-                await interaction.response.send_message("❌ Non hai abbastanza soldi per pagare questa multa!", ephemeral=True)
+                await interaction.response.send_message("<a:annulla:1431940396635652146> Non hai abbastanza soldi per pagare questa multa!", ephemeral=True)
                 return
             
             new_cash = user["cash"]
@@ -166,7 +166,7 @@ def setup_fine_commands(bot: commands.Bot):
             log_embed.timestamp = datetime.now()
             
             await log_command(bot, LFD_LOG_CHANNEL_ID, embed=log_embed)
-            await interaction.response.send_message(f"✅ Hai pagato la multa di **${fine_amount:,}**!", ephemeral=True)
+            await interaction.response.send_message(f"<a:spunta:1431937738256552036> Hai pagato la multa di **${fine_amount:,}**!", ephemeral=True)
             await log_command(bot, LOG_CHANNEL_ID, f"💳 {interaction.user.mention} ha pagato una multa di ${fine_amount:,}")
     
     @bot.tree.command(name="pagamulta", description="Paga una multa ricevuta")
@@ -180,23 +180,23 @@ def setup_fine_commands(bot: commands.Bot):
         view = discord.ui.View()
         view.add_item(FineSelectMenu(fines, str(interaction.user.id)))
         
-        await interaction.response.send_message("🚨 Seleziona una multa da pagare:", view=view, ephemeral=True)
+        await interaction.response.send_message("<a:sirena:1431792628332101723> Seleziona una multa da pagare:", view=view, ephemeral=True)
     
     @bot.tree.command(name="controllomulta", description="[LFD] Controlla le multe di un utente")
     @app_commands.describe(utente="L'utente di cui controllare le multe")
     async def controllomulta(interaction: discord.Interaction, utente: discord.Member):
         if not has_role(interaction, LFD_ROLE_ID):
-            await interaction.response.send_message("❌ Solo i LFD possono usare questo comando!", ephemeral=True)
+            await interaction.response.send_message("<a:annulla:1431940396635652146> Solo i LFD possono usare questo comando!", ephemeral=True)
             return
         
         fines = await database.get_unpaid_fines(str(utente.id))
         
         if not fines:
-            await interaction.response.send_message(f"✅ {utente.mention} non ha multe da pagare!", ephemeral=True)
+            await interaction.response.send_message(f"<a:spunta:1431937738256552036> {utente.mention} non ha multe da pagare!", ephemeral=True)
             return
         
         embed = discord.Embed(
-            title=f"🚨 MULTE DI {utente.display_name}",
+            title=f"<a:sirena:1431792628332101723> MULTE DI {utente.display_name}",
             color=discord.Color.red()
         )
         

@@ -357,10 +357,11 @@ def setup_rp_commands(bot: commands.Bot):
         # 7. Logging
         await log_command(bot, LOG_CHANNEL_ID, f"🗳️ {interaction.user.mention} ha avviato un sondaggio: '{domanda}'")
 
+
     # =========================================
-    # NUOVO COMANDO: /stato-rp (On/Off)
+    # COMANDO: /stato-rp (On/Off) - OTTIMIZZATO
     # =========================================
-    @bot.tree.command(name="stato-rp", description="[POLL] Gestisce lo stato ON o OFF del RolePlay.")
+    @bot.tree.command(name="stato-rp", description=" Gestisce lo stato ON o OFF del RolePlay.")
     @app_commands.describe(
         on_off="Seleziona lo stato attuale del RolePlay"
     )
@@ -370,21 +371,21 @@ def setup_rp_commands(bot: commands.Bot):
     ])
     async def stato_rp(interaction: discord.Interaction, on_off: app_commands.Choice[str]):
         # Verifica dei permessi (Ruolo POLL_ROLE_ID)
-        POLL_ROLE_ID = 1414753824463126611 # Utilizza l'ID del ruolo che hai specificato per i permessi
+        POLL_ROLE_ID = 1414753824463126611
+        MENTION_ROLE_ID = 1414752091607535727
+        
         if not has_role(interaction, POLL_ROLE_ID):
             await interaction.response.send_message("❌ Non hai i permessi per cambiare lo stato del RolePlay (Ruolo Poll richiesto).", ephemeral=True)
             return
 
-        # RINVIO IMMEDIATO: Acknowledge the interaction to prevent timeout
+        # 1. RINVIO IMMEDIATO: Avvisa Discord che stiamo lavorando
+        # Lo mettiamo effimero per nascondere il "ci sta lavorando" all'utente.
         await interaction.response.defer(ephemeral=True, thinking=True) 
 
-        # Variabili dagli ID del tuo contesto
-        MENTION_ROLE_ID = 1414752091607535727
-        
         # Inizializzazione
         content_message = f"{interaction.user.mention} ha usato </stato-rp:{interaction.command.id}>"
         embed = None
-        log_status = "" # Per il log_command
+        log_status = "" 
         
         # --- Logica ON ---
         if on_off.value == "ON":
@@ -416,19 +417,21 @@ def setup_rp_commands(bot: commands.Bot):
             embed.set_image(url="https://cdn.discordapp.com/attachments/1235599658928308264/1250595400226963527/ServerOff.gif?ex=6900ab7a&is=68ff59fa&hm=b846c818c8e0180e4d5ad0230f5f123ec9b18cec632acf888d0675fe9a593bbd&")
             log_status = "disattivato il RolePlay (OFF)"
 
-        # --- Aggiungi la foto profilo del server in alto a destra (Thumbnail) ---
-        # Si assume che l'icona del server sia accessibile tramite interaction.guild.icon
+        # --- Aggiungi la foto profilo del server (Thumbnail) ---
         if interaction.guild and interaction.guild.icon:
             embed.set_thumbnail(url=interaction.guild.icon.url)
         
-        # 4. INVIO PUBBLICO UNICO (Risolve l'interazione)
-        await interaction.followup.send(
-            content=content_message, 
-            embed=embed, 
-            ephemeral=False 
+        # 4. RISOLUZIONE RAPIDA (per eliminare "ci sta lavorando")
+        # Sostituisce il messaggio "pensando" con una conferma effimera per l'utente.
+        await interaction.edit_original_response(
+            content=f"✅ Stato RolePlay aggiornato su {on_off.value}!"
         )
 
-        # 5. Logging
+        # 5. INVIO PUBBLICO: Invia il messaggio finale come operazione separata
+        await interaction.channel.send(
+            content=content_message, 
+            embed=embed
+        )
+
+        # 6. Logging
         await log_command(bot, LOG_CHANNEL_ID, f"🎲 {interaction.user.mention} ha {log_status}")
-
-

@@ -4,7 +4,7 @@ from discord.ext import commands
 import aiosqlite
 from datetime import datetime
 import database
-import asyncio # Aggiungi questo all'inizio del file, se non c'è
+import asyncio 
 
 
 DATABASE_NAME = "economy_bot.db"
@@ -30,7 +30,11 @@ async def log_command(bot, channel_id: int, message: str = None, embed: discord.
     except:
         pass
 
- def setup_rp_commands(bot: commands.Bot):
+# 🚨 INIZIO DELLA CORREZIONE DELL'INDENTAZIONE QUI 🚨
+def setup_rp_commands(bot: commands.Bot):
+    # =========================================
+    # COMANDO: /stato-rp (On/Off) - OTTIMIZZATO ANTI-TIMEOUT
+    # =========================================
     @bot.tree.command(name="stato-rp", description="Gestisce lo stato ON o OFF del RolePlay.")
     @app_commands.describe(
         on_off="Seleziona lo stato attuale del RolePlay"
@@ -47,10 +51,12 @@ async def log_command(bot, channel_id: int, message: str = None, embed: discord.
             )
             return
 
+        # 1. RINVIO: Avvia il timer di 15s.
         await interaction.response.defer(ephemeral=True, thinking=True)
 
         embed = None
         log_status = ""
+        content_message = f"{interaction.user.mention} ha usato </stato-rp:{interaction.command.id}>"
 
         if on_off.value == "ON":
             embed = discord.Embed(
@@ -81,13 +87,15 @@ async def log_command(bot, channel_id: int, message: str = None, embed: discord.
         if interaction.guild and interaction.guild.icon:
             embed.set_thumbnail(url=interaction.guild.icon.url)
 
-        await interaction.followup.send(
-            content=f"{interaction.user.mention} ha aggiornato lo stato del RolePlay:",
-            embed=embed,
-            ephemeral=False
+        # 2. RISOLUZIONE IMMEDIATA: Chiude l'interazione bloccata da "ci sta lavorando"
+        await interaction.edit_original_response(content=f"✅ Stato RolePlay aggiornato su {on_off.value}!")
+        
+        # 3. INVIO PUBBLICO: Manda il messaggio effettivo nel canale
+        await interaction.channel.send(
+            content=content_message, 
+            embed=embed
         )
 
-        await interaction.followup.send("✅ Stato RP aggiornato con successo!", ephemeral=True)
         await log_command(bot, LOG_CHANNEL_ID, f"🎲 {interaction.user.mention} ha {log_status}")
    
     
@@ -247,15 +255,12 @@ async def log_command(bot, channel_id: int, message: str = None, embed: discord.
     @app_commands.describe(azione="L'azione che vuoi eseguire")
     async def me(interaction: discord.Interaction, azione: str):
         
-        # Non è necessario il defer perché non ci sono operazioni lente.
-        
         embed = discord.Embed(
             title="<a:Ciak:1431629051545653369> 𝐀𝐳𝐢𝐨𝐧𝐞 <a:Progress:1431681998250049686> ",
             description=f"{interaction.user.mention}: *{azione}*",
-            color=discord.Color.from_rgb(44, 47, 51) # Colore neutro (Grigio Scura Discord)
+            color=discord.Color.from_rgb(44, 47, 51)
         )
 
-        # Risposta di conferma effimera e invio del messaggio visibile a tutti
         await interaction.response.send_message("✅ Azione RP inviata!", ephemeral=True)
         await interaction.channel.send(embed=embed)
         
@@ -269,7 +274,6 @@ async def log_command(bot, channel_id: int, message: str = None, embed: discord.
     async def revoca_patente(interaction: discord.Interaction, utente: discord.Member):
         user_id = str(utente.id)
         
-        # 1. Controllo Ruolo LFD
         if not has_role(interaction, LFD_ROLE_ID):
             await interaction.response.send_message("❌ Solo i LFD possono usare questo comando!", ephemeral=True)
             return
@@ -281,7 +285,6 @@ async def log_command(bot, channel_id: int, message: str = None, embed: discord.
         try:
             async with aiosqlite.connect(DATABASE_NAME) as db:
                 
-                # 2. Rimuove TUTTE le licenze generiche (licenses) per l'utente in un'unica operazione
                 cursor = await db.execute(
                     "DELETE FROM licenses WHERE user_id = ?",
                     (user_id,)
@@ -289,7 +292,6 @@ async def log_command(bot, channel_id: int, message: str = None, embed: discord.
                 rows_deleted = cursor.rowcount
                 await db.commit()
                 
-            # 3. Gestione del risultato e Notifica
             if rows_deleted == 0:
                 await interaction.followup.send(
                     f"❌ {utente.mention} non possiede **alcuna licenza (licenses)** nel database da revocare.", 
@@ -297,7 +299,6 @@ async def log_command(bot, channel_id: int, message: str = None, embed: discord.
                 )
                 return
 
-            # Notifica l'utente revocato in DM
             try:
                 embed_dm = discord.Embed(
                     title="🚨 Patente Revocata",
@@ -311,7 +312,6 @@ async def log_command(bot, channel_id: int, message: str = None, embed: discord.
             except:
                 dm_status = "Notifica DM non inviabile (DM bloccati)."
 
-            # 4. Risposta LFD e Log
             await interaction.followup.send(
                 f"✅ **{rows_deleted}** licenza/e rimosse a {utente.mention} con successo. ({dm_status})", 
                 ephemeral=True
@@ -321,7 +321,6 @@ async def log_command(bot, channel_id: int, message: str = None, embed: discord.
             await log_command(bot, LOG_CHANNEL_ID, log_msg)
 
         except Exception as e:
-            # Cattura qualsiasi errore di blocco o SQL
             print(f"ERRORE CRITICO DURANTE REVOCA-PATENTE: {e}")
             await log_command(bot, LOG_CHANNEL_ID, f"❌ ERRORE REVOCA-PATENTE: {interaction.user.mention} ha fallito a revocare {utente.mention}. Errore: {e}")
             await interaction.followup.send(
@@ -329,7 +328,7 @@ async def log_command(bot, channel_id: int, message: str = None, embed: discord.
                 ephemeral=True
             )
 
-# ====================
+    # ====================
     # NUOVO COMANDO: /cura (Azione Curativa Visibile a Tutti)
     # ====================
     @bot.tree.command(name="cura", description="Cura un cittadino per una ferita specifica.")
@@ -345,42 +344,38 @@ async def log_command(bot, channel_id: int, message: str = None, embed: discord.
     ])
     async def cura(interaction: discord.Interaction, cittadino: discord.Member, tramite: app_commands.Choice[str], ferita: str):
         
-        # Prepara la descrizione con il testo sottolineato per la ferita
-        # Usa il markup Markdown "__testo__" per sottolineare
         descrizione = (
             f"{interaction.user.mention} ha curato **__{ferita}__** "
             f"a {cittadino.mention} tramite **{tramite.name}**"
         )
         
-        # Crea l'Embed
         embed = discord.Embed(
             title="<a:Ambulanza:1431690856280232058> 𝐂𝐮𝐫𝐚 <a:Cuore:1431691069703065640>",
             description=descrizione,
-            color=discord.Color.from_rgb(0xE9, 0x1E, 0x63) # #e91e63 in RGB
+            color=discord.Color.from_rgb(0xE9, 0x1E, 0x63)
         )
 
-        # Risposta di conferma effimera e invio del messaggio visibile a tutti
         await interaction.response.send_message("✅ Azione Cura inviata!", ephemeral=True)
         await interaction.channel.send(embed=embed)
         
         await log_command(bot, LOG_CHANNEL_ID, f"🩹 {interaction.user.mention} ha curato {cittadino.mention} per '{ferita}' tramite {tramite.name}")
 
     # =========================================
-    # NUOVO COMANDO: /sondaggio (Poll)
+    # NUOVO COMANDO: /sondaggio (Poll) - CORRETTO
     # =========================================
     @bot.tree.command(name="sondaggio", description="Crea un sondaggio rapido con opzioni SI/NO/PIÙ TARDI.")
     @app_commands.describe(
         domanda="La domanda o l'oggetto del sondaggio"
     )
     async def sondaggio(interaction: discord.Interaction, domanda: str):
-        # 1. Verifica dei permessi (Ruolo POLL_ROLE_ID)
-        POLL_ROLE_ID = 1414753824463126611 # ID del ruolo per il sondaggio (come da contesto)
+        
         if not has_role(interaction, POLL_ROLE_ID):
             await interaction.response.send_message("❌ Non hai i permessi per creare sondaggi (Ruolo Poll richiesto).", ephemeral=True)
             return
 
-        # 2. Costruzione della descrizione dell'Embed
-        # Uso le triple virgolette e i blocchi di citazione (>) per la formattazione richiesta
+        # 1. Risposta iniziale immediata per evitare timeout
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        
         description_content = f"""
 > **{domanda}**
 
@@ -389,7 +384,6 @@ async def log_command(bot, channel_id: int, message: str = None, embed: discord.
  <a:Orologio:1431937656744448060> VENGO PIÙ TARDI
 """
         
-        # 3. Creazione dell'Embed
         embed = discord.Embed(
             title="<a:megafono:1431932605984542720> Sondaggio <a:megafono:1431932605984542720>",
             description=description_content,
@@ -397,21 +391,21 @@ async def log_command(bot, channel_id: int, message: str = None, embed: discord.
         )
         embed.set_footer(text=f"Sondaggio creato da {interaction.user.display_name}")
 
-        # 4. Risposta effimera di conferma
-        await interaction.response.send_message("✅ Sondaggio inviato!", ephemeral=True)
-
-        # 5. Invio del messaggio pubblico e acquisizione dell'oggetto messaggio
-        # Acquisiamo l'oggetto messaggio per poter aggiungere le reazioni
-        poll_message = await interaction.channel.send(embed=embed)
-
-        # 6. Aggiunta delle reazioni
-        try:
-            await poll_message.add_reaction("<a:spunta:1431937738256552036>")
-            await poll_message.add_reaction("<a:annulla:1431940396635652146>")
-            await poll_message.add_reaction("<a:Orologio:1431937656744448060>")
-        except Exception as e:
-            # Logging in caso di fallimento nell'aggiungere le reazioni
-            await log_command(bot, LOG_CHANNEL_ID, f"🚨 Errore nell'aggiungere reazioni al sondaggio: {e}")
-
-        # 7. Logging
+        # 2. Invio del messaggio pubblico con il followup
+        poll_message = await interaction.followup.send(
+            content=f"{interaction.user.mention} ha usato </sondaggio:{interaction.command.id}>",
+            embed=embed
+        )
+        
+        # 3. Logging (prima di aggiungere le reazioni per la massima velocità)
         await log_command(bot, LOG_CHANNEL_ID, f"🗳️ {interaction.user.mention} ha avviato un sondaggio: '{domanda}'")
+
+        # 4. Aggiunta delle reazioni in parallelo (per stabilità)
+        try:
+            await asyncio.gather(
+                poll_message.add_reaction("<a:spunta:1431937738256552036>"),
+                poll_message.add_reaction("<a:annulla:1431940396635652146>"),
+                poll_message.add_reaction("<a:Orologio:1431937656744448060>")
+            )
+        except Exception as e:
+            await log_command(bot, LOG_CHANNEL_ID, f"🚨 Errore nell'aggiungere reazioni al sondaggio: {e}")

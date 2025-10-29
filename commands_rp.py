@@ -32,8 +32,9 @@ async def log_command(bot, channel_id: int, message: str = None, embed: discord.
 
 # 🚨 INIZIO DELLA CORREZIONE DELL'INDENTAZIONE QUI 🚨
 def setup_rp_commands(bot: commands.Bot):
-    # =========================================
-    # COMANDO: /stato-rp (On/Off) - OTTIMIZZATO ANTI-TIMEOUT
+
+        # =========================================
+    # COMANDO: /stato-rp (On/Off) - MASSIMA VELOCITÀ GARANTITA
     # =========================================
     @bot.tree.command(name="stato-rp", description="Gestisce lo stato ON o OFF del RolePlay.")
     @app_commands.describe(
@@ -44,21 +45,24 @@ def setup_rp_commands(bot: commands.Bot):
         app_commands.Choice(name="Off", value="OFF"),
     ])
     async def stato_rp(interaction: discord.Interaction, on_off: app_commands.Choice[str]):
+        POLL_ROLE_ID = 1414753824463126611
+        MENTION_ROLE_ID = 1414752091607535727
+
         if not has_role(interaction, POLL_ROLE_ID):
-            await interaction.response.send_message(
-                "❌ Non hai i permessi per cambiare lo stato del RolePlay (Ruolo Poll richiesto).",
-                ephemeral=True
-            )
+            await interaction.response.send_message("❌ Non hai i permessi per cambiare lo stato del RolePlay (Ruolo Poll richiesto).", ephemeral=True)
             return
 
-        # 1. RINVIO: Avvia il timer di 15s.
-        await interaction.response.defer(ephemeral=True, thinking=True)
+        # 1. RISPOSTA IMMEDIATA PER L'UTENTE (Sostituisce il defer)
+        # Questo risolve l'interazione al 100% nel modo più veloce e non manda un messaggio pubblico.
+        await interaction.response.send_message(f"✅ Aggiornamento Stato in corso...", ephemeral=True)
 
+        # 2. Prepara l'Embed (senza dover aspettare la risoluzione dell'interazione)
         embed = None
         log_status = ""
         content_message = f"{interaction.user.mention} ha usato </stato-rp:{interaction.command.id}>"
 
         if on_off.value == "ON":
+            # ... (Logica ON - copiata dal tuo script)
             embed = discord.Embed(
                 title="<a:Online:1431599470897922069> 𝐑𝐨𝐥𝐞𝐏𝐥𝐚𝐲 𝐎𝐧 <a:Online:1431599470897922069>",
                 color=discord.Color.from_rgb(144, 238, 144)
@@ -72,6 +76,7 @@ def setup_rp_commands(bot: commands.Bot):
             log_status = "attivato il RolePlay (ON)"
 
         elif on_off.value == "OFF":
+            # ... (Logica OFF - copiata dal tuo script)
             embed = discord.Embed(
                 title="<a:Caricamento:1432417274983219276> 𝐑𝐨𝐥𝐞𝐏𝐥𝐚𝐲 𝐎𝐟𝐟 <a:Caricamento:1432417274983219276>",
                 color=discord.Color.red()
@@ -87,17 +92,21 @@ def setup_rp_commands(bot: commands.Bot):
         if interaction.guild and interaction.guild.icon:
             embed.set_thumbnail(url=interaction.guild.icon.url)
 
-        # 2. RISOLUZIONE IMMEDIATA: Chiude l'interazione bloccata da "ci sta lavorando"
-        await interaction.edit_original_response(content=f"✅ Stato RolePlay aggiornato su {on_off.value}!")
-        
-        # 3. INVIO PUBBLICO: Manda il messaggio effettivo nel canale
-        await interaction.channel.send(
-            content=content_message, 
-            embed=embed
-        )
+        # 3. INVIO PUBBLICO: Manda il messaggio effettivo nel canale (senza alcun vincolo di interazione)
+        # Usiamo un try/except per la massima resilienza.
+        try:
+            await interaction.channel.send(
+                content=content_message, 
+                embed=embed
+            )
+        except Exception as e:
+            # Se fallisce l'invio al canale, logghiamo, ma l'utente ha già ricevuto la conferma.
+            await log_command(bot, LOG_CHANNEL_ID, f"🚨 Errore nell'invio pubblico dello stato RP: {e}")
 
+
+        # 4. Logging
         await log_command(bot, LOG_CHANNEL_ID, f"🎲 {interaction.user.mention} ha {log_status}")
-   
+
     
     @bot.tree.command(name="ammanetto", description="[LFD] Ammanetta un utente")
     @app_commands.describe(utente="L'utente da ammanettare")

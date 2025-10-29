@@ -368,9 +368,13 @@ def setup_rp_commands(bot: commands.Bot):
 async def stato_rp(interaction: discord.Interaction, on_off: app_commands.Choice[str]):
     POLL_ROLE_ID = 1414753824463126611
     MENTION_ROLE_ID = 1414752091607535727
+    LOG_CHANNEL_ID = 1414752091607535728  # Assicurati che questo ID sia corretto
 
     if not has_role(interaction, POLL_ROLE_ID):
-        await interaction.response.send_message("❌ Non hai i permessi per cambiare lo stato del RolePlay (Ruolo Poll richiesto).", ephemeral=True)
+        await interaction.response.send_message(
+            "❌ Non hai i permessi per cambiare lo stato del RolePlay (Ruolo Poll richiesto).",
+            ephemeral=True
+        )
         return
 
     await interaction.response.defer(ephemeral=True, thinking=True)
@@ -407,6 +411,15 @@ async def stato_rp(interaction: discord.Interaction, on_off: app_commands.Choice
     if interaction.guild and interaction.guild.icon:
         embed.set_thumbnail(url=interaction.guild.icon.url)
 
-    await interaction.channel.send(embed=embed)
+    # Invia l'embed come followup visibile a tutti
+    await interaction.followup.send(
+        content=f"{interaction.user.mention} ha aggiornato lo stato del RolePlay:",
+        embed=embed,
+        ephemeral=False
+    )
+
+    # Messaggio privato di conferma
     await interaction.followup.send("✅ Stato RP aggiornato con successo!", ephemeral=True)
+
+    # Log del comando
     await log_command(bot, LOG_CHANNEL_ID, f"🎲 {interaction.user.mention} ha {log_status}")

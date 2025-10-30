@@ -95,6 +95,76 @@ def setup_admin_commands(bot: commands.Bot):
         )
         await log_command(bot, LOG_CHANNEL_ID, f"💵 {interaction.user.mention} ha aggiunto ${importo:,} al conto bancario di {utente.mention}")
 
+
+# All'interno della funzione def setup_admin_commands(bot: commands.Bot):
+
+    # =========================================
+    # COMANDO: /annuncio (VERSIONE DEFER/FOLLOWUP)
+    # =========================================
+    @bot.tree.command(name="annuncio", description="[STAFF] Invia un annuncio nel canale desiderato.")
+    @app_commands.describe(
+        canale="Canale dove inviare l'annuncio",
+        titolo="Titolo dell'annuncio",
+        descrizione="Contenuto dell'annuncio",
+        colore="Colore dell'annuncio (rosso, verde, blu, giallo, viola, arancione)"
+    )
+    async def annuncio(
+        interaction: discord.Interaction,
+        canale: discord.TextChannel,
+        titolo: str,
+        descrizione: str,
+        colore: str
+    ):
+        STAFF_ROLE_ID = 1414738761207517214
+        MENTION_ROLE_ID = 1414752091607535727
+
+        # 1. Controllo permessi
+        if not has_role(interaction, STAFF_ROLE_ID):
+            await interaction.response.send_message("❌ Non hai i permessi per usare questo comando!", ephemeral=True)
+            return
+
+        # 2. RINVIO: Avvisa Discord che stiamo lavorando
+        await interaction.response.defer(ephemeral=True, thinking=True)
+
+        # 3. Mappa colori disponibili
+        color_map = {
+            "rosso": discord.Color.red(),
+            "verde": discord.Color.green(),
+            "blu": discord.Color.blue(),
+            "giallo": discord.Color.gold(),
+            "viola": discord.Color.purple(),
+            "arancione": discord.Color.orange()
+        }
+
+        embed_color = color_map.get(colore.lower(), discord.Color.blurple())
+
+        # 4. Creazione Embed
+        embed = discord.Embed(
+            title=f"<a:megafono:1431932605984542720> {titolo} <a:megafono:1431932605984542720>",
+            description=descrizione,
+            color=embed_color
+        )
+
+        # Footer con tag dell'autore e la sua immagine
+        embed.set_footer(
+            text=f"Annuncio inviato da {interaction.user}",
+            icon_url=interaction.user.display_avatar.url
+        )
+
+        # Thumbnail del server se presente
+        if interaction.guild and interaction.guild.icon:
+            embed.set_thumbnail(url=interaction.guild.icon.url)
+
+        # 5. Invia annuncio nel canale scelto (Operazione I/O che DEVE essere veloce)
+        await canale.send(f"<@&{MENTION_ROLE_ID}>", embed=embed)
+
+        # 6. Risposta privata all'autore (Risolve l'interazione)
+        await interaction.followup.send(f"✅ Annuncio inviato correttamente in {canale.mention}!", ephemeral=True)
+
+        # 7. Log nel canale di log
+        await log_command(bot, LOG_CHANNEL_ID, f"📢 {interaction.user.mention} ha inviato un annuncio in {canale.mention}: **{titolo}**")
+
+
     
     # ====================
     # COMANDO: /remove-money
@@ -211,65 +281,3 @@ def setup_admin_commands(bot: commands.Bot):
         await log_command(bot, LOG_CHANNEL_ID, f"🔄 {interaction.user.mention} ha azzerato il saldo (cash e banca) di {utente.mention}")
         
     pass
-
-@bot.tree.command(name="annuncio", description="[STAFF] Invia un annuncio nel canale desiderato.")
-@app_commands.describe(
-    canale="Canale dove inviare l'annuncio",
-    titolo="Titolo dell'annuncio",
-    descrizione="Contenuto dell'annuncio",
-    colore="Colore dell'annuncio (rosso, verde, blu, giallo, viola, arancione)"
-)
-async def annuncio(
-    interaction: discord.Interaction,
-    canale: discord.TextChannel,
-    titolo: str,
-    descrizione: str,
-    colore: str
-):
-    STAFF_ROLE_ID = 1414738761207517214  # Ruolo staff
-    MENTION_ROLE_ID = 1414752091607535727  # Ruolo da menzionare (facoltativo)
-
-    # Controllo permessi
-    if not has_role(interaction, STAFF_ROLE_ID):
-        await interaction.response.send_message("❌ Non hai i permessi per usare questo comando!", ephemeral=True)
-        return
-
-    await interaction.response.defer(ephemeral=True, thinking=True)
-
-    # Mappa colori disponibili
-    color_map = {
-        "rosso": discord.Color.red(),
-        "verde": discord.Color.green(),
-        "blu": discord.Color.blue(),
-        "giallo": discord.Color.gold(),
-        "viola": discord.Color.purple(),
-        "arancione": discord.Color.orange()
-    }
-
-    embed_color = color_map.get(colore.lower(), discord.Color.blurple())
-
-    # === Creazione Embed con emoji nel titolo ===
-    embed = discord.Embed(
-        title=f"<a:megafono:1431932605984542720> {titolo} <a:megafono:1431932605984542720>",
-        description=descrizione,
-        color=embed_color
-    )
-
-    # Footer con tag dell'autore e la sua immagine
-    embed.set_footer(
-        text=f"Annuncio inviato da {interaction.user}",
-        icon_url=interaction.user.display_avatar.url
-    )
-
-    # Thumbnail del server se presente
-    if interaction.guild and interaction.guild.icon:
-        embed.set_thumbnail(url=interaction.guild.icon.url)
-
-    # Invia annuncio nel canale scelto
-    await canale.send(f"<@&{MENTION_ROLE_ID}>", embed=embed)
-
-    # Risposta privata all'autore
-    await interaction.followup.send(f"✅ Annuncio inviato correttamente in {canale.mention}!", ephemeral=True)
-
-    # Log nel canale di log
-    await log_command(bot, LOG_CHANNEL_ID, f"📢 {interaction.user.mention} ha inviato un annuncio in {canale.mention}: **{titolo}**")

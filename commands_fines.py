@@ -155,7 +155,7 @@ def setup_fine_commands(bot: commands.Bot):
             await database.pay_fine(fine_id)
             
             log_embed = discord.Embed(
-                title="💰 MULTA PAGATA",
+                title="<a:saccodisoldi:1433965141145161770> MULTA PAGATA",
                 color=discord.Color.green()
             )
             log_embed.add_field(name="👤 Nome", value=name, inline=True)

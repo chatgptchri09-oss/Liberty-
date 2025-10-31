@@ -282,135 +282,137 @@ def setup_admin_commands(bot: commands.Bot):
         
     pass
 
-    # ===================================================
-    # MODAL PER IL MOTIVO DI RIFIUTO
-    # ===================================================
-    class RifiutoMotivoModal(discord.ui.Modal, title="Motivo del Rifiuto"):
-        def __init__(self, citizen: discord.Member, role: discord.Role, staff_id: int):
-            super().__init__()
-            self.citizen = citizen
-            self.role = role
-            self.staff_id = staff_id
-            
-        motivo_input = discord.ui.TextInput(
-            label="Motivo del rifiuto del bando",
-            style=discord.TextStyle.paragraph,
-            placeholder="Specifica il motivo dettagliato per cui il bando è stato rifiutato.",
-            required=True,
-            max_length=500,
-        )
 
-        async def on_submit(self, interaction: discord.Interaction):
-            # Recupera il motivo inserito
-            motivo = self.motivo_input.value
-            
-            # Crea l'Embed di Rifiuto
-            embed = discord.Embed(
-                title="<a:megafono:1431932605984542720> 𝐄𝐬𝐢𝐭𝐨 𝐛𝐚𝐧𝐝𝐨 <a:annulla:1431940396635652146>",
-                color=discord.Color.red()
-            )
-            
-            # Aggiungi i campi
-            embed.add_field(name="𝗖𝗶𝘁𝘁𝗮𝗱𝗶𝗻𝗼", value=self.citizen.mention, inline=False)
-            embed.add_field(name="𝗘𝘀𝗶𝘁𝗼", value="Rifiutato ❌", inline=False)
-            embed.add_field(name="𝗟𝗮𝘃𝗼𝗿𝗼", value=self.role.mention, inline=False)
-            embed.add_field(name="𝗠𝗼𝘁𝗶𝘃𝗼", value=motivo, inline=False) # Campo Aggiuntivo
-            
-            # Footer
-            STAFF_ROLE_ID = 1414738761207517214
-            staff_mention = f"<@{self.staff_id}>"
-            embed.set_footer(text=f"▬▬▬▬▬▬▬▬▬▬▬▬\nDa <@&{STAFF_ROLE_ID}>\n{staff_mention}")
-            
-            # 1. Risposta di conferma effimera allo staff
-            await interaction.response.send_message(f"✅ Esito Rifiutato inviato per {self.citizen.mention}.", ephemeral=True)
-            
-            # 2. Invio Pubblico nel canale dell'interazione
-            await interaction.channel.send(embed=embed)
-            
-            # 3. Log
-            await log_command(
-                bot, 
-                LOG_CHANNEL_ID, 
-                f"🚫 {interaction.user.mention} ha rifiutato il bando di {self.citizen.mention} per {self.role.name}. Motivo: {motivo[:50]}..."
-            )
-
-
-    # =========================================
-    # COMANDO: /esito-bando
-    # =========================================
-    @bot.tree.command(name="esito-bando", description="[STAFF] Gestisce l'esito di un bando lavorativo.")
-    @app_commands.describe(
-        esito="Seleziona l'esito del bando",
-        cittadino="La persona che ha partecipato al bando",
-        lavoro="Il ruolo del lavoro per cui è stato fatto il bando"
+# ===================================================
+# MODAL PER IL MOTIVO DI RIFIUTO
+# ===================================================
+class RifiutoMotivoModal(discord.ui.Modal, title="Motivo del Rifiuto"):
+    def __init__(self, citizen: discord.Member, role: discord.Role, staff_id: int, bot: commands.Bot):
+        super().__init__()
+        self.citizen = citizen
+        self.role = role
+        self.staff_id = staff_id
+        self.bot = bot # Passa il bot al modal per il logging
+        
+    motivo_input = discord.ui.TextInput(
+        label="Motivo del rifiuto del bando",
+        style=discord.TextStyle.paragraph,
+        placeholder="Specifica il motivo dettagliato per cui il bando è stato rifiutato.",
+        required=True,
+        max_length=500,
     )
-    @app_commands.choices(esito=[
-        app_commands.Choice(name="Assunto", value="ASSUNTO"),
-        app_commands.Choice(name="Rifiutato", value="RIFIUTATO"),
-    ])
-    async def esito_bando(
-        interaction: discord.Interaction, 
-        esito: app_commands.Choice[str], 
-        cittadino: discord.Member, 
-        lavoro: discord.Role
-    ):
-        STAFF_ROLE_ID = 1414738761207517214
+
+    async def on_submit(self, interaction: discord.Interaction):
+        motivo = self.motivo_input.value
         
-        # Controllo permessi
-        if not has_role(interaction, STAFF_ROLE_ID):
-            await interaction.response.send_message("❌ Solo lo Staff può usare questo comando.", ephemeral=True)
-            return
-        
-        # Se l'esito è RIFIUTATO, apri il Modal e termina la funzione qui
-        if esito.value == "RIFIUTATO":
-            # Apri il popup per chiedere il motivo e lascia che il Modal gestisca il resto
-            modal = RifiutoMotivoModal(cittadino, lavoro, interaction.user.id)
-            await interaction.response.send_modal(modal)
-            return 
-        
-        # --- Logica ASSUNTO (Procedi senza Modal) ---
-        
-        # Risposta rapida per prevenire timeout (defer/thinking non necessario se è veloce, ma è più sicuro)
-        await interaction.response.defer(ephemeral=True, thinking=True)
-        
-        success = False
-        
-        # 1. Tenta di aggiungere il ruolo
-        if lavoro not in cittadino.roles:
-            try:
-                await cittadino.add_roles(lavoro, reason=f"Assunzione tramite bando da parte di {interaction.user.name}")
-                success = True
-            except discord.Forbidden:
-                # Il bot non ha i permessi o il ruolo è superiore al suo
-                await interaction.followup.send("⚠️ Non sono riuscito ad aggiungere il ruolo per problemi di permessi.", ephemeral=True)
-                # Procedi con l'invio dell'embed pubblico, anche se l'aggiunta del ruolo è fallita
-        else:
-            success = True # Il ruolo è già presente
-            
-        # 2. Crea l'Embed di Assunzione
+        # 1. Crea l'Embed di Rifiuto
         embed = discord.Embed(
-            title="<a:megafono:1431932605984542720> 𝐄𝐬𝐢𝐭𝐨 𝐛𝐚𝐧𝐝𝐨 <a:si:1433573748891582566>",
-            color=discord.Color.green()
+            title="𝐄𝐬𝐢𝐭𝐨 𝐛𝐚𝐧𝐝𝐨",
+            color=discord.Color.red()
         )
         
-        embed.add_field(name="𝗖𝗶𝘁𝘁𝗮𝗱𝗶𝗻𝗼", value=cittadino.mention, inline=False)
-        embed.add_field(name="𝗘𝘀𝗶𝘁𝗼", value="Assunto ✅", inline=False)
-        embed.add_field(name="𝗟𝗮𝘃𝗼𝗿𝗼", value=lavoro.mention, inline=False)
+        # 2. Costruisci la descrizione ESATTA (Non è un footer, è descrizione)
+        description_content = (
+            f"**𝗖𝗶𝘁𝘁𝗮𝗱𝗶𝗻𝗼**: {self.citizen.mention}\n"
+            f"**𝗘𝘀𝗶𝘁𝗼**: Rifiutato ❌\n"
+            f"**𝗟𝗮𝘃𝗼𝗿𝗼**: {self.role.mention}\n"
+            f"**𝗠𝗼𝘁𝗶𝘃𝗼**: {motivo}\n\n"
+            f"▬▬▬▬▬▬▬▬▬▬▬▬\n"
+            # TAG STAFF ROLE ESATTO
+            f"Da <@&{STAFF_ROLE_ID}>\n"
+            # TAG STAFF UTENTE ESATTO
+            f"<@{self.staff_id}>" 
+        )
         
-        # Footer
-        staff_mention = interaction.user.mention
-        embed.set_footer(text=f"▬▬▬▬▬▬▬▬▬▬▬▬\nDa <@&{STAFF_ROLE_ID}>\n{staff_mention}")
+        embed.description = description_content
         
-        # 3. Risposta di conferma effimera allo staff (Risolve l'interazione)
-        await interaction.followup.send(f"✅ Bando Assunto inviato per {cittadino.mention}. Ruolo aggiunto: {success}", ephemeral=True)
+        # 3. Risposta di conferma effimera allo staff (RISOLVE L'INTERAZIONE)
+        await interaction.response.send_message(f"✅ Esito Rifiutato inviato per {self.citizen.mention}.", ephemeral=True)
         
         # 4. Invio Pubblico nel canale dell'interazione
         await interaction.channel.send(embed=embed)
         
         # 5. Log
         await log_command(
-            bot, 
+            self.bot, # Usa il bot passato
             LOG_CHANNEL_ID, 
-            f"🟢 {interaction.user.mention} ha assunto {cittadino.mention} per {lavoro.name}."
+            f"🚫 {interaction.user.mention} ha rifiutato il bando di {self.citizen.mention} per {self.role.name}. Motivo: {motivo[:50]}..."
         )
 
+
+# =========================================
+# COMANDO: /esito-bando
+# =========================================
+@bot.tree.command(name="esito-bando", description="[STAFF] Gestisce l'esito di un bando lavorativo.")
+@app_commands.describe(
+    esito="Seleziona l'esito del bando",
+    cittadino="La persona che ha partecipato al bando",
+    lavoro="Il ruolo del lavoro per cui è stato fatto il bando"
+)
+@app_commands.choices(esito=[
+    app_commands.Choice(name="Assunto", value="ASSUNTO"),
+    app_commands.Choice(name="Rifiutato", value="RIFIUTATO"),
+])
+async def esito_bando(
+    interaction: discord.Interaction, 
+    esito: app_commands.Choice[str], 
+    cittadino: discord.Member, 
+    lavoro: discord.Role
+):
+    # Controllo permessi
+    if not has_role(interaction, STAFF_ROLE_ID):
+        await interaction.response.send_message("❌ Solo lo Staff può usare questo comando.", ephemeral=True)
+        return
+    
+    # Se l'esito è RIFIUTATO, apri il Modal e termina la funzione qui
+    if esito.value == "RIFIUTATO":
+        modal = RifiutoMotivoModal(cittadino, lavoro, interaction.user.id, bot) # Passa 'bot'
+        await interaction.response.send_modal(modal)
+        return 
+    
+    # --- Logica ASSUNTO (Risposta diretta senza defer) ---
+    
+    # 1. RISPOSTA RAPIDA: Previene il timeout e conferma subito allo staff
+    await interaction.response.send_message(f"✅ Bando Assunto in fase di invio per {cittadino.mention}.", ephemeral=True)
+
+    success = False
+    
+    # 2. Tenta di aggiungere il ruolo (operazione che può fallire/essere lenta)
+    if lavoro not in cittadino.roles:
+        try:
+            await cittadino.add_roles(lavoro, reason=f"Assunzione tramite bando da parte di {interaction.user.name}")
+            success = True
+        except discord.Forbidden:
+            await interaction.followup.send("⚠️ Non sono riuscito ad aggiungere il ruolo per problemi di permessi.", ephemeral=True)
+        except Exception:
+            pass
+    else:
+        success = True
+        
+    # 3. Crea l'Embed di Assunzione
+    embed = discord.Embed(
+        title="𝐄𝐬𝐢𝐭𝐨 𝐛𝐚𝐧𝐝𝐨",
+        color=discord.Color.green()
+    )
+    
+    # 4. Costruisci la descrizione ESATTA
+    description_content = (
+        f"**𝗖𝗶𝘁𝘁𝗮𝗱𝗶𝗻𝗼**: {cittadino.mention}\n"
+        f"**𝗘𝘀𝗶𝘁𝗼**: Assunto ✅\n"
+        f"**𝗟𝗮𝘃𝗼𝗿𝗼**: {lavoro.mention}\n\n"
+        f"▬▬▬▬▬▬▬▬▬▬▬▬\n"
+        f"Da <@&{STAFF_ROLE_ID}>\n"
+        f"{interaction.user.mention}" 
+    )
+    
+    embed.description = description_content
+    
+    # 5. Invio Pubblico nel canale dell'interazione
+    await interaction.channel.send(embed=embed)
+    
+    # 6. Log
+    await log_command(
+        bot, 
+        LOG_CHANNEL_ID, 
+        f"🟢 {interaction.user.mention} ha assunto {cittadino.mention} per {lavoro.name}. Ruolo aggiunto: {success}"
+    )

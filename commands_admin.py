@@ -62,7 +62,7 @@ def setup_admin_commands(bot: commands.Bot):
             
             # 1. Crea l'Embed di Rifiuto
             embed = discord.Embed(
-                title="𝐄𝐬𝐢𝐭𝐨 𝐛𝐚𝐧𝐝𝐨",
+                title="<a:megafono:1431932605984542720> 𝐄𝐬𝐢𝐭𝐨 𝐛𝐚𝐧𝐝𝐨 <a:annulla:1431940396635652146> ",
                 color=discord.Color.red()
             )
             
@@ -356,7 +356,7 @@ def setup_admin_commands(bot: commands.Bot):
             success = True
             
         embed = discord.Embed(
-            title="𝐄𝐬𝐢𝐭𝐨 𝐛𝐚𝐧𝐝𝐨",
+            title="<a:megafono:1431932605984542720> 𝐄𝐬𝐢𝐭𝐨 𝐛𝐚𝐧𝐝𝐨 <a:si:1433573748891582566>",
             color=discord.Color.green()
         )
         

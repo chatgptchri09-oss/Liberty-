@@ -68,10 +68,10 @@ def setup_admin_commands(bot: commands.Bot):
             
             # 2. Costruisci la descrizione ESATTA
             description_content = (
-                f"**𝗖𝗶𝘁𝘁𝗮𝗱𝗶𝗻𝗼**: {self.citizen.mention}\n"
-                f"**𝗘𝘀𝗶𝘁𝗼**: Rifiutato ❌\n"
-                f"**𝗟𝗮𝘃𝗼𝗿𝗼**: {self.role.mention}\n"
-                f"**𝗠𝗼𝘁𝗶𝘃𝗼**: {motivo}\n\n"
+                f"**𝗖𝗶𝘁𝘁𝗮𝗱𝗶𝗻𝗼**<a:casomaiconflecia:1434244328448069642> {self.citizen.mention}\n"
+                f"**𝗘𝘀𝗶𝘁𝗼**<a:casomaiconflecia:1434244328448069642> Rifiutato ❌\n"
+                f"**𝗟𝗮𝘃𝗼𝗿𝗼**<a:casomaiconflecia:1434244328448069642> {self.role.mention}\n"
+                f"**𝗠𝗼𝘁𝗶𝘃𝗼**<a:casomaiconflecia:1434244328448069642> {motivo}\n\n"
                 f"▬▬▬▬▬▬▬▬▬▬▬▬\n"
                 f"Da <@&{STAFF_ROLE_ID}>\n"
                 f"<@{self.staff_id}>" 
@@ -361,9 +361,9 @@ def setup_admin_commands(bot: commands.Bot):
         )
         
         description_content = (
-            f"**𝗖𝗶𝘁𝘁𝗮𝗱𝗶𝗻𝗼**: {cittadino.mention}\n"
-            f"**𝗘𝘀𝗶𝘁𝗼**: Assunto ✅\n"
-            f"**𝗟𝗮𝘃𝗼𝗿𝗼**: {lavoro.mention}\n\n"
+            f"**𝗖𝗶𝘁𝘁𝗮𝗱𝗶𝗻𝗼**<a:casomaiconflecia:1434244328448069642> {cittadino.mention}\n"
+            f"**𝗘𝘀𝗶𝘁𝗼**<a:casomaiconflecia:1434244328448069642> Assunto \n"
+            f"**𝗟𝗮𝘃𝗼𝗿𝗼**<a:casomaiconflecia:1434244328448069642> {lavoro.mention}\n\n"
             f"▬▬▬▬▬▬▬▬▬▬▬▬\n"
             f"Da <@&{STAFF_ROLE_ID}>\n"
             f"{interaction.user.mention}" 

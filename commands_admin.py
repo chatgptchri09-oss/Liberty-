@@ -4,10 +4,9 @@ from discord.ext import commands
 import aiosqlite
 import os
 import math
-import database # Importa il modulo database se ne hai bisogno per le funzioni di gestione denaro
 
 # ===================================================================================
-# COSTANTI E FUNZIONI DI SUPPORTO
+# COSTANTI E FUNZIONI DI SUPPORTO (Devono stare fuori dalla funzione di setup)
 # ===================================================================================
 
 DATABASE_NAME = "economy_bot.db"
@@ -31,135 +30,336 @@ async def log_command(bot, channel_id: int, message: str = None, embed: discord.
     except Exception:
         pass
 
-# --- NUOVE FUNZIONI DATABASE PER GESTIONE ITEMS ---
-
-async def create_item_db(name: str, required_role_id: str, weight: float):
-    """Crea un nuovo item nella tabella 'items' con il peso."""
-    async with aiosqlite.connect(DATABASE_NAME) as db:
-        await db.execute(
-            "INSERT INTO items (name, required_role_id, weight) VALUES (?, ?, ?)",
-            (name, required_role_id, weight)
-        )
-        await db.commit()
 
 # ===================================================================================
 # 🚨 FUNZIONE DI SETUP (TUTTI I COMANDI DEVONO STARE QUI DENTRO) 🚨
 # ===================================================================================
 
 def setup_admin_commands(bot: commands.Bot):
-    
-    # -------------------------------------------------------------------------------
-    # NUOVO COMANDO: /nuovo-item (con gestione peso)
-    # -------------------------------------------------------------------------------
+    """Registra i comandi amministrativi al tree del bot."""
 
-    @bot.tree.command(name="nuovo-item", description="[STAFF] Crea un nuovo oggetto nel database (con peso)")
-    @app_commands.describe(
-        nome="Nome dell'oggetto (es. Ferro)",
-        peso_kg="Peso dell'oggetto in kg (es. 0.010)",
-        ruolo_necessario="Il ruolo necessario per craftare/comprare (se presente)"
-    )
-    async def nuovo_item(interaction: discord.Interaction, nome: str, peso_kg: float, ruolo_necessario: discord.Role = None):
-        if not has_role(interaction, STAFF_ROLE_ID):
-            await interaction.response.send_message("❌ Solo lo staff può usare questo comando!", ephemeral=True)
-            return
+    # ===================================================
+    # MODAL PER IL MOTIVO DI RIFIUTO (Deve stare qui dentro)
+    # ===================================================
+    class RifiutoMotivoModal(discord.ui.Modal, title="Motivo del Rifiuto"):
+        # Il bot non serve come parametro del Modal se usiamo la funzione di setup
+        def __init__(self, citizen: discord.Member, role: discord.Role, staff_id: int): 
+            super().__init__()
+            self.citizen = citizen
+            self.role = role
+            self.staff_id = staff_id
             
-        await interaction.response.defer(ephemeral=True)
-        
-        if peso_kg < 0:
-            await interaction.followup.send("❌ Il peso non può essere negativo!", ephemeral=True)
-            return
+        motivo_input = discord.ui.TextInput(
+            label="Motivo del rifiuto del bando",
+            style=discord.TextStyle.paragraph,
+            placeholder="Specifica il motivo dettagliato per cui il bando è stato rifiutato.",
+            required=True,
+            max_length=500,
+        )
 
-        try:
-            role_id = str(ruolo_necessario.id) if ruolo_necessario else "None"
-            await create_item_db(nome, role_id, peso_kg)
+        async def on_submit(self, interaction: discord.Interaction):
+            motivo = self.motivo_input.value
             
+            # 1. Crea l'Embed di Rifiuto
             embed = discord.Embed(
-                title="✅ Oggetto creato con successo",
-                description=f"L'oggetto **{nome}** è stato aggiunto al database.",
-                color=discord.Color.green()
-            )
-            embed.add_field(name="Peso", value=f"{peso_kg} Kg", inline=True)
-            embed.add_field(name="Ruolo richiesto", value=ruolo_necessario.name if ruolo_necessario else "Nessuno", inline=True)
-            
-            await interaction.followup.send(embed=embed, ephemeral=True)
-            await log_command(bot, LOG_CHANNEL_ID, f"🛠️ {interaction.user.mention} ha creato l'item: {nome} ({peso_kg} Kg)")
-
-        except aiosqlite.IntegrityError:
-            await interaction.followup.send(f"❌ Errore: Un oggetto con il nome **{nome}** esiste già!", ephemeral=True)
-        except Exception as e:
-            await interaction.followup.send(f"❌ Si è verificato un errore: {e}", ephemeral=True)
-
-    # -------------------------------------------------------------------------------
-    # COMANDO: /grantbackpack (ESEMPIO DI COMANDO PREESISTENTE)
-    # -------------------------------------------------------------------------------
-
-    @bot.tree.command(name="dai-rimuovi_zaino", description="[STAFF] Dai o togli lo zaino ad un utente")
-    @app_commands.describe(utente="L'utente a cui dare/togliere lo zaino", azione="Scegli se dare o togliere")
-    @app_commands.choices(azione=[
-        app_commands.Choice(name="Dai Zaino (30Kg)", value="grant"),
-        app_commands.Choice(name="Togli Zaino (0Kg)", value="revoke"),
-    ])
-    async def grantbackpack(interaction: discord.Interaction, utente: discord.Member, azione: app_commands.Choice):
-        if not has_role(interaction, STAFF_ROLE_ID):
-            await interaction.response.send_message("❌ Solo lo staff può usare questo comando!", ephemeral=True)
-            return
-            
-        await interaction.response.defer(ephemeral=True)
-        user_id = str(utente.id)
-        
-        new_status = 1 if azione.value == "grant" else 0
-        
-        try:
-            # Aggiornamento diretto nella tabella users
-            async with aiosqlite.connect(DATABASE_NAME) as db:
-                await db.execute(
-                    "INSERT INTO users (user_id, has_backpack) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET has_backpack = excluded.has_backpack",
-                    (user_id, new_status)
-                )
-                await db.commit()
-            
-            
-            action_text = "ha ricevuto lo Zaino (30Kg)" if new_status == 1 else "ha perso lo Zaino (0Kg)"
-            
-            await interaction.followup.send(f"✅ {utente.mention} {action_text}!", ephemeral=True)
-            await log_command(bot, LOG_CHANNEL_ID, f"💼 {interaction.user.mention} ha modificato lo zaino di {utente.mention} ({azione.name})")
-
-        except Exception as e:
-            await interaction.followup.send(f"❌ Si è verificato un errore nel database: {e}", ephemeral=True)
-
-    # -------------------------------------------------------------------------------
-    # COMANDO: /bando (DAL TUO SNIPPET ORIGINALE)
-    # -------------------------------------------------------------------------------
-
-    @bot.tree.command(name="bando", description="[STAFF] Gestione Esito Bando Lavorativo")
-    @app_commands.describe(cittadino="Il cittadino per cui stabilire l'esito", lavoro="Il ruolo lavorativo")
-    @app_commands.choices(esito=[
-        app_commands.Choice(name="Assunto", value="assunto"),
-        app_commands.Choice(name="Rifiutato", value="rifiutato")
-    ])
-    async def bando(interaction: discord.Interaction, cittadino: discord.Member, lavoro: discord.Role, esito: app_commands.Choice):
-        if not has_role(interaction, STAFF_ROLE_ID):
-            await interaction.response.send_message("❌ Solo lo staff può usare questo comando!", ephemeral=True)
-            return
-            
-        await interaction.response.defer() 
-
-        if esito.value == "rifiutato":
-            embed = discord.Embed(
-                title="<a:megafono:1431932605984542720> 𝐄𝐬𝐢𝐭𝐨 𝐛𝐚𝐧𝐝𝐨 <a:annulla:1431940396635652146>",
-                description=f"**𝗖𝗶𝘁𝘁𝗮𝗱𝗶𝗻𝗼**<a:casomaiconflecia:1434244328448069642> {cittadino.mention}\n**𝗘𝘀𝗶𝘁𝗼**<a:casomaiconflecia:1434244328448069642> Rifiutato\n**𝗟𝗮𝘃𝗼𝗿𝗼**<a:casomaiconflecia:1434244328448069642> {lavoro.mention}\n\n▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬",
+                title="<a:megafono:1431932605984542720> 𝐄𝐬𝐢𝐭𝐨 𝐛𝐚𝐧𝐝𝐨 <a:annulla:1431940396635652146> ",
                 color=discord.Color.red()
             )
-            try:
-                await cittadino.send(embed=embed)
-                await interaction.followup.send(f"✅ Esito di rifiuto inviato per {cittadino.mention}.", ephemeral=True)
-            except:
-                await interaction.followup.send(f"✅ Esito di rifiuto inviato, ma non sono riuscito a inviare per {cittadino.mention}.", ephemeral=True)
             
-            await log_command(bot, LOG_CHANNEL_ID, f"📄 {interaction.user.mention} ha rifiutato il bando di {cittadino.mention} per {lavoro.name}")
+            # 2. Costruisci la descrizione ESATTA
+            description_content = (
+                f"**𝗖𝗶𝘁𝘁𝗮𝗱𝗶𝗻𝗼**<a:casomaiconflecia:1434244328448069642> {self.citizen.mention}\n"
+                f"**𝗘𝘀𝗶𝘁𝗼**<a:casomaiconflecia:1434244328448069642> Rifiutato ❌\n"
+                f"**𝗟𝗮𝘃𝗼𝗿𝗼**<a:casomaiconflecia:1434244328448069642> {self.role.mention}\n"
+                f"**𝗠𝗼𝘁𝗶𝘃𝗼**<a:casomaiconflecia:1434244328448069642> {motivo}\n\n"
+                f"▬▬▬▬▬▬▬▬▬▬▬▬\n"
+                f"Da <@&{STAFF_ROLE_ID}>\n"
+                f"<@{self.staff_id}>" 
+            )
+            
+            embed.description = description_content
+            
+            # 3. Risposta di conferma effimera allo staff (RISOLVE L'INTERAZIONE)
+            await interaction.response.send_message(f"✅ Esito Rifiutato inviato per {self.citizen.mention}.", ephemeral=True)
+            
+            # 4. Invio Pubblico nel canale dell'interazione
+            await interaction.channel.send(embed=embed)
+            
+            # 5. Log (Ora usa 'bot' che è accessibile nello scope di setup_admin_commands)
+            await log_command(
+                bot, 
+                LOG_CHANNEL_ID, 
+                f"🚫 {interaction.user.mention} ha rifiutato il bando di {self.citizen.mention} per {self.role.name}. Motivo: {motivo[:50]}..."
+            )
+            
+    # ==============================================================================
+    # ⚠️ PROBLEMA RIGA 96: DEVI INSERIRE QUI IL TUO COMANDO /dai-rimuovi_zaino
+    # ⚠️ E assicurati che il parametro con app_commands.choices sia di tipo 'str'.
+    # ⚠️ Esempio corretto: async def dai_rimuovi_zaino(..., azione: str, ...)
+    # ==============================================================================
+    
+    # ESEMPIO DELLA CORREZIONE CHE DEVI APPLICARE AL TUO COMANDO /dai-rimuovi_zaino:
+    """
+    @bot.tree.command(name="dai-rimuovi_zaino", description="[STAFF] Dai o togli lo zaino ad un utente")
+    @app_commands.describe(azione="Seleziona l'azione (dai/rimuovi)")
+    @app_commands.choices(azione=[
+        app_commands.Choice(name="Dai", value="DAI"),
+        app_commands.Choice(name="Rimuovi", value="RIMUOVI"),
+    ])
+    async def dai_rimuovi_zaino(interaction: discord.Interaction, utente: discord.Member, azione: str): # <-- DEVE ESSERE 'str' QUI!
+        # Usa 'azione' direttamente, non 'azione.value'
+        # ...
+    """
+    
+    # ====================
+    # COMANDO: /add-money
+    # ====================
+    @bot.tree.command(name="add-money", description="[STAFF] Aggiunge soldi al conto bancario di un utente.")
+    @app_commands.describe(
+        utente="L'utente a cui aggiungere i soldi",
+        importo="La cifra da aggiungere (va in Banca)"
+    )
+    async def add_money(interaction: discord.Interaction, utente: discord.Member, importo: int):
+        # ... (Logica di add-money) ...
+        if not has_role(interaction, STAFF_ROLE_ID):
+            await interaction.response.send_message(
+                f"❌ Non hai i permessi per usare questo comando. (Richiesto: <@&{STAFF_ROLE_ID}>)", 
+                ephemeral=True
+            )
             return
 
-        # Logica per assunzione
+        if importo <= 0:
+            await interaction.response.send_message("❌ L'importo da aggiungere deve essere maggiore di zero!", ephemeral=True)
+            return
+            
+        if utente.bot:
+            await interaction.response.send_message("❌ Non puoi aggiungere soldi a un bot.", ephemeral=True)
+            return
+            
+        user_id = str(utente.id)
+        
+        await interaction.response.defer(ephemeral=True)
+
+        async with aiosqlite.connect(DATABASE_NAME) as db:
+            async with db.execute("SELECT bank FROM users WHERE user_id = ?", (user_id,)) as cursor:
+                user_data = await cursor.fetchone()
+
+            if user_data:
+                new_bank = user_data[0] + importo
+                await db.execute("UPDATE users SET bank = ? WHERE user_id = ?", (new_bank, user_id))
+            else:
+                initial_bank = 20000
+                new_bank = initial_bank + importo
+                await db.execute("INSERT OR IGNORE INTO users (user_id, cash, bank, has_backpack) VALUES (?, 0, ?, 0)", (user_id, new_bank))
+                
+            await db.commit()
+
+        try:
+            await utente.send(f"💸 Lo staff ({interaction.user.mention}) ha accreditato **${importo:,}** sul tuo conto bancario.")
+        except:
+            pass
+
+        await interaction.followup.send(
+            f"✅ Aggiunto **${importo:,}** al conto bancario di **{utente.mention}**.",
+        )
+        await log_command(bot, LOG_CHANNEL_ID, f"💵 {interaction.user.mention} ha aggiunto ${importo:,} al conto bancario di {utente.mention}")
+
+
+    # =========================================
+    # COMANDO: /annuncio
+    # =========================================
+    @bot.tree.command(name="annuncio", description="[STAFF] Invia un annuncio nel canale desiderato.")
+    @app_commands.describe(
+        canale="Canale dove inviare l'annuncio",
+        titolo="Titolo dell'annuncio",
+        descrizione="Contenuto dell'annuncio",
+        colore="Colore dell'annuncio (rosso, verde, blu, giallo, viola, arancione)"
+    )
+    async def annuncio(
+        interaction: discord.Interaction,
+        canale: discord.TextChannel,
+        titolo: str,
+        descrizione: str,
+        colore: str
+    ):
+        STAFF_ROLE_ID = 1414738761207517214
+        MENTION_ROLE_ID = 1414752091607535727
+
+        if not has_role(interaction, STAFF_ROLE_ID):
+            await interaction.response.send_message("❌ Non hai i permessi per usare questo comando!", ephemeral=True)
+            return
+
+        await interaction.response.defer(ephemeral=True, thinking=True)
+
+        color_map = {
+            "rosso": discord.Color.red(),
+            "verde": discord.Color.green(),
+            "blu": discord.Color.blue(),
+            "giallo": discord.Color.gold(),
+            "viola": discord.Color.purple(),
+            "arancione": discord.Color.orange()
+        }
+
+        embed_color = color_map.get(colore.lower(), discord.Color.blurple())
+
+        embed = discord.Embed(
+            title=f"<a:megafono:1431932605984542720> {titolo} <a:megafono:1431932605984542720>",
+            description=descrizione,
+            color=embed_color
+        )
+
+        embed.set_footer(
+            text=f"Annuncio inviato da {interaction.user}",
+            icon_url=interaction.user.display_avatar.url
+        )
+
+        if interaction.guild and interaction.guild.icon:
+            embed.set_thumbnail(url=interaction.guild.icon.url)
+
+        await canale.send(f"<@&{MENTION_ROLE_ID}>", embed=embed)
+
+        await interaction.followup.send(f"✅ Annuncio inviato correttamente in {canale.mention}!", ephemeral=True)
+
+        await log_command(bot, LOG_CHANNEL_ID, f"📢 {interaction.user.mention} ha inviato un annuncio in {canale.mention}: **{titolo}**")
+
+
+    
+    # ====================
+    # COMANDO: /remove-money
+    # ====================
+    @bot.tree.command(name="remove-money", description="[STAFF] Rimuovi soldi dal conto bancario di un utente.")
+    @app_commands.describe(
+        utente="L'utente a cui rimuovere i soldi",
+        importo="La cifra da rimuovere (dalla Banca)"
+    )
+    async def remove_money(interaction: discord.Interaction, utente: discord.Member, importo: int):
+        # ... (Logica di remove-money) ...
+        if not has_role(interaction, STAFF_ROLE_ID):
+            await interaction.response.send_message(
+                f"❌ Non hai i permessi per usare questo comando. (Richiesto: <@&{STAFF_ROLE_ID}>)", 
+                ephemeral=True
+            )
+            return
+
+        if importo <= 0:
+            await interaction.response.send_message("❌ L'importo da rimuovere deve essere maggiore di zero!", ephemeral=True)
+            return
+            
+        if utente.bot:
+            await interaction.response.send_message("❌ Non puoi rimuovere soldi a un bot.", ephemeral=True)
+            return
+            
+        user_id = str(utente.id)
+        
+        await interaction.response.defer(ephemeral=True)
+
+        async with aiosqlite.connect(DATABASE_NAME) as db:
+            async with db.execute("SELECT bank FROM users WHERE user_id = ?", (user_id,)) as cursor:
+                user_data = await cursor.fetchone()
+
+            if not user_data:
+                await db.execute("INSERT OR IGNORE INTO users (user_id, cash, bank, has_backpack) VALUES (?, 0, 0, 0)", (user_id,))
+                await db.commit()
+                await interaction.followup.send(f"❌ {utente.mention} non aveva un saldo in banca, quindi non è stato rimosso nulla.", ephemeral=True)
+                return
+
+            current_bank = user_data[0]
+            new_bank = max(0, current_bank - importo)
+            
+            await db.execute("UPDATE users SET bank = ? WHERE user_id = ?", (new_bank, user_id))
+            await db.commit()
+            
+            removed_amount = current_bank - new_bank
+
+        try:
+            await utente.send(f"⚠️ Lo staff ({interaction.user.mention}) ha rimosso **${removed_amount:,}** dal tuo conto bancario.")
+        except:
+            pass
+        
+        await interaction.followup.send(
+            f"✅ Rimosso **${removed_amount:,}** dal conto bancario di **{utente.mention}**."
+        )
+
+        await log_command(bot, LOG_CHANNEL_ID, f"➖ {interaction.user.mention} ha rimosso ${removed_amount:,} dal conto bancario di {utente.mention}")
+
+    
+    # ====================
+    # COMANDO: /reset
+    # ====================
+    @bot.tree.command(name="reset", description="[STAFF] Rimuovi tutti i soldi (cash e banca) di un utente.")
+    @app_commands.describe(utente="L'utente a cui azzerare i soldi")
+    async def reset(interaction: discord.Interaction, utente: discord.Member):
+        # ... (Logica di reset) ...
+        if not has_role(interaction, RESET_ROLE_ID):
+            await interaction.response.send_message(
+                f"❌ Non hai i permessi per usare questo comando. (Richiesto: <@&{RESET_ROLE_ID}>)", 
+                ephemeral=True
+            )
+            return
+
+        if utente.bot:
+            await interaction.response.send_message("❌ Non puoi azzerare i soldi di un bot.", ephemeral=True)
+            return
+            
+        user_id = str(utente.id)
+        
+        async with aiosqlite.connect(DATABASE_NAME) as db:
+            await db.execute(
+                "UPDATE users SET cash = 0, bank = 0 WHERE user_id = ?",
+                (user_id,)
+            )
+            await db.execute(
+                "INSERT OR IGNORE INTO users (user_id, cash, bank) VALUES (?, 0, 0)",
+                (user_id,)
+            )
+            await db.commit()
+        
+        try:
+            await utente.send(f"⚠️ Il tuo saldo (cash e banca) è stato azzerato dallo staff ({interaction.user.mention}).")
+        except:
+            pass
+
+        await interaction.response.send_message(
+            f"✅ Saldo (cash e banca) di **{utente.mention}** azzerato con successo!",
+            ephemeral=True
+        )
+
+        await log_command(bot, LOG_CHANNEL_ID, f"🔄 {interaction.user.mention} ha azzerato il saldo (cash e banca) di {utente.mention}")
+        
+    
+    # =========================================
+    # COMANDO: /esito-bando (CORRETTO)
+    # =========================================
+    @bot.tree.command(name="esito-bando", description="[STAFF] Gestisce l'esito di un bando lavorativo.")
+    @app_commands.describe(
+        esito="Seleziona l'esito del bando",
+        cittadino="La persona che ha partecipato al bando",
+        lavoro="Il ruolo del lavoro per cui è stato fatto il bando"
+    )
+    @app_commands.choices(esito=[
+        app_commands.Choice(name="Assunto", value="ASSUNTO"),
+        app_commands.Choice(name="Rifiutato", value="RIFIUTATO"),
+    ])
+    async def esito_bando(
+        interaction: discord.Interaction, 
+        esito: str, # <--- CORREZIONE: DEVE ESSERE 'str'
+        cittadino: discord.Member, 
+        lavoro: discord.Role
+    ):
+        if not has_role(interaction, STAFF_ROLE_ID):
+            await interaction.response.send_message("❌ Solo lo Staff può usare questo comando.", ephemeral=True)
+            return
+        
+        # Passiamo il bot al modal per il logging
+        if esito == "RIFIUTATO": # <--- CORREZIONE: usiamo 'esito' direttamente
+            modal = RifiutoMotivoModal(cittadino, lavoro, interaction.user.id) 
+            await interaction.response.send_modal(modal)
+            return 
+        
+        # --- Logica ASSUNTO (Stabile) ---
+        
+        await interaction.response.send_message(f"✅ Bando Assunto in fase di invio per {cittadino.mention}.", ephemeral=True)
+
         success = False
         
         if lavoro not in cittadino.roles:
@@ -182,67 +382,17 @@ def setup_admin_commands(bot: commands.Bot):
             f"**𝗖𝗶𝘁𝘁𝗮𝗱𝗶𝗻𝗼**<a:casomaiconflecia:1434244328448069642> {cittadino.mention}\n"
             f"**𝗘𝘀𝗶𝘁𝗼**<a:casomaiconflecia:1434244328448069642> Assunto \n"
             f"**𝗟𝗮𝘃𝗼𝗿𝗼**<a:casomaiconflecia:1434244328448069642> {lavoro.mention}\n\n"
-            f"▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬"
+            f"▬▬▬▬▬▬▬▬▬▬▬▬\n"
+            f"Da <@&{STAFF_ROLE_ID}>\n"
+            f"{interaction.user.mention}" 
         )
+        
         embed.description = description_content
-
-        if success:
-            try:
-                await cittadino.send(embed=embed)
-                await interaction.followup.send(f"✅ Esito di assunzione inviato per {cittadino.mention}.", ephemeral=True)
-            except:
-                await interaction.followup.send(f"✅ Esito di assunzione inviato, ma non sono riuscito ad aggiungere il ruolo e inviare per {cittadino.mention}.", ephemeral=True)
-
-            await log_command(bot, LOG_CHANNEL_ID, f"📄 {interaction.user.mention} ha assunto {cittadino.mention} per {lavoro.name}")
-        else:
-            await interaction.followup.send(f"❌ Si è verificato un errore durante l'assunzione di {cittadino.mention}.", ephemeral=True)
-
-    # -------------------------------------------------------------------------------
-    # COMANDO: /addcash (ESEMPIO DI COMANDO PREESISTENTE)
-    # -------------------------------------------------------------------------------
-
-    @bot.tree.command(name="add-money", description="[STAFF] Aggiungi denaro in contanti a un utente")
-    @app_commands.describe(utente="L'utente a cui aggiungere denaro", importo="L'importo da aggiungere")
-    async def addcash(interaction: discord.Interaction, utente: discord.Member, importo: int):
-        if not has_role(interaction, STAFF_ROLE_ID):
-            await interaction.response.send_message("❌ Solo lo staff può usare questo comando!", ephemeral=True)
-            return
         
-        if importo <= 0:
-            await interaction.response.send_message("❌ L'importo deve essere positivo!", ephemeral=True)
-            return
-            
-        await interaction.response.defer(ephemeral=True)
+        await interaction.channel.send(embed=embed)
         
-        try:
-            async with aiosqlite.connect(DATABASE_NAME) as db:
-                await db.execute(
-                    "INSERT INTO users (user_id, cash) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET cash = cash + excluded.cash",
-                    (str(utente.id), importo)
-                )
-                await db.commit()
-                
-                new_data = await db.execute("SELECT cash FROM users WHERE user_id = ?", (str(utente.id),)).fetchone()
-                new_cash = new_data[0] if new_data else importo
-            
-            await interaction.followup.send(f"✅ Aggiunti **${importo:,}** in contanti a {utente.mention}.", ephemeral=True)
-            try:
-                await utente.send(f"💵 Lo staff ha aggiunto **${importo:,}** al tuo portafoglio. Nuovo saldo contanti: ${new_cash:,}")
-            except:
-                pass
-            await log_command(bot, LOG_CHANNEL_ID, f"💰 {interaction.user.mention} ha aggiunto ${importo:,} a {utente.mention} (CASH)")
-
-        except Exception as e:
-            await interaction.followup.send(f"❌ Si è verificato un errore: {e}", ephemeral=True)
-            
-    # Includi qui gli altri comandi di gestione denaro o admin (es. /removecash, /addbank, /setbank, ecc.)
-
-    # -------------------------------------------------------------------------------
-    # PLACEHOLDER PER ALTRI COMANDI ADMIN
-    # -------------------------------------------------------------------------------
-    # @bot.tree.command(name="removecash", description="[STAFF] Rimuovi contanti...")
-    # ...
-    # @bot.tree.command(name="addbank", description="[STAFF] Aggiungi banca...")
-    # ...
-    
-    pass
+        await log_command(
+            bot, 
+            LOG_CHANNEL_ID, 
+            f"🟢 {interaction.user.mention} ha assunto {cittadino.mention} per {lavoro.name}. Ruolo aggiunto: {success}"
+        )

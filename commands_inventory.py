@@ -333,7 +333,7 @@ def setup_inventory_commands(bot: commands.Bot):
     # COMANDO /dai (TRASFERIMENTO OGGETTI)
     # -------------------------------------------------------------------------------
 
-    @bot.tree.command(name="dai", description="Dai un oggetto dal tuo zaino a un altro utente")
+    @bot.tree.command(name="dai-item", description="Dai un oggetto dal tuo zaino a un altro utente")
     @app_commands.describe(utente="L'utente a cui dare l'oggetto", nome_item="Il nome dell'oggetto da dare", quantita="La quantità da trasferire")
     async def dai(interaction: discord.Interaction, utente: discord.Member, nome_item: str, quantita: int):
         
@@ -413,7 +413,7 @@ def setup_inventory_commands(bot: commands.Bot):
     # COMANDO /additem (AGGIUNGI OGGETTO - STAFF)
     # -------------------------------------------------------------------------------
 
-    @bot.tree.command(name="additem", description="[STAFF] Aggiunge un oggetto all'inventario di un utente")
+    @bot.tree.command(name="give-item", description="[STAFF] Aggiunge un oggetto all'inventario di un utente")
     @app_commands.describe(utente="L'utente a cui aggiungere l'oggetto", nome_item="Nome dell'oggetto da aggiungere", quantita="La quantità da aggiungere")
     async def additem(interaction: discord.Interaction, utente: discord.Member, nome_item: str, quantita: int):
         if not has_role(interaction, STAFF_ROLE_ID):

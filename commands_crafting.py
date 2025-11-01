@@ -138,18 +138,21 @@ class CraftingView(discord.ui.View):
 # ===================================================================================
 
 def setup_crafting_commands(bot: commands.Bot):
+
+@bot.tree.command(name="crafting", description="Apri il menu di crafting per creare oggetti")
+@app_commands.describe(progetto_scelto="Scegli il progetto che vuoi usare")
+@app_commands.choices(progetto_scelto=[
+    app_commands.Choice(name="Pistole Legali (FDO/FFA)", value="Progetto Pistole Legali"),
+    app_commands.Choice(name="Armi Lunghe Legali", value="Progetto Armi Lunghe Legali"),
+    app_commands.Choice(name="Progetto Protezioni", value="Progetto Protezioni"),
+    app_commands.Choice(name="Armi Lunghe Illegali", value="Progetto Armi Lunghe Illegali"),
+])
+async def crafting(interaction: discord.Interaction, progetto_scelto: str): # <-- CORRETTA QUI!
+    user_id = str(interaction.user.id)
+    nome_progetto = progetto_scelto # <-- Si usa direttamente la variabile, che è già una stringa
     
-    @bot.tree.command(name="crafting", description="Apri il menu di crafting per creare oggetti")
-    @app_commands.describe(progetto_scelto="Scegli il progetto che vuoi usare")
-    @app_commands.choices(progetto_scelto=[
-        app_commands.Choice(name="Pistole Legali (FDO/FFA)", value="Progetto Pistole Legali"),
-        app_commands.Choice(name="Armi Lunghe Legali", value="Progetto Armi Lunghe Legali"),
-        app_commands.Choice(name="Progetto Protezioni", value="Progetto Protezioni"),
-        app_commands.Choice(name="Armi Lunghe Illegali", value="Progetto Armi Lunghe Illegali"),
-    ])
-    async def crafting(interaction: discord.Interaction, progetto_scelto: app_commands.Choice):
-        user_id = str(interaction.user.id)
-        nome_progetto = progetto_scelto.value
+    # ... il resto della tua logica ...
+
 
         # 1. Controllo possesso del progetto
         quantita_progetto = await get_item_quantity_db(user_id, nome_progetto)

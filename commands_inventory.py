@@ -15,10 +15,8 @@ LOG_CHANNEL_ID = 1415297578022604850
 STAFF_ROLE_ID = 1414738761207517214
 MARKET_ROLE_ID = 1415242295153918123
 
-# --- Nuove Costanti per Logica Crafting/Inventario ---
-# Ricette e Progetti mappati (Usati da /progetto e da commands_crafting.py)
+# --- Costanti per Logica Crafting/Inventario (Ricette/Progetti) ---
 RICETTE: Dict[str, Dict[str, int]] = {
-    # Progetto Pistole Legali
     "Pistola": {"Ferro": 20, "Percussore Bilanciato": 1, "Otturatore": 1},
     "Pistola d'Ordinanza (F.D.O)": {"Ferro": 25, "Acciaio Lavorato": 15, "Kit Smussatura (Bordi)": 1},
     "Taser (F.D.O)": {"Ferro": 18, "Acciaio Lavorato": 1, "Pacco Celle 18650 Protette": 1, "Microchip": 1},
@@ -26,9 +24,7 @@ RICETTE: Dict[str, Dict[str, int]] = {
     "Revolver Pesante": {"Ferro": 30, "Acciaio Lavorato": 1, "Molla Rinforzata": 1},
     "Pistola MK2 (F.D.O)": {"Ferro": 15, "Pistola": 1, "Otturatore": 1, "Molla Rinforzata": 1},
     "Pistola MK2 = 1": {"Ferro": 15, "Pistola": 1, "Otturatore": 1, "Molla Rinforzata": 1},
-    # Armi Lunghe Legali - Esempi
     "Fucile": {"Acciaio Lavorato": 50, "Canna Lunga": 1, "Calcio": 1}, 
-    # Aggiungi qui tutte le altre ricette...
 }
 
 PROGETTI_MAP: Dict[str, List[str]] = {
@@ -36,7 +32,6 @@ PROGETTI_MAP: Dict[str, List[str]] = {
     "Progetto Armi Lunghe Legali": ["Fucile"], 
     "Progetto Protezioni": ["Giubbotto Antiproiettile", "Elmetto"], 
     "Progetto Armi Lunghe Illegali": ["AK-47", "M4"], 
-    # Aggiungi qui gli altri progetti...
 }
 
 def has_role(interaction: discord.Interaction, role_id: int) -> bool:
@@ -56,7 +51,7 @@ async def log_command(bot, channel_id: int, message: str = None, embed: discord.
         pass
 
 # ===================================================================================
-# FUNZIONI DI INVENTARIO AGGIORNATE (Riutilizzabili)
+# FUNZIONI DI INVENTARIO AGGIORNATE
 # ===================================================================================
 
 async def update_inventory(user_id: str, item_name: str, quantity: int, mode: str = 'add'):
@@ -72,10 +67,12 @@ async def update_inventory(user_id: str, item_name: str, quantity: int, mode: st
                 (user_id, item_name, quantity)
             )
         elif mode == 'remove':
+            # Rimuove la quantità
             await db.execute(
                 "UPDATE user_inventory SET quantity = quantity - ? WHERE user_id = ? AND item_name = ?",
                 (quantity, user_id, item_name)
             )
+            # Rimuove l'item se la quantità è <= 0
             await db.execute(
                 "DELETE FROM user_inventory WHERE user_id = ? AND item_name = ? AND quantity <= 0",
                 (user_id, item_name)
@@ -113,7 +110,7 @@ async def get_inventory_items_with_weight(user_id: str) -> List[Dict]:
                 items_list.append({
                     "item_name": item_name,
                     "quantity": quantity,
-                    "weight": weight if weight is not None else 0.0 # Usa 0.0 se il peso non è definito in 'items'
+                    "weight": weight if weight is not None else 0.0 
                 })
             return items_list
 
@@ -127,12 +124,21 @@ async def get_inventory_item(user_id: str, item_name: str) -> int:
             result = await cursor.fetchone()
             return result[0] if result else 0
 
+async def get_item_weight_db(item_name: str) -> float:
+    """Recupera il peso di un item specifico dal database."""
+    async with aiosqlite.connect(DATABASE_NAME) as db:
+        async with db.execute(
+            "SELECT weight FROM items WHERE name = ?", 
+            (item_name,)
+        ) as cursor:
+            result = await cursor.fetchone()
+            return result[0] if result else 0.0 # Ritorna 0.0 se non trovato o non definito
+
 # ===================================================================================
 # CLASSI VIEW
 # ===================================================================================
 
 class InventoryView(discord.ui.View):
-    # Aggiornato per includere total_weight
     def __init__(self, bot: commands.Bot, items: List[Dict], max_weight: int, total_weight: float):
         super().__init__(timeout=60)
         self.bot = bot
@@ -143,7 +149,6 @@ class InventoryView(discord.ui.View):
         self.current_page = 0
         self.max_pages = math.ceil(len(self.items) / self.items_per_page) if self.items else 1
         
-        # Aggiungi i bottoni
         self.add_item(self.create_page_button("⬅️ Pagina", "prev_page", discord.ButtonStyle.secondary))
         self.add_item(self.create_page_button("Pagina ➡️", "next_page", discord.ButtonStyle.secondary))
         self.add_item(self.create_deposit_button())
@@ -165,9 +170,9 @@ class InventoryView(discord.ui.View):
         
         content = []
         
-        # Titolo e Peso Reale Calcolato
         content.append(f"👑 **Zaino ({self.max_weight}Kg)**")
-        content.append(f"Peso attuale: {self.total_weight:.3f}Kg / {self.max_weight}Kg") # Formattato a 3 decimali
+        # Peso totale formattato a 3 decimali
+        content.append(f"Peso attuale: {self.total_weight:.3f}Kg / {self.max_weight}Kg") 
         
         for item in page_items:
             item_name = item['item_name']
@@ -231,7 +236,6 @@ class ProgettoView(discord.ui.View):
         selected_progetto = interaction.data['values'][0]
         ricette_lista = PROGETTI_MAP.get(selected_progetto, [])
         
-        # Verifica possesso progetto
         if await get_inventory_item(self.user_id, selected_progetto) == 0:
             await interaction.response.send_message(
                 f"❌ Devi possedere l'item **{selected_progetto}** nello zaino per visualizzare le sue ricette!",
@@ -239,7 +243,6 @@ class ProgettoView(discord.ui.View):
             )
             return
 
-        # Costruisci la lista delle ricette
         ricette_text = ""
         for item_name in ricette_lista:
             ricetta = RICETTE.get(item_name)
@@ -264,7 +267,7 @@ class ProgettoView(discord.ui.View):
 def setup_inventory_commands(bot: commands.Bot):
     
     # -------------------------------------------------------------------------------
-    # COMANDO /invzaino
+    # COMANDO /invzaino (VISUALIZZA INVENTARIO CON PESO)
     # -------------------------------------------------------------------------------
 
     @bot.tree.command(name="invzaino", description="Visualizza il contenuto del tuo zaino (inventory)")
@@ -307,7 +310,7 @@ def setup_inventory_commands(bot: commands.Bot):
 
 
     # -------------------------------------------------------------------------------
-    # COMANDO /progetto
+    # COMANDO /progetto (VISUALIZZA RICETTE)
     # -------------------------------------------------------------------------------
     
     @bot.tree.command(name="progetto", description="Visualizza le ricette disponibili per i tuoi progetti")
@@ -324,10 +327,10 @@ def setup_inventory_commands(bot: commands.Bot):
         
         await interaction.followup.send(embed=embed, view=view, ephemeral=True)
         await log_command(bot, LOG_CHANNEL_ID, f"📝 {interaction.user.mention} ha visualizzato il menu Progetti.")
-        
+
 
     # -------------------------------------------------------------------------------
-    # COMANDO /dai (LOGICA PRECEDENTE MANTENUTA)
+    # COMANDO /dai (TRASFERIMENTO OGGETTI)
     # -------------------------------------------------------------------------------
 
     @bot.tree.command(name="dai", description="Dai un oggetto dal tuo zaino a un altro utente")
@@ -347,21 +350,41 @@ def setup_inventory_commands(bot: commands.Bot):
             await interaction.followup.send("❌ Non puoi dare un oggetto a te stesso!", ephemeral=True)
             return
 
-        async with aiosqlite.connect(DATABASE_NAME) as db:
-            sender_inventory = await db.execute("SELECT quantity FROM user_inventory WHERE user_id = ? AND item_name = ?", (sender_id, nome_item)).fetchone()
-            receiver_backpack = await db.execute("SELECT has_backpack FROM users WHERE user_id = ?", (receiver_id,)).fetchone()
-            
-            if not sender_inventory or sender_inventory[0] < quantita:
-                await interaction.followup.send(f"❌ Non hai **{quantita}**x **{nome_item}** nel tuo zaino!", ephemeral=True)
-                return
-                
-            if not receiver_backpack or receiver_backpack[0] == 0:
-                await interaction.followup.send(
-                    f"❌ {utente.mention} non ha uno zaino in cui ricevere l'item!", 
-                    ephemeral=True
-                )
-                return
+        sender_quantity = await get_inventory_item(sender_id, nome_item)
+        receiver_backpack = await get_backpack_size(receiver_id)
         
+        if sender_quantity < quantita:
+            await interaction.followup.send(f"❌ Non hai **{quantita}**x **{nome_item}** nel tuo zaino!", ephemeral=True)
+            return
+            
+        if receiver_backpack == 0:
+            await interaction.followup.send(
+                f"❌ {utente.mention} non ha uno zaino in cui ricevere l'item!", 
+                ephemeral=True
+            )
+            return
+            
+        # --- Controllo Peso (NUOVA LOGICA AGGIUNTA) ---
+        
+        # 1. Calcola il peso che si sposta
+        item_weight = await get_item_weight_db(nome_item)
+        transfer_weight = quantita * item_weight
+        
+        # 2. Calcola il peso attuale del destinatario (escluso l'item che riceverà)
+        receiver_items = await get_inventory_items_with_weight(receiver_id)
+        current_receiver_weight = sum(item['quantity'] * item['weight'] for item in receiver_items if item['item_name'] != nome_item)
+        
+        # 3. Verifica il limite
+        new_receiver_weight = current_receiver_weight + transfer_weight
+        if new_receiver_weight > receiver_backpack:
+             await interaction.followup.send(
+                f"❌ **{utente.mention} non può ricevere questo oggetto!** Il suo zaino è troppo pesante.\n"
+                f"Peso attuale: {current_receiver_weight:.3f}Kg. Peso da ricevere: {transfer_weight:.3f}Kg. Limite: {receiver_backpack}Kg.",
+                ephemeral=True
+            )
+             return
+
+        # Trasferimento effettivo
         await update_inventory(sender_id, nome_item, quantita, mode='remove')
         await update_inventory(receiver_id, nome_item, quantita, mode='add')
     
@@ -372,7 +395,7 @@ def setup_inventory_commands(bot: commands.Bot):
                 color=discord.Color.green()
             )
             embed.add_field(name="Donatore", value=interaction.user.mention, inline=False)
-            embed.set_footer(text="Controlla il tuo zaino con /invzaino.")
+            embed.set_footer(text=f"Il tuo nuovo peso stimato: {new_receiver_weight:.3f}Kg. Controlla il tuo zaino con /invzaino.")
             await utente.send(embed=embed)
         except:
             pass
@@ -384,3 +407,105 @@ def setup_inventory_commands(bot: commands.Bot):
 
         log_msg = f"➡️ {interaction.user.mention} ha dato {quantita}x {nome_item} a {utente.mention}"
         await log_command(bot, LOG_CHANNEL_ID, log_msg)
+
+
+    # -------------------------------------------------------------------------------
+    # COMANDO /additem (AGGIUNGI OGGETTO - STAFF)
+    # -------------------------------------------------------------------------------
+
+    @bot.tree.command(name="additem", description="[STAFF] Aggiunge un oggetto all'inventario di un utente")
+    @app_commands.describe(utente="L'utente a cui aggiungere l'oggetto", nome_item="Nome dell'oggetto da aggiungere", quantita="La quantità da aggiungere")
+    async def additem(interaction: discord.Interaction, utente: discord.Member, nome_item: str, quantita: int):
+        if not has_role(interaction, STAFF_ROLE_ID):
+            await interaction.response.send_message("❌ Solo lo staff può usare questo comando!", ephemeral=True)
+            return
+
+        if quantita <= 0:
+            await interaction.response.send_message("❌ La quantità deve essere almeno 1!", ephemeral=True)
+            return
+            
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        user_id = str(utente.id)
+        
+        # --- Controllo Peso per l'aggiunta (NUOVA LOGICA) ---
+        max_weight = await get_backpack_size(user_id)
+        if max_weight == 0:
+             await interaction.followup.send(
+                f"❌ **{utente.mention} non possiede uno zaino!** L'item non può essere aggiunto.", 
+                ephemeral=True
+            )
+             return
+             
+        item_weight = await get_item_weight_db(nome_item)
+        transfer_weight = quantita * item_weight
+        
+        receiver_items = await get_inventory_items_with_weight(user_id)
+        current_receiver_weight = sum(item['quantity'] * item['weight'] for item in receiver_items if item['item_name'] != nome_item)
+        new_receiver_weight = current_receiver_weight + transfer_weight
+        
+        if new_receiver_weight > max_weight:
+             await interaction.followup.send(
+                f"❌ **Impossibile aggiungere!** {utente.mention} non ha abbastanza spazio.\n"
+                f"Peso attuale: {current_receiver_weight:.3f}Kg. Peso da aggiungere: {transfer_weight:.3f}Kg. Limite: {max_weight}Kg.",
+                ephemeral=True
+            )
+             return
+        
+        # Esecuzione dell'aggiunta
+        await update_inventory(user_id, nome_item, quantita, mode='add')
+        
+        await interaction.followup.send(
+            f"✅ Aggiunti **{quantita}**x **{nome_item}** all'inventario di {utente.mention}!", 
+            ephemeral=True
+        )
+        
+        try:
+            await utente.send(f"✅ Lo staff ha aggiunto **{quantita}**x **{nome_item}** al tuo zaino. Nuovo peso stimato: {new_receiver_weight:.3f}Kg.")
+        except:
+            pass
+            
+        await log_command(bot, LOG_CHANNEL_ID, f"➕ {interaction.user.mention} ha aggiunto {quantita}x {nome_item} a {utente.mention}")
+
+
+    # -------------------------------------------------------------------------------
+    # COMANDO /removeitem (RIMUOVI OGGETTO - STAFF)
+    # -------------------------------------------------------------------------------
+
+    @bot.tree.command(name="removeitem", description="[STAFF] Rimuove un oggetto dall'inventario di un utente")
+    @app_commands.describe(utente="L'utente a cui rimuovere l'oggetto", nome_item="Nome dell'oggetto da rimuovere", quantita="La quantità da rimuovere")
+    async def removeitem(interaction: discord.Interaction, utente: discord.Member, nome_item: str, quantita: int):
+        if not has_role(interaction, STAFF_ROLE_ID):
+            await interaction.response.send_message("❌ Solo lo staff può usare questo comando!", ephemeral=True)
+            return
+
+        if quantita <= 0:
+            await interaction.response.send_message("❌ La quantità deve essere almeno 1!", ephemeral=True)
+            return
+
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        user_id = str(utente.id)
+        
+        current_quantity = await get_inventory_item(user_id, nome_item)
+        
+        if current_quantity < quantita:
+            await interaction.followup.send(
+                f"❌ {utente.mention} possiede solo {current_quantity}x **{nome_item}**. Impossibile rimuovere {quantita}.", 
+                ephemeral=True
+            )
+            return
+
+        # Esecuzione della rimozione
+        await update_inventory(user_id, nome_item, quantita, mode='remove')
+        
+        await interaction.followup.send(
+            f"✅ Rimossi **{quantita}**x **{nome_item}** dall'inventario di {utente.mention}!", 
+            ephemeral=True
+        )
+        
+        try:
+            new_quantity = current_quantity - quantita
+            await utente.send(f"⚠️ Lo staff ha rimosso **{quantita}**x **{nome_item}** dal tuo zaino. Quantità rimanente: {new_quantity}.")
+        except:
+            pass
+            
+        await log_command(bot, LOG_CHANNEL_ID, f"➖ {interaction.user.mention} ha rimosso {quantita}x {nome_item} da {utente.mention}")

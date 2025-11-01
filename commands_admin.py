@@ -93,7 +93,7 @@ def setup_admin_commands(bot: commands.Bot):
     # COMANDO: /grantbackpack (ESEMPIO DI COMANDO PREESISTENTE)
     # -------------------------------------------------------------------------------
 
-    @bot.tree.command(name="dai/rimuovi-zaino", description="[STAFF] Dai o togli lo zaino ad un utente")
+    @bot.tree.command(name="dai-rimuovi_zaino", description="[STAFF] Dai o togli lo zaino ad un utente")
     @app_commands.describe(utente="L'utente a cui dare/togliere lo zaino", azione="Scegli se dare o togliere")
     @app_commands.choices(azione=[
         app_commands.Choice(name="Dai Zaino (30Kg)", value="grant"),

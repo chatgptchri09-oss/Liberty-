@@ -149,7 +149,7 @@ from commands_crafting import setup_crafting_commands # <--- NUOVA
 # 2. SETUP COMANDI (COMPLETO)
 # ====================
 setup_invoice_commands(bot)
-setup_fines_commands(bot) # <-- Ripristinato l'uso del file corretto
+setup_fine_commands(bot) # <-- Ripristinato l'uso del file corretto
 setup_document_commands(bot)
 setup_wallet_commands(bot)
 setup_inventory_commands(bot)

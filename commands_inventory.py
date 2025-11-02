@@ -2,68 +2,36 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 import aiosqlite
-import os
-
-# ===================================================================================
-# COSTANTI
-# ===================================================================================
 
 DATABASE_NAME = "economy_bot.db"
 LOG_CHANNEL_ID = 1415297578022604850
 STAFF_ROLE_ID = 1414738761207517214
 MARKET_ROLE_ID = 1415242295153918123
-BACKPACK_PRICE = 5000 # Prezzo per l'acquisto dello zaino
-
-# ===================================================================================
-# FUNZIONI DI SUPPORTO
-# ===================================================================================
 
 def has_role(interaction: discord.Interaction, role_id: int) -> bool:
     if not isinstance(interaction.user, discord.Member):
         return False
     return any(role.id == role_id for role in interaction.user.roles)
 
-async def log_command(bot, channel_id: int, message: str = None, embed: discord.Embed = None):
+async def log_command(bot, channel_id: int, message: str):
     try:
         channel = bot.get_channel(channel_id)
-        if channel and hasattr(channel, 'send'):
-            if embed:
-                await channel.send(embed=embed)
-            elif message:
-                await channel.send(message)
+        if channel and hasattr(channel, "send"):
+            await channel.send(message)
     except:
         pass
 
-async def get_user_economy(user_id: str):
-    """Recupera denaro e stato zaino dell'utente."""
-    async with aiosqlite.connect(DATABASE_NAME) as db:
-        # Assicurati che 'has_backpack' sia presente nella tabella users
-        async with db.execute("SELECT cash, bank, has_backpack FROM users WHERE user_id = ?", (user_id,)) as cursor:
-            return await cursor.fetchone()
-
-async def update_user_economy(user_id: str, bank_change: int = 0, backpack_status: int = None):
-    """Aggiorna bank e/o stato zaino dell'utente."""
-    async with aiosqlite.connect(DATABASE_NAME) as db:
-        query = "UPDATE users SET bank = bank + ?"
-        params = [bank_change]
-        
-        if backpack_status is not None:
-            query += ", has_backpack = ?"
-            params.append(backpack_status)
-        
-        query += " WHERE user_id = ?"
-        params.append(user_id)
-        
-        # Inizializza l'utente se non esiste (necessario per evitare errori UPDATE)
-        await db.execute(
-            "INSERT OR IGNORE INTO users (user_id) VALUES (?)", (user_id,)
-        )
-        
-        await db.execute(query, tuple(params))
-        await db.commit()
+# ====================
+# FUNZIONI DI INVENTARIO (Riutilizzabili)
+# ====================
 
 async def update_inventory(user_id: str, item_name: str, quantity: int, mode: str = 'add'):
-    """Aggiorna l'inventario dell'utente."""
+    """
+    Aggiorna l'inventario dell'utente.
+    mode='add': Aggiunge la quantità.
+    mode='set': Imposta la quantità. (Non usata qui, ma utile per futuri comandi)
+    mode='remove': Rimuove la quantità.
+    """
     async with aiosqlite.connect(DATABASE_NAME) as db:
         if mode == 'add':
             await db.execute(
@@ -72,335 +40,564 @@ async def update_inventory(user_id: str, item_name: str, quantity: int, mode: st
                 (user_id, item_name, quantity)
             )
         elif mode == 'remove':
+            # Rimuove, assicurandosi che la quantità non sia inferiore a 0
             await db.execute(
-                "UPDATE inventory SET quantity = quantity - ? WHERE user_id = ? AND item_name = ?",
+                "UPDATE inventory SET quantity = MAX(0, quantity - ?) WHERE user_id = ? AND item_name = ?",
                 (quantity, user_id, item_name)
             )
-            await db.execute("DELETE FROM inventory WHERE user_id = ? AND quantity <= 0", (user_id,))
-        elif mode == 'set': # Utile per i comandi staff
+            # Elimina l'item se la quantità è 0
             await db.execute(
-                "INSERT INTO inventory (user_id, item_name, quantity) VALUES (?, ?, ?) "
-                "ON CONFLICT(user_id, item_name) DO UPDATE SET quantity = ?",
-                (user_id, item_name, quantity, quantity)
+                "DELETE FROM inventory WHERE user_id = ? AND item_name = ? AND quantity <= 0",
+                (user_id, item_name)
             )
-            await db.execute("DELETE FROM inventory WHERE user_id = ? AND quantity <= 0", (user_id,))
-
+        
         await db.commit()
 
-async def add_item_to_shop(name: str, price: int, required_role_id: int):
-    """Aggiunge un item al database 'items' per l'item shop."""
-    async with aiosqlite.connect(DATABASE_NAME) as db:
-        await db.execute(
-            "INSERT INTO items (name, price, required_role_id) VALUES (?, ?, ?)",
-            (name, price, str(required_role_id))
+# ====================
+# CLASSI UI PER /give-item
+# ====================
+
+class ItemQuantityModal(discord.ui.Modal, title="Inserisci Quantità"):
+    def __init__(self, bot: commands.Bot, target_user: discord.Member, item_name: str):
+        super().__init__()
+        self.bot = bot
+        self.target_user = target_user
+        self.item_name = item_name
+        
+        self.quantity_input = discord.ui.TextInput(
+            label=f"Quantità di {item_name}", 
+            placeholder="Solo numeri interi", 
+            required=True
         )
-        await db.commit()
+        self.add_item(self.quantity_input)
 
-async def remove_item_from_shop(name: str):
-    """Rimuove un item dal database 'items'."""
-    async with aiosqlite.connect(DATABASE_NAME) as db:
-        cursor = await db.execute("DELETE FROM items WHERE name = ?", (name,))
-        await db.commit()
-        return cursor.rowcount > 0 # Ritorna True se un item è stato rimosso
+    async def on_submit(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        
+        try:
+            quantity = int(self.quantity_input.value)
+            if quantity <= 0:
+                await interaction.followup.send("❌ La quantità deve essere un numero intero positivo.", ephemeral=True)
+                return
+        except ValueError:
+            await interaction.followup.send("❌ Quantità non valida. Inserisci solo numeri.", ephemeral=True)
+            return
 
-async def get_shop_items():
-    """Recupera tutti gli item disponibili per la vendita."""
-    async with aiosqlite.connect(DATABASE_NAME) as db:
-        async with db.execute("SELECT name, price, required_role_id FROM items ORDER BY price ASC") as cursor:
-            return await cursor.fetchall()
+        # 1. Controllo Zaino (necessario per aggiungere item)
+        async with aiosqlite.connect(DATABASE_NAME) as db:
+            async with db.execute("SELECT has_backpack FROM users WHERE user_id = ?", (str(self.target_user.id),)) as cursor:
+                user_data = await cursor.fetchone()
+
+        if not user_data or user_data[0] == 0:
+            await interaction.followup.send(f"❌ {self.target_user.mention} non ha uno zaino in cui mettere l'oggetto!", ephemeral=True)
+            return
             
-# ===================================================================================
+        # 2. Aggiorna Inventario
+        await update_inventory(str(self.target_user.id), self.item_name, quantity, mode='add')
+        
+        # 3. Risposta e Log
+        await interaction.followup.send(
+            f"✅ Aggiunti **{quantity}**x **{self.item_name}** allo zaino di {self.target_user.mention}!",
+            ephemeral=True
+        )
+        
+        try:
+            await self.target_user.send(
+                f"🎁 Hai ricevuto **{quantity}**x **{self.item_name}** dallo staff ({interaction.user.mention})."
+            )
+        except:
+            pass
+        
+        log_msg = f"➕ {interaction.user.mention} ha dato {quantity}x {self.item_name} a {self.target_user.mention}"
+        await log_command(self.bot, LOG_CHANNEL_ID, log_msg)
+
+
+class ItemSelect(discord.ui.Select):
+    def __init__(self, bot: commands.Bot, target_user: discord.Member, item_options: list):
+        self.bot = bot
+        self.target_user = target_user
+        
+        options = [
+            discord.SelectOption(label=name, value=name) for name in item_options
+        ]
+        
+        super().__init__(
+            placeholder="Seleziona l'item da dare...", 
+            options=options,
+            min_values=1,
+            max_values=1
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        selected_item = self.values[0]
+        modal = ItemQuantityModal(self.bot, self.target_user, selected_item)
+        await interaction.response.send_modal(modal)
+
+# ====================
 # FUNZIONE DI SETUP
-# ===================================================================================
+# ====================
 
 def setup_inventory_commands(bot: commands.Bot):
     
-    # ===================================================
-    # COMANDO: /vendi-zaino (MARKET)
-    # ===================================================
-    @bot.tree.command(name="vendi-zaino", description=f"[Market] Acquista uno zaino per ${BACKPACK_PRICE:,}")
-    async def vendizaino(interaction: discord.Interaction):
-        # 1. Controllo Ruolo Market
-        if not has_role(interaction, MARKET_ROLE_ID):
-            await interaction.response.send_message("❌ Questo comando può essere usato solo dal **Market**.", ephemeral=True)
+    # ====================
+    # COMANDO: /give-item (Staff Interattivo)
+    # ====================
+    @bot.tree.command(name="give-item", description="[STAFF] Aggiungi un item all'inventario di un utente.")
+    @app_commands.describe(utente="L'utente a cui dare l'item")
+    async def give_item(interaction: discord.Interaction, utente: discord.Member):
+        if not has_role(interaction, STAFF_ROLE_ID):
+            await interaction.response.send_message(
+                f"❌ Solo lo staff può usare questo comando! (Richiesto: <@&{STAFF_ROLE_ID}>)", 
+                ephemeral=True
+            )
+            return
+        
+        if utente.bot:
+            await interaction.response.send_message("❌ Non puoi dare item a un bot.", ephemeral=True)
             return
 
-        user_id = str(interaction.user.id)
+        await interaction.response.defer(ephemeral=True, thinking=True)
+
+        # Carica gli item disponibili per il menu a tendina
+        async with aiosqlite.connect(DATABASE_NAME) as db:
+            async with db.execute("SELECT name FROM items") as cursor:
+                item_names = [row[0] for row in await cursor.fetchall()]
+
+        if not item_names:
+            await interaction.followup.send("❌ Nessun item disponibile nello shop. Creane uno con `/nuovoitem`.", ephemeral=True)
+            return
+            
+        # Crea la view con il menu a tendina
+        view = discord.ui.View(timeout=300)
+        view.add_item(ItemSelect(bot, utente, item_names))
+
+        await interaction.followup.send(
+            f"🎁 Seleziona l'item da aggiungere allo zaino di **{utente.mention}**:",
+            view=view,
+            ephemeral=True
+        )
+
+
+    # ====================
+    # COMANDO: /take-item (Staff Rapido)
+    # ====================
+    @bot.tree.command(name="take-item", description="[STAFF] Rimuovi un item dall'inventario di un utente.")
+    @app_commands.describe(
+        utente="L'utente a cui togliere l'item",
+        item="Il nome esatto dell'item da rimuovere",
+        quantita="La quantità da rimuovere"
+    )
+    async def take_item(interaction: discord.Interaction, utente: discord.Member, item: str, quantita: int):
+        if not has_role(interaction, STAFF_ROLE_ID):
+            await interaction.response.send_message(
+                f"❌ Solo lo staff può usare questo comando! (Richiesto: <@&{STAFF_ROLE_ID}>)", 
+                ephemeral=True
+            )
+            return
         
+        if utente.bot:
+            await interaction.response.send_message("❌ Non puoi togliere item a un bot.", ephemeral=True)
+            return
+            
+        if quantita <= 0:
+            await interaction.response.send_message("❌ La quantità deve essere maggiore di zero!", ephemeral=True)
+            return
+
         await interaction.response.defer(ephemeral=True, thinking=True)
         
-        user_data = await get_user_economy(user_id)
-        # Se l'utente non esiste nel DB, lo inizializziamo (update_user_economy lo fa in automatico)
-        if not user_data:
-             user_data = [0, 20000, 0] # Dati di default per continuare
-
-        cash, bank, has_backpack = user_data
+        user_id = str(utente.id)
         
-        # 2. Controllo Zaino Esistente
-        if has_backpack == 1:
-            await interaction.followup.send("❌ Hai già uno zaino! Non puoi acquistarne un altro.", ephemeral=True)
-            return
-
-        # 3. Controllo Denaro (Usiamo la Banca per gli acquisti importanti)
-        if bank < BACKPACK_PRICE:
-            await interaction.followup.send(f"❌ Non hai abbastanza soldi in banca! Hai solo ${bank:,} ma ne servono ${BACKPACK_PRICE:,}.", ephemeral=True)
-            return
-
-        # 4. Transazione
-        try:
-            # Rimuovi i soldi e imposta has_backpack a 1
-            await update_user_economy(user_id, bank_change=-BACKPACK_PRICE, backpack_status=1)
-            
-            new_bank = bank - BACKPACK_PRICE
-            
-            # 5. Risposta e Log
-            await interaction.followup.send(
-                f"✅ Hai acquistato uno zaino per **${BACKPACK_PRICE:,}**! Il tuo nuovo saldo bancario è: **${new_bank:,}**",
-                ephemeral=True
-            )
-            
-            # 6. Notifica DM all'utente
-            try:
-                dm_embed = discord.Embed(
-                    title="🎒 Zaino Acquistato!",
-                    description=(
-                        f"Congratulazioni! Hai acquistato uno zaino per **${BACKPACK_PRICE:,}**.\n"
-                        f"Ora puoi usarlo per gestire i tuoi item con il comando: **/invzaino**."
-                    ),
-                    color=discord.Color.blue()
-                )
-                await interaction.user.send(embed=dm_embed)
-            except discord.Forbidden:
-                pass # L'utente ha i DM chiusi
-            
-            await log_command(bot, LOG_CHANNEL_ID, f"🛍️ {interaction.user.mention} ha acquistato uno zaino per ${BACKPACK_PRICE:,}")
-
-        except Exception as e:
-            print(f"Errore durante /vendi-zaino: {e}")
-            await interaction.followup.send("❌ Si è verificato un errore durante la transazione. Contatta lo staff.", ephemeral=True)
-
-
-    # ===================================================
-    # COMANDO: /rimuovi-zaino (STAFF)
-    # ===================================================
-    @bot.tree.command(name="rimuovi-zaino", description="[Staff] Rimuovi lo zaino a un utente")
-    @app_commands.describe(utente="L'utente a cui rimuovere lo zaino")
-    async def rimuovizaino(interaction: discord.Interaction, utente: discord.Member):
-        # 1. Controllo Ruolo Staff
-        if not has_role(interaction, STAFF_ROLE_ID):
-            await interaction.response.send_message("❌ Solo lo **staff** può usare questo comando!", ephemeral=True)
-            return
-
-        target_id = str(utente.id)
+        # 1. Controlla e aggiorna l'inventario (la funzione gestisce la rimozione)
+        await update_inventory(user_id, item, quantita, mode='remove')
         
-        await interaction.response.defer(ephemeral=True)
+        # 2. Ottieni la quantità attuale (dopo la rimozione)
+        async with aiosqlite.connect(DATABASE_NAME) as db:
+            async with db.execute(
+                "SELECT quantity FROM inventory WHERE user_id = ? AND item_name = ?", 
+                (user_id, item)
+            ) as cursor:
+                current_quantity_data = await cursor.fetchone()
         
-        user_data = await get_user_economy(target_id)
-        if not user_data:
-            await interaction.followup.send(f"❌ Errore: Dati utente ({utente.mention}) non trovati.", ephemeral=True)
-            return
-            
-        has_backpack = user_data[2]
-
-        # 2. Controllo Zaino Esistente
-        if has_backpack == 0:
-            await interaction.followup.send(f"❌ {utente.mention} non ha uno zaino da rimuovere.", ephemeral=True)
-            return
-
-        # 3. Rimozione Zaino
-        try:
-            # Imposta has_backpack a 0 
-            await update_user_economy(target_id, backpack_status=0)
-            
-            # 4. Risposta e Log
-            await interaction.followup.send(
-                f"✅ Zaino rimosso con successo da **{utente.mention}**.",
-                ephemeral=True
-            )
-            
-            # 5. Notifica DM all'utente
-            try:
-                dm_embed = discord.Embed(
-                    title="⚠️ Zaino Rimosso!",
-                    description="Il tuo zaino è stato rimosso dallo staff. Non potrai più usare i comandi di inventario finché non ne acquisti uno nuovo.",
-                    color=discord.Color.red()
-                )
-                await utente.send(embed=dm_embed)
-            except discord.Forbidden:
-                pass # L'utente ha i DM chiusi
-                
-            await log_command(bot, LOG_CHANNEL_ID, f"🗑️ {interaction.user.mention} ha rimosso lo zaino a {utente.mention}")
-
-        except Exception as e:
-            print(f"Errore durante /rimuovi-zaino: {e}")
-            await interaction.followup.send("❌ Si è verificato un errore durante la rimozione dello zaino.", ephemeral=True)
-
-
-    # ===================================================
-    # COMANDO: /crea-item (STAFF)
-    # Crea un item e lo aggiunge allo shop (tabella items)
-    # ===================================================
-    @bot.tree.command(name="crea-item", description="[Staff] Aggiunge un item all'Item Shop")
-    @app_commands.describe(
-        nome_item="Nome dell'item (es: Pistola Legale)",
-        prezzo="Prezzo di vendita dell'item",
-        ruolo_necessario="Ruolo richiesto per l'acquisto (es: @Armeria) (default: Nessuno)"
-    )
-    async def creaitem(interaction: discord.Interaction, nome_item: str, prezzo: int, ruolo_necessario: discord.Role = None):
-        if not has_role(interaction, STAFF_ROLE_ID):
-            await interaction.response.send_message("❌ Solo lo **staff** può usare questo comando!", ephemeral=True)
-            return
+        # 3. Messaggi di risposta e Log
+        current_quantity = current_quantity_data[0] if current_quantity_data else 0
         
-        if prezzo <= 0:
-            await interaction.response.send_message("❌ Il prezzo deve essere un numero positivo.", ephemeral=True)
-            return
-
-        role_id = ruolo_necessario.id if ruolo_necessario else 0 # 0 = Nessun Ruolo
+        await interaction.followup.send(
+            f"✅ Rimosse **{quantita}**x **{item}** dallo zaino di {utente.mention}.\n"
+            f"(Quantità residua: **{current_quantity}**)",
+            ephemeral=True
+        )
 
         try:
-            await add_item_to_shop(nome_item, prezzo, role_id)
-            
-            role_text = ruolo_necessario.mention if ruolo_necessario else "Nessuno"
-            
-            embed = discord.Embed(
-                title="✅ Item Aggiunto all'Item Shop",
-                color=discord.Color.green()
-            )
-            embed.add_field(name="Nome Item", value=nome_item, inline=False)
-            embed.add_field(name="Prezzo", value=f"${prezzo:,}", inline=True)
-            embed.add_field(name="Ruolo Necessario", value=role_text, inline=True)
-            
-            await interaction.response.send_message(embed=embed, ephemeral=True)
-            await log_command(bot, LOG_CHANNEL_ID, f"🆕 {interaction.user.mention} ha creato l'item '{nome_item}' per lo shop.")
-
-        except aiosqlite.IntegrityError:
-            await interaction.response.send_message(f"❌ L'item **{nome_item}** esiste già nell'Item Shop.", ephemeral=True)
-        except Exception as e:
-            await interaction.response.send_message(f"❌ Errore durante la creazione dell'item: {e}", ephemeral=True)
-
-
-    # ===================================================
-    # COMANDO: /elimina-item (STAFF)
-    # Rimuove un item dallo shop (tabella items)
-    # ===================================================
-    @bot.tree.command(name="elimina-item", description="[Staff] Rimuove un item dall'Item Shop")
-    @app_commands.describe(nome_item="Nome dell'item da rimuovere (deve essere esatto)")
-    async def eliminaitem(interaction: discord.Interaction, nome_item: str):
-        if not has_role(interaction, STAFF_ROLE_ID):
-            await interaction.response.send_message("❌ Solo lo **staff** può usare questo comando!", ephemeral=True)
-            return
-            
-        try:
-            removed = await remove_item_from_shop(nome_item)
-            
-            if removed:
-                await interaction.response.send_message(f"✅ Item **{nome_item}** rimosso con successo dall'Item Shop.", ephemeral=True)
-                await log_command(bot, LOG_CHANNEL_ID, f"🗑️ {interaction.user.mention} ha rimosso l'item '{nome_item}' dallo shop.")
+            if current_quantity == 0:
+                msg = f"💀 Lo staff ({interaction.user.mention}) ha rimosso tutte le tue **{item}** dallo zaino!"
             else:
-                await interaction.response.send_message(f"❌ L'item **{nome_item}** non è stato trovato nell'Item Shop.", ephemeral=True)
+                msg = f"⚠️ Lo staff ({interaction.user.mention}) ha rimosso **{quantita}**x **{item}** dal tuo zaino. Quantità residua: **{current_quantity}**."
+            await utente.send(msg)
+        except:
+            pass
 
-        except Exception as e:
-            await interaction.response.send_message(f"❌ Errore durante l'eliminazione dell'item: {e}", ephemeral=True)
+        log_msg = f"➖ {interaction.user.mention} ha tolto {quantita}x {item} a {utente.mention}"
+        await log_command(bot, LOG_CHANNEL_ID, log_msg)
 
 
-    # ===================================================
-    # COMANDO: /item-shop (PUBBLICO)
-    # Mostra gli item disponibili
-    # ===================================================
-    @bot.tree.command(name="item-shop", description="Visualizza gli item disponibili per l'acquisto")
-    async def itemshop(interaction: discord.Interaction):
-        
-        await interaction.response.defer(ephemeral=False, thinking=True)
-        
-        shop_items = await get_shop_items()
-        
-        if not shop_items:
-            await interaction.followup.send("❌ L'Item Shop è attualmente vuoto. Riprova più tardi.", ephemeral=False)
+    # ====================
+    # COMANDI ESISTENTI
+    # ====================
+    
+    @bot.tree.command(name="nuovoitem", description="[STAFF] Crea un nuovo item")
+    @app_commands.describe(
+        nome_item="Nome dell'item",
+        ruolo_richiesto="Ruolo richiesto per acquistare l'item"
+    )
+    async def nuovoitem(interaction: discord.Interaction, nome_item: str, ruolo_richiesto: discord.Role):
+        if not has_role(interaction, STAFF_ROLE_ID):
+            await interaction.response.send_message("❌ Solo lo staff può usare questo comando!", ephemeral=True)
             return
-            
+
+        async with aiosqlite.connect(DATABASE_NAME) as db:
+            try:
+                await db.execute(
+                    "INSERT INTO items (name, required_role_id) VALUES (?, ?)",
+                    (nome_item, str(ruolo_richiesto.id))
+                )
+                await db.commit()
+                await interaction.response.send_message(
+                    f"✅ Item **{nome_item}** creato con successo!\n🔒 Ruolo richiesto: {ruolo_richiesto.mention}",
+                    ephemeral=True
+                )
+                await log_command(bot, LOG_CHANNEL_ID, f"➕ {interaction.user.mention} ha creato l'item {nome_item} (Ruolo: {ruolo_richiesto.mention})")
+            except aiosqlite.IntegrityError:
+                await interaction.response.send_message(f"❌ L'item **{nome_item}** esiste già!", ephemeral=True)
+    
+    @bot.tree.command(name="eliminaitem", description="[STAFF] Elimina un item")
+    @app_commands.describe(nome="Nome dell'item da eliminare")
+    async def eliminaitem(interaction: discord.Interaction, nome: str):
+        if not has_role(interaction, STAFF_ROLE_ID):
+            await interaction.response.send_message("❌ Solo lo staff può usare questo comando!", ephemeral=True)
+            return
+
+        async with aiosqlite.connect(DATABASE_NAME) as db:
+            cursor = await db.execute("DELETE FROM items WHERE name = ?", (nome,))
+            await db.commit()
+
+            if cursor.rowcount > 0:
+                await interaction.response.send_message(f"✅ Item **{nome}** eliminato!", ephemeral=True)
+                await log_command(bot, LOG_CHANNEL_ID, f"➖ {interaction.user.mention} ha eliminato l'item {nome}")
+            else:
+                await interaction.response.send_message(f"❌ L'item **{nome}** non esiste!", ephemeral=True)
+    
+    @bot.tree.command(name="itemshop", description="Visualizza tutti gli item disponibili")
+    async def itemshop(interaction: discord.Interaction):
+        async with aiosqlite.connect(DATABASE_NAME) as db:
+            async with db.execute("SELECT name, required_role_id FROM items") as cursor:
+                items = await cursor.fetchall()
+
+        if not items:
+            await interaction.response.send_message("❌ Non ci sono item nello shop!", ephemeral=True)
+            return
+
         embed = discord.Embed(
-            title="🛒 Item Shop",
-            description="Ecco gli item disponibili per l'acquisto (da Market/Armerie, ecc.).",
+            title="🛒 ITEM SHOP",
+            description="Ecco tutti gli item disponibili:",
             color=discord.Color.blue()
         )
-        
-        for name, price, role_id_str in shop_items:
-            role_id = int(role_id_str)
-            role_text = f"Necessario: <@&{role_id}>" if role_id != 0 else "Nessun requisito di ruolo"
-            
+
+        for name, required_role_id in items:
             embed.add_field(
-                name=f"**{name}**",
-                value=f"**Prezzo:** ${price:,}\n{role_text}",
-                inline=True
+                name=f"📦 {name}",
+                value=f"Ruolo richiesto: <@&{required_role_id}>",
+                inline=False
             )
-        
-        # Puoi aggiungere una nota su come acquistare, ad esempio:
-        embed.set_footer(text="Per acquistare, recati al Market o al venditore appropriato e usa il comando /vendi-item.")
-        
-        await interaction.followup.send(embed=embed, ephemeral=False)
 
+        await interaction.response.send_message(embed=embed)
+        await log_command(bot, LOG_CHANNEL_ID, f"🛒 {interaction.user.mention} ha visualizzato l'item shop")
+    
+    @bot.tree.command(name="vendizaino", description="[MARKET] Vendi uno zaino a un utente")
+    @app_commands.describe(utente="L'utente a cui vendere lo zaino")
+    async def vendizaino(interaction: discord.Interaction, utente: discord.Member):
+        if not has_role(interaction, MARKET_ROLE_ID):
+            await interaction.response.send_message("❌ Solo il Market può usare questo comando!", ephemeral=True)
+            return
 
-    # ===================================================
-    # COMANDO: /trasferisci (Mantenuto per la logica di base)
-    # ===================================================
-    @bot.tree.command(name="trasferisci", description="Trasferisci un item del tuo zaino a un altro utente")
+        async with aiosqlite.connect(DATABASE_NAME) as db:
+            async with db.execute("SELECT has_backpack FROM users WHERE user_id = ?", (str(utente.id),)) as cursor:
+                user_data = await cursor.fetchone()
+
+            if user_data and user_data[0] == 1:
+                await interaction.response.send_message(f"❌ {utente.mention} ha già uno zaino!", ephemeral=True)
+                return
+
+            if user_data is None:
+                await db.execute("INSERT INTO users (user_id, has_backpack) VALUES (?, ?)", (str(utente.id), 1))
+            else:
+                await db.execute("UPDATE users SET has_backpack = 1 WHERE user_id = ?", (str(utente.id),))
+
+            await db.commit()
+
+        await interaction.response.send_message(f"✅ Zaino venduto a {utente.mention}!", ephemeral=True)
+
+        try:
+            await utente.send("🎒 Ti è stato venduto uno zaino dal Market! Ora puoi vedere e usare il tuo zaino con `/invzaino`.")
+        except:
+            pass
+
+        await log_command(bot, LOG_CHANNEL_ID, f"🎒 {interaction.user.mention} ha venduto uno zaino a {utente.mention}")
+    
+    @bot.tree.command(name="rimuovizaino", description="[STAFF] Rimuovi lo zaino da un utente")
+    @app_commands.describe(utente="L'utente a cui rimuovere lo zaino")
+    async def rimuovizaino(interaction: discord.Interaction, utente: discord.Member):
+        if not has_role(interaction, STAFF_ROLE_ID):
+            await interaction.response.send_message("❌ Solo lo staff può usare questo comando!", ephemeral=True)
+            return
+
+        async with aiosqlite.connect(DATABASE_NAME) as db:
+            async with db.execute("SELECT has_backpack FROM users WHERE user_id = ?", (str(utente.id),)) as cursor:
+                user_data = await cursor.fetchone()
+
+            if not user_data or user_data[0] == 0:
+                await interaction.response.send_message(f"❌ {utente.mention} non ha uno zaino!", ephemeral=True)
+                return
+
+            await db.execute("UPDATE users SET has_backpack = 0 WHERE user_id = ?", (str(utente.id),))
+            await db.execute("DELETE FROM inventory WHERE user_id = ?", (str(utente.id),))
+            await db.commit()
+
+        await interaction.response.send_message(f"✅ Hai rimosso lo zaino di {utente.mention}!", ephemeral=True)
+        await log_command(bot, LOG_CHANNEL_ID, f"🗑️ {interaction.user.mention} ha rimosso lo zaino di {utente.mention}")
+
+        try:
+            await utente.send("⚠️ Ti è stato rimosso lo zaino da uno staff!")
+        except:
+            pass
+    
+    @bot.tree.command(name="invzaino", description="Visualizza lo zaino tuo o di un altro utente")
+    @app_commands.describe(utente="L'utente di cui visualizzare lo zaino (opzionale)")
+    async def invzaino(interaction: discord.Interaction, utente: discord.Member = None):
+        target_user = utente if utente else interaction.user
+
+        async with aiosqlite.connect(DATABASE_NAME) as db:
+            async with db.execute("SELECT has_backpack FROM users WHERE user_id = ?", (str(target_user.id),)) as cursor:
+                user_data = await cursor.fetchone()
+
+            if not user_data or user_data[0] == 0:
+                if target_user.id == interaction.user.id:
+                    await interaction.response.send_message("❌ Non hai uno zaino! Compralo dal Market.", ephemeral=True)
+                else:
+                    await interaction.response.send_message(f"❌ {target_user.mention} non ha uno zaino!", ephemeral=True)
+                return
+
+            async with db.execute("SELECT item_name, quantity FROM inventory WHERE user_id = ?", (str(target_user.id),)) as cursor:
+                items = await cursor.fetchall()
+
+        embed = discord.Embed(
+            title=f"🎒 ZAINO DI {target_user.display_name}",
+            color=discord.Color.dark_green()
+        )
+
+        if items:
+            for item_name, quantity in items:
+                embed.add_field(name=f"📦 {item_name}", value=f"Quantità: **{quantity}**", inline=True)
+        else:
+            embed.description = "Lo zaino è vuoto!"
+
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+        if utente and utente.id != interaction.user.id:
+            try:
+                await utente.send(f"👀 ATTENZIONE‼️ {interaction.user.mention} ha appena guardato il tuo zaino. STAI ATTENTO‼️🚨")
+            except:
+                pass
+            await log_command(bot, LOG_CHANNEL_ID, f"👁️ {interaction.user.mention} ha guardato lo zaino di {utente.mention}")
+        else:
+            await log_command(bot, LOG_CHANNEL_ID, f"🎒 {interaction.user.mention} ha aperto il proprio zaino")
+
+    # ====================
+    # NUOVO COMANDO: /item-sell (Acquisto Item)
+    # ====================
+    @bot.tree.command(name="item-sell", description="Acquista un item dall'Item Shop.")
     @app_commands.describe(
-        utente="L'utente a cui trasferire l'item",
-        nome_item="Il nome dell'item da trasferire",
-        quantita="La quantità da trasferire (default 1)"
+        nome_item="Nome esatto dell'item da acquistare",
+        quantita="Quantità da acquistare (default: 1)"
     )
-    async def trasferisci(interaction: discord.Interaction, utente: discord.Member, nome_item: str, quantita: int = 1):
+    async def item_sell(interaction: discord.Interaction, nome_item: str, quantita: int = 1):
+        user_id = str(interaction.user.id)
+        member = interaction.user
         
+        if quantita <= 0:
+            await interaction.response.send_message("❌ La quantità deve essere almeno 1.", ephemeral=True)
+            return
+
         await interaction.response.defer(ephemeral=True, thinking=True)
+
+        async with aiosqlite.connect(DATABASE_NAME) as db:
+            # 1. Controlla l'esistenza dell'item e il ruolo richiesto
+            async with db.execute(
+                "SELECT required_role_id FROM items WHERE name = ?", 
+                (nome_item,)
+            ) as cursor:
+                item_data = await cursor.fetchone()
+
+            if not item_data:
+                await interaction.followup.send(f"❌ L'item **{nome_item}** non esiste nello shop!", ephemeral=True)
+                return
+
+            required_role_id = int(item_data[0])
+            
+            # 2. Controlla se l'utente ha il ruolo richiesto
+            if not has_role(interaction, required_role_id):
+                await interaction.followup.send(
+                    f"❌ Non hai il ruolo richiesto per acquistare **{nome_item}**! (Richiesto: <@&{required_role_id}>)", 
+                    ephemeral=True
+                )
+                return
+
+            # 3. Controlla se l'utente ha uno zaino
+            async with db.execute("SELECT has_backpack FROM users WHERE user_id = ?", (user_id,)) as cursor:
+                user_backpack = await cursor.fetchone()
+                
+            if not user_backpack or user_backpack[0] == 0:
+                await interaction.followup.send("❌ Non puoi acquistare item senza uno zaino! Comprane uno dal Market.", ephemeral=True)
+                return
+
+        # 4. Aggiungi l'item all'inventario (non c'è costo, solo requisito ruolo)
+        await update_inventory(user_id, nome_item, quantita, mode='add')
         
+        await interaction.followup.send(
+            f"✅ Hai acquistato **{quantita}**x **{nome_item}**! Controlla il tuo zaino con `/invzaino`.",
+            ephemeral=True
+        )
+        
+        log_msg = f"🛒 {member.mention} ha acquistato {quantita}x {nome_item} (Ruolo: <@&{required_role_id}>)"
+        await log_command(bot, LOG_CHANNEL_ID, log_msg)
+
+    # ====================
+    # NUOVO COMANDO: /utilizza-item (Rimuovi Item dallo Zaino)
+    # ====================
+    @bot.tree.command(name="utilizza-item", description="Rimuovi item dal tuo zaino per 'utilizzarli'.")
+    @app_commands.describe(
+        nome_item="Nome esatto dell'item da utilizzare",
+        quantita="Quantità da utilizzare (default: 1)"
+    )
+    async def utilizza_item(interaction: discord.Interaction, nome_item: str, quantita: int = 1):
+        user_id = str(interaction.user.id)
+        
+        if quantita <= 0:
+            await interaction.response.send_message("❌ La quantità da utilizzare deve essere almeno 1.", ephemeral=True)
+            return
+
+        await interaction.response.defer(ephemeral=True, thinking=True)
+
+        async with aiosqlite.connect(DATABASE_NAME) as db:
+            # 1. Controlla la quantità disponibile
+            async with db.execute(
+                "SELECT quantity FROM inventory WHERE user_id = ? AND item_name = ?", 
+                (user_id, nome_item)
+            ) as cursor:
+                current_quantity_data = await cursor.fetchone()
+
+            if not current_quantity_data or current_quantity_data[0] < quantita:
+                available = current_quantity_data[0] if current_quantity_data else 0
+                await interaction.followup.send(
+                    f"❌ Non hai abbastanza **{nome_item}**! (Disponibile: **{available}**)", 
+                    ephemeral=True
+                )
+                return
+            
+            # 2. Rimuovi dall'inventario
+            await update_inventory(user_id, nome_item, quantita, mode='remove')
+            
+            # 3. Ottieni la quantità residua dopo la rimozione
+            async with db.execute(
+                "SELECT quantity FROM inventory WHERE user_id = ? AND item_name = ?", 
+                (user_id, nome_item)
+            ) as cursor:
+                remaining_quantity_data = await cursor.fetchone()
+                remaining = remaining_quantity_data[0] if remaining_quantity_data else 0
+        
+        # 4. Risposta e Log
+        if remaining == 0:
+            msg = f"✅ Hai utilizzato **{quantita}**x **{nome_item}**. L'item è stato rimosso completamente dal tuo zaino."
+        else:
+            msg = f"✅ Hai utilizzato **{quantita}**x **{nome_item}**. Quantità residua: **{remaining}**."
+            
+        await interaction.followup.send(msg, ephemeral=True)
+        
+        log_msg = f"🧪 {interaction.user.mention} ha utilizzato {quantita}x {nome_item}."
+        await log_command(bot, LOG_CHANNEL_ID, log_msg)
+
+
+    # ====================
+    # NUOVO COMANDO: /dai-item (Trasferimento Item tra Utenti)
+    # ====================
+    @bot.tree.command(name="dai-item", description="Passa un item dal tuo zaino a un altro utente.")
+    @app_commands.describe(
+        utente="L'utente a cui dare l'item",
+        nome_item="Nome esatto dell'item da passare",
+        quantita="Quantità da trasferire (default: 1)"
+    )
+    async def dai_item(interaction: discord.Interaction, utente: discord.Member, nome_item: str, quantita: int = 1):
         sender_id = str(interaction.user.id)
         receiver_id = str(utente.id)
         
-        # 1. Controllo quantità e utente
-        if quantita <= 0:
-            await interaction.followup.send("❌ La quantità deve essere positiva.", ephemeral=True)
-            return
         if utente.bot:
-            await interaction.followup.send("❌ Non puoi trasferire item a un bot.", ephemeral=True)
-            return
-
-        # 2. Logica Zaino e Quantità Disponibile (da completare con la tua logica inventory)
-        # Esempio di logica (Dovrebbe essere più robusta, ma è un placeholder)
-        
-        sender_inventory = None # Dovresti implementare una funzione get_user_inventory(sender_id)
-        
-        # Simuliamo il controllo dello zaino (Assumi che get_user_economy sia già implementato)
-        sender_economy = await get_user_economy(sender_id)
-        receiver_economy = await get_user_economy(receiver_id)
-        
-        sender_backpack = sender_economy[2] if sender_economy else 0
-        receiver_backpack = receiver_economy[2] if receiver_economy else 0
-        
-        if sender_backpack == 0:
-            await interaction.followup.send("❌ Non hai uno zaino! Non puoi trasferire item.", ephemeral=True)
+            await interaction.response.send_message("❌ Non puoi dare item a un bot.", ephemeral=True)
             return
             
-        if receiver_backpack == 0:
-            await interaction.followup.send(f"❌ {utente.mention} non ha uno zaino in cui ricevere l'item!", ephemeral=True)
+        if utente.id == interaction.user.id:
+            await interaction.response.send_message("❌ Non puoi darti un item da solo! Usa `/utilizza-item` o `/invzaino`.", ephemeral=True)
+            return
+            
+        if quantita <= 0:
+            await interaction.response.send_message("❌ La quantità deve essere almeno 1.", ephemeral=True)
             return
 
-        # *** Questa parte necessita di una funzione `get_item_quantity(user_id, item_name)` ***
-        # Per ora, si assume che se l'utente ha uno zaino, possa trasferire.
-        # Devi implementare la logica per verificare che l'utente abbia l'item e la quantità richiesta.
+        await interaction.response.defer(ephemeral=True, thinking=True)
         
-        try:
+        async with aiosqlite.connect(DATABASE_NAME) as db:
+            # 1. Controlla lo zaino del mittente e la quantità
+            async with db.execute(
+                "SELECT has_backpack FROM users WHERE user_id = ?", 
+                (sender_id,)
+            ) as cursor:
+                sender_backpack = await cursor.fetchone()
+                
+            if not sender_backpack or sender_backpack[0] == 0:
+                await interaction.followup.send("❌ Non puoi dare item se non hai uno zaino.", ephemeral=True)
+                return
+
+            async with db.execute(
+                "SELECT quantity FROM inventory WHERE user_id = ? AND item_name = ?", 
+                (sender_id, nome_item)
+            ) as cursor:
+                sender_item_data = await cursor.fetchone()
+            
+            if not sender_item_data or sender_item_data[0] < quantita:
+                available = sender_item_data[0] if sender_item_data else 0
+                await interaction.followup.send(
+                    f"❌ Non hai abbastanza **{nome_item}** da dare! (Disponibile: **{available}**)", 
+                    ephemeral=True
+                )
+                return
+
+            # 2. Controlla lo zaino del destinatario (DEVE averlo per riceverlo)
+            async with db.execute(
+                "SELECT has_backpack FROM users WHERE user_id = ?", 
+                (receiver_id,)
+            ) as cursor:
+                receiver_backpack = await cursor.fetchone()
+                
+            if not receiver_backpack or receiver_backpack[0] == 0:
+                await interaction.followup.send(
+                    f"❌ {utente.mention} non ha uno zaino in cui ricevere l'item!", 
+                    ephemeral=True
+                )
+                return
+            
             # 3. Trasferimento: Rimuovi dal mittente
-            # Implementare un controllo per assicurarsi che la quantità sia disponibile prima di rimuovere
             await update_inventory(sender_id, nome_item, quantita, mode='remove')
             
             # 4. Trasferimento: Aggiungi al destinatario
             await update_inventory(receiver_id, nome_item, quantita, mode='add')
-        
-        except Exception as e:
-            # Questo catcher intercetta, ad esempio, errori se la quantità da rimuovere è maggiore di quella posseduta
-            await interaction.followup.send(f"❌ Errore: non hai abbastanza **{nome_item}** per il trasferimento (o errore DB).", ephemeral=True)
-            print(f"Errore trasferimento: {e}")
-            return
         
         # 5. Risposta e Log
         
@@ -424,12 +621,4 @@ def setup_inventory_commands(bot: commands.Bot):
 
         log_msg = f"➡️ {interaction.user.mention} ha dato {quantita}x {nome_item} a {utente.mention}"
         await log_command(bot, LOG_CHANNEL_ID, log_msg)
-
-
-    # ===================================================
-    # COMANDO: /invzaino (Placeholder)
-    # ===================================================
-    @bot.tree.command(name="invzaino", description="Visualizza il tuo zaino e gli item al suo interno")
-    async def invzaino(interaction: discord.Interaction):
-        await interaction.response.send_message("🎒 Comando /invzaino in fase di implementazione. Mostrerà il tuo inventario.", ephemeral=True)
 

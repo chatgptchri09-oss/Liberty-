@@ -215,19 +215,30 @@ class BancomatView(View):
 
 @bot.tree.command(name="bancomat", description="Visualizza il saldo del tuo bancomat")
 async def bancomat(interaction: discord.Interaction):
+    
+    # 1. DEFER CRITICO: Risponde immediatamente per evitare il timeout (NUOVA AGGIUNTA)
+    await interaction.response.defer(ephemeral=True, thinking=True) 
+    
+    # La funzione get_user crea l'utente se non esiste
+    # Questa operazione (database) può impiegare più di 3 secondi
     user = await database.get_user(str(interaction.user.id))
     user_id = str(interaction.user.id)
     user_mention = interaction.user.mention
     
+    # Creazione dell'embed
     embed = create_bancomat_embed(user, user_mention)
     
-    # **PASSAGGIO BOT AGGIUNTO**
+    # Creazione della View con i bottoni
     view = BancomatView(bot, user_id)
     
-    await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+    # 2. FOLLOWUP: Invia il messaggio finale DOPO il defer (SOSTITUISCE interaction.response.send_message)
+    await interaction.followup.send(embed=embed, view=view, ephemeral=True)
     
-    # CHIAMATA CORRETTA
+    # 3. Log
     await log_command(bot, LOG_CHANNEL_ID, f"💸 {interaction.user.mention} ha controllato il bancomat")
+
+
+# Il comando /controlla-bancomat aveva già il defer, non è necessaria alcuna modifica lì.
 
 @bot.tree.command(name="controlla-bancomat", description="Visualizza il saldo del bancomat di un altro utente e invia una notifica.")
 @app_commands.describe(utente="L'utente di cui controllare il bancomat")

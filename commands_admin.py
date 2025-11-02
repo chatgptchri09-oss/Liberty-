@@ -32,7 +32,7 @@ async def log_command(bot, channel_id: int, message: str = None, embed: discord.
 
 
 # ===================================================================================
-# 🚨 FUNZIONE DI SETUP (TUTTI I COMANDI DEVONO STARE QUI DENTRO) 🚨
+# ð¨ FUNZIONE DI SETUP (TUTTI I COMANDI DEVONO STARE QUI DENTRO) ð¨
 # ===================================================================================
 
 def setup_admin_commands(bot: commands.Bot):
@@ -52,7 +52,7 @@ def setup_admin_commands(bot: commands.Bot):
         motivo_input = discord.ui.TextInput(
             label="Motivo del rifiuto del bando",
             style=discord.TextStyle.paragraph,
-            placeholder="Specifica il motivo dettagliato per cui il bando è stato rifiutato.",
+            placeholder="Specifica il motivo dettagliato per cui il bando Ã¨ stato rifiutato.",
             required=True,
             max_length=500,
         )
@@ -62,17 +62,17 @@ def setup_admin_commands(bot: commands.Bot):
             
             # 1. Crea l'Embed di Rifiuto
             embed = discord.Embed(
-                title="<a:megafono:1431932605984542720> 𝐄𝐬𝐢𝐭𝐨 𝐛𝐚𝐧𝐝𝐨 <a:annulla:1431940396635652146> ",
+                title="<a:megafono:1431932605984542720> ðð¬ð¢ð­ð¨ ððð§ðð¨ <a:annulla:1431940396635652146> ",
                 color=discord.Color.red()
             )
             
             # 2. Costruisci la descrizione ESATTA
             description_content = (
-                f"**𝗖𝗶𝘁𝘁𝗮𝗱𝗶𝗻𝗼**<a:casomaiconflecia:1434244328448069642> {self.citizen.mention}\n"
-                f"**𝗘𝘀𝗶𝘁𝗼**<a:casomaiconflecia:1434244328448069642> Rifiutato ❌\n"
-                f"**𝗟𝗮𝘃𝗼𝗿𝗼**<a:casomaiconflecia:1434244328448069642> {self.role.mention}\n"
-                f"**𝗠𝗼𝘁𝗶𝘃𝗼**<a:casomaiconflecia:1434244328448069642> {motivo}\n\n"
-                f"▬▬▬▬▬▬▬▬▬▬▬▬\n"
+                f"**ðð¶ððð®ð±ð¶ð»ð¼**<a:casomaiconflecia:1434244328448069642> {self.citizen.mention}\n"
+                f"**ððð¶ðð¼**<a:casomaiconflecia:1434244328448069642> Rifiutato â\n"
+                f"**ðð®ðð¼ð¿ð¼**<a:casomaiconflecia:1434244328448069642> {self.role.mention}\n"
+                f"**ð ð¼ðð¶ðð¼**<a:casomaiconflecia:1434244328448069642> {motivo}\n\n"
+                f"â¬â¬â¬â¬â¬â¬â¬â¬â¬â¬â¬â¬\n"
                 f"Da <@&{STAFF_ROLE_ID}>\n"
                 f"<@{self.staff_id}>" 
             )
@@ -80,36 +80,18 @@ def setup_admin_commands(bot: commands.Bot):
             embed.description = description_content
             
             # 3. Risposta di conferma effimera allo staff (RISOLVE L'INTERAZIONE)
-            await interaction.response.send_message(f"✅ Esito Rifiutato inviato per {self.citizen.mention}.", ephemeral=True)
+            await interaction.response.send_message(f"â Esito Rifiutato inviato per {self.citizen.mention}.", ephemeral=True)
             
             # 4. Invio Pubblico nel canale dell'interazione
             await interaction.channel.send(embed=embed)
             
-            # 5. Log (Ora usa 'bot' che è accessibile nello scope di setup_admin_commands)
+            # 5. Log (Ora usa 'bot' che Ã¨ accessibile nello scope di setup_admin_commands)
             await log_command(
                 bot, 
                 LOG_CHANNEL_ID, 
-                f"🚫 {interaction.user.mention} ha rifiutato il bando di {self.citizen.mention} per {self.role.name}. Motivo: {motivo[:50]}..."
+                f"ð« {interaction.user.mention} ha rifiutato il bando di {self.citizen.mention} per {self.role.name}. Motivo: {motivo[:50]}..."
             )
-            
-    # ==============================================================================
-    # ⚠️ PROBLEMA RIGA 96: DEVI INSERIRE QUI IL TUO COMANDO /dai-rimuovi_zaino
-    # ⚠️ E assicurati che il parametro con app_commands.choices sia di tipo 'str'.
-    # ⚠️ Esempio corretto: async def dai_rimuovi_zaino(..., azione: str, ...)
-    # ==============================================================================
-    
-    # ESEMPIO DELLA CORREZIONE CHE DEVI APPLICARE AL TUO COMANDO /dai-rimuovi_zaino:
-    """
-    @bot.tree.command(name="dai-rimuovi_zaino", description="[STAFF] Dai o togli lo zaino ad un utente")
-    @app_commands.describe(azione="Seleziona l'azione (dai/rimuovi)")
-    @app_commands.choices(azione=[
-        app_commands.Choice(name="Dai", value="DAI"),
-        app_commands.Choice(name="Rimuovi", value="RIMUOVI"),
-    ])
-    async def dai_rimuovi_zaino(interaction: discord.Interaction, utente: discord.Member, azione: str): # <-- DEVE ESSERE 'str' QUI!
-        # Usa 'azione' direttamente, non 'azione.value'
-        # ...
-    """
+
     
     # ====================
     # COMANDO: /add-money
@@ -120,20 +102,20 @@ def setup_admin_commands(bot: commands.Bot):
         importo="La cifra da aggiungere (va in Banca)"
     )
     async def add_money(interaction: discord.Interaction, utente: discord.Member, importo: int):
-        # ... (Logica di add-money) ...
+        # ... (Logica di add-money, Ã¨ giÃ  corretta) ...
         if not has_role(interaction, STAFF_ROLE_ID):
             await interaction.response.send_message(
-                f"❌ Non hai i permessi per usare questo comando. (Richiesto: <@&{STAFF_ROLE_ID}>)", 
+                f"â Non hai i permessi per usare questo comando. (Richiesto: <@&{STAFF_ROLE_ID}>)", 
                 ephemeral=True
             )
             return
 
         if importo <= 0:
-            await interaction.response.send_message("❌ L'importo da aggiungere deve essere maggiore di zero!", ephemeral=True)
+            await interaction.response.send_message("â L'importo da aggiungere deve essere maggiore di zero!", ephemeral=True)
             return
             
         if utente.bot:
-            await interaction.response.send_message("❌ Non puoi aggiungere soldi a un bot.", ephemeral=True)
+            await interaction.response.send_message("â Non puoi aggiungere soldi a un bot.", ephemeral=True)
             return
             
         user_id = str(utente.id)
@@ -155,14 +137,14 @@ def setup_admin_commands(bot: commands.Bot):
             await db.commit()
 
         try:
-            await utente.send(f"💸 Lo staff ({interaction.user.mention}) ha accreditato **${importo:,}** sul tuo conto bancario.")
+            await utente.send(f"ð¸ Lo staff ({interaction.user.mention}) ha accreditato **${importo:,}** sul tuo conto bancario.")
         except:
             pass
 
         await interaction.followup.send(
-            f"✅ Aggiunto **${importo:,}** al conto bancario di **{utente.mention}**.",
+            f"â Aggiunto **${importo:,}** al conto bancario di **{utente.mention}**.",
         )
-        await log_command(bot, LOG_CHANNEL_ID, f"💵 {interaction.user.mention} ha aggiunto ${importo:,} al conto bancario di {utente.mention}")
+        await log_command(bot, LOG_CHANNEL_ID, f"ðµ {interaction.user.mention} ha aggiunto ${importo:,} al conto bancario di {utente.mention}")
 
 
     # =========================================
@@ -186,7 +168,7 @@ def setup_admin_commands(bot: commands.Bot):
         MENTION_ROLE_ID = 1414752091607535727
 
         if not has_role(interaction, STAFF_ROLE_ID):
-            await interaction.response.send_message("❌ Non hai i permessi per usare questo comando!", ephemeral=True)
+            await interaction.response.send_message("â Non hai i permessi per usare questo comando!", ephemeral=True)
             return
 
         await interaction.response.defer(ephemeral=True, thinking=True)
@@ -218,9 +200,9 @@ def setup_admin_commands(bot: commands.Bot):
 
         await canale.send(f"<@&{MENTION_ROLE_ID}>", embed=embed)
 
-        await interaction.followup.send(f"✅ Annuncio inviato correttamente in {canale.mention}!", ephemeral=True)
+        await interaction.followup.send(f"â Annuncio inviato correttamente in {canale.mention}!", ephemeral=True)
 
-        await log_command(bot, LOG_CHANNEL_ID, f"📢 {interaction.user.mention} ha inviato un annuncio in {canale.mention}: **{titolo}**")
+        await log_command(bot, LOG_CHANNEL_ID, f"ð¢ {interaction.user.mention} ha inviato un annuncio in {canale.mention}: **{titolo}**")
 
 
     
@@ -233,20 +215,20 @@ def setup_admin_commands(bot: commands.Bot):
         importo="La cifra da rimuovere (dalla Banca)"
     )
     async def remove_money(interaction: discord.Interaction, utente: discord.Member, importo: int):
-        # ... (Logica di remove-money) ...
+        # ... (Logica di remove-money, Ã¨ giÃ  corretta) ...
         if not has_role(interaction, STAFF_ROLE_ID):
             await interaction.response.send_message(
-                f"❌ Non hai i permessi per usare questo comando. (Richiesto: <@&{STAFF_ROLE_ID}>)", 
+                f"â Non hai i permessi per usare questo comando. (Richiesto: <@&{STAFF_ROLE_ID}>)", 
                 ephemeral=True
             )
             return
 
         if importo <= 0:
-            await interaction.response.send_message("❌ L'importo da rimuovere deve essere maggiore di zero!", ephemeral=True)
+            await interaction.response.send_message("â L'importo da rimuovere deve essere maggiore di zero!", ephemeral=True)
             return
             
         if utente.bot:
-            await interaction.response.send_message("❌ Non puoi rimuovere soldi a un bot.", ephemeral=True)
+            await interaction.response.send_message("â Non puoi rimuovere soldi a un bot.", ephemeral=True)
             return
             
         user_id = str(utente.id)
@@ -260,7 +242,7 @@ def setup_admin_commands(bot: commands.Bot):
             if not user_data:
                 await db.execute("INSERT OR IGNORE INTO users (user_id, cash, bank, has_backpack) VALUES (?, 0, 0, 0)", (user_id,))
                 await db.commit()
-                await interaction.followup.send(f"❌ {utente.mention} non aveva un saldo in banca, quindi non è stato rimosso nulla.", ephemeral=True)
+                await interaction.followup.send(f"â {utente.mention} non aveva un saldo in banca, quindi non Ã¨ stato rimosso nulla.", ephemeral=True)
                 return
 
             current_bank = user_data[0]
@@ -272,15 +254,15 @@ def setup_admin_commands(bot: commands.Bot):
             removed_amount = current_bank - new_bank
 
         try:
-            await utente.send(f"⚠️ Lo staff ({interaction.user.mention}) ha rimosso **${removed_amount:,}** dal tuo conto bancario.")
+            await utente.send(f"â ï¸ Lo staff ({interaction.user.mention}) ha rimosso **${removed_amount:,}** dal tuo conto bancario.")
         except:
             pass
         
         await interaction.followup.send(
-            f"✅ Rimosso **${removed_amount:,}** dal conto bancario di **{utente.mention}**."
+            f"â Rimosso **${removed_amount:,}** dal conto bancario di **{utente.mention}**."
         )
 
-        await log_command(bot, LOG_CHANNEL_ID, f"➖ {interaction.user.mention} ha rimosso ${removed_amount:,} dal conto bancario di {utente.mention}")
+        await log_command(bot, LOG_CHANNEL_ID, f"â {interaction.user.mention} ha rimosso ${removed_amount:,} dal conto bancario di {utente.mention}")
 
     
     # ====================
@@ -289,16 +271,16 @@ def setup_admin_commands(bot: commands.Bot):
     @bot.tree.command(name="reset", description="[STAFF] Rimuovi tutti i soldi (cash e banca) di un utente.")
     @app_commands.describe(utente="L'utente a cui azzerare i soldi")
     async def reset(interaction: discord.Interaction, utente: discord.Member):
-        # ... (Logica di reset) ...
+        # ... (Logica di reset, Ã¨ giÃ  corretta) ...
         if not has_role(interaction, RESET_ROLE_ID):
             await interaction.response.send_message(
-                f"❌ Non hai i permessi per usare questo comando. (Richiesto: <@&{RESET_ROLE_ID}>)", 
+                f"â Non hai i permessi per usare questo comando. (Richiesto: <@&{RESET_ROLE_ID}>)", 
                 ephemeral=True
             )
             return
 
         if utente.bot:
-            await interaction.response.send_message("❌ Non puoi azzerare i soldi di un bot.", ephemeral=True)
+            await interaction.response.send_message("â Non puoi azzerare i soldi di un bot.", ephemeral=True)
             return
             
         user_id = str(utente.id)
@@ -315,26 +297,26 @@ def setup_admin_commands(bot: commands.Bot):
             await db.commit()
         
         try:
-            await utente.send(f"⚠️ Il tuo saldo (cash e banca) è stato azzerato dallo staff ({interaction.user.mention}).")
+            await utente.send(f"â ï¸ Il tuo saldo (cash e banca) Ã¨ stato azzerato dallo staff ({interaction.user.mention}).")
         except:
             pass
 
         await interaction.response.send_message(
-            f"✅ Saldo (cash e banca) di **{utente.mention}** azzerato con successo!",
+            f"â Saldo (cash e banca) di **{utente.mention}** azzerato con successo!",
             ephemeral=True
         )
 
-        await log_command(bot, LOG_CHANNEL_ID, f"🔄 {interaction.user.mention} ha azzerato il saldo (cash e banca) di {utente.mention}")
+        await log_command(bot, LOG_CHANNEL_ID, f"ð {interaction.user.mention} ha azzerato il saldo (cash e banca) di {utente.mention}")
         
     
     # =========================================
-    # COMANDO: /esito-bando (CORRETTO)
+    # COMANDO: /esito-bando
     # =========================================
     @bot.tree.command(name="esito-bando", description="[STAFF] Gestisce l'esito di un bando lavorativo.")
     @app_commands.describe(
         esito="Seleziona l'esito del bando",
         cittadino="La persona che ha partecipato al bando",
-        lavoro="Il ruolo del lavoro per cui è stato fatto il bando"
+        lavoro="Il ruolo del lavoro per cui Ã¨ stato fatto il bando"
     )
     @app_commands.choices(esito=[
         app_commands.Choice(name="Assunto", value="ASSUNTO"),
@@ -342,23 +324,23 @@ def setup_admin_commands(bot: commands.Bot):
     ])
     async def esito_bando(
         interaction: discord.Interaction, 
-        esito: str, # <--- CORREZIONE: DEVE ESSERE 'str'
+        esito: app_commands.Choice[str], 
         cittadino: discord.Member, 
         lavoro: discord.Role
     ):
         if not has_role(interaction, STAFF_ROLE_ID):
-            await interaction.response.send_message("❌ Solo lo Staff può usare questo comando.", ephemeral=True)
+            await interaction.response.send_message("â Solo lo Staff puÃ² usare questo comando.", ephemeral=True)
             return
         
         # Passiamo il bot al modal per il logging
-        if esito == "RIFIUTATO": # <--- CORREZIONE: usiamo 'esito' direttamente
+        if esito.value == "RIFIUTATO":
             modal = RifiutoMotivoModal(cittadino, lavoro, interaction.user.id) 
             await interaction.response.send_modal(modal)
             return 
         
         # --- Logica ASSUNTO (Stabile) ---
         
-        await interaction.response.send_message(f"✅ Bando Assunto in fase di invio per {cittadino.mention}.", ephemeral=True)
+        await interaction.response.send_message(f"â Bando Assunto in fase di invio per {cittadino.mention}.", ephemeral=True)
 
         success = False
         
@@ -367,22 +349,22 @@ def setup_admin_commands(bot: commands.Bot):
                 await cittadino.add_roles(lavoro, reason=f"Assunzione tramite bando da parte di {interaction.user.name}")
                 success = True
             except discord.Forbidden:
-                await interaction.followup.send("⚠️ Non sono riuscito ad aggiungere il ruolo per problemi di permessi.", ephemeral=True)
+                await interaction.followup.send("â ï¸ Non sono riuscito ad aggiungere il ruolo per problemi di permessi.", ephemeral=True)
             except Exception:
                 pass
         else:
             success = True
             
         embed = discord.Embed(
-            title="<a:megafono:1431932605984542720> 𝐄𝐬𝐢𝐭𝐨 𝐛𝐚𝐧𝐝𝐨 <a:si:1433573748891582566>",
+            title="<a:megafono:1431932605984542720> ðð¬ð¢ð­ð¨ ððð§ðð¨ <a:si:1433573748891582566>",
             color=discord.Color.green()
         )
         
         description_content = (
-            f"**𝗖𝗶𝘁𝘁𝗮𝗱𝗶𝗻𝗼**<a:casomaiconflecia:1434244328448069642> {cittadino.mention}\n"
-            f"**𝗘𝘀𝗶𝘁𝗼**<a:casomaiconflecia:1434244328448069642> Assunto \n"
-            f"**𝗟𝗮𝘃𝗼𝗿𝗼**<a:casomaiconflecia:1434244328448069642> {lavoro.mention}\n\n"
-            f"▬▬▬▬▬▬▬▬▬▬▬▬\n"
+            f"**ðð¶ððð®ð±ð¶ð»ð¼**<a:casomaiconflecia:1434244328448069642> {cittadino.mention}\n"
+            f"**ððð¶ðð¼**<a:casomaiconflecia:1434244328448069642> Assunto \n"
+            f"**ðð®ðð¼ð¿ð¼**<a:casomaiconflecia:1434244328448069642> {lavoro.mention}\n\n"
+            f"â¬â¬â¬â¬â¬â¬â¬â¬â¬â¬â¬â¬\n"
             f"Da <@&{STAFF_ROLE_ID}>\n"
             f"{interaction.user.mention}" 
         )
@@ -394,5 +376,5 @@ def setup_admin_commands(bot: commands.Bot):
         await log_command(
             bot, 
             LOG_CHANNEL_ID, 
-            f"🟢 {interaction.user.mention} ha assunto {cittadino.mention} per {lavoro.name}. Ruolo aggiunto: {success}"
+            f"ð¢ {interaction.user.mention} ha assunto {cittadino.mention} per {lavoro.name}. Ruolo aggiunto: {success}"
         )

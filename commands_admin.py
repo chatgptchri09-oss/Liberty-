@@ -52,7 +52,7 @@ def setup_admin_commands(bot: commands.Bot):
         motivo_input = discord.ui.TextInput(
             label="Motivo del rifiuto del bando",
             style=discord.TextStyle.paragraph,
-            placeholder="Specifica il motivo dettagliato per cui il bando Ã¨ stato rifiutato.",
+            placeholder="Specifica il motivo dettagliato per cui il bando è stato rifiutato.",
             required=True,
             max_length=500,
         )
@@ -62,7 +62,7 @@ def setup_admin_commands(bot: commands.Bot):
             
             # 1. Crea l'Embed di Rifiuto
             embed = discord.Embed(
-                title="<a:megafono:1431932605984542720> ðð¬ð¢ð­ð¨ ððð§ðð¨ <a:annulla:1431940396635652146> ",
+                title="<a:megafono:1431932605984542720> 𝐄𝐬𝐢𝐭𝐨 𝐛𝐚𝐧𝐝𝐨 <a:annulla:1431940396635652146> ",
                 color=discord.Color.red()
             )
             
@@ -89,7 +89,7 @@ def setup_admin_commands(bot: commands.Bot):
             await log_command(
                 bot, 
                 LOG_CHANNEL_ID, 
-                f"ð« {interaction.user.mention} ha rifiutato il bando di {self.citizen.mention} per {self.role.name}. Motivo: {motivo[:50]}..."
+                f"lo staff« {interaction.user.mention} ha rifiutato il bando di {self.citizen.mention} per {self.role.name}. Motivo: {motivo[:50]}..."
             )
 
     
@@ -316,7 +316,7 @@ def setup_admin_commands(bot: commands.Bot):
     @app_commands.describe(
         esito="Seleziona l'esito del bando",
         cittadino="La persona che ha partecipato al bando",
-        lavoro="Il ruolo del lavoro per cui Ã¨ stato fatto il bando"
+        lavoro="Il ruolo del lavoro per cui è stato fatto il bando"
     )
     @app_commands.choices(esito=[
         app_commands.Choice(name="Assunto", value="ASSUNTO"),
@@ -329,7 +329,7 @@ def setup_admin_commands(bot: commands.Bot):
         lavoro: discord.Role
     ):
         if not has_role(interaction, STAFF_ROLE_ID):
-            await interaction.response.send_message("â Solo lo Staff puÃ² usare questo comando.", ephemeral=True)
+            await interaction.response.send_message("Solo lo Staff può usare questo comando.", ephemeral=True)
             return
         
         # Passiamo il bot al modal per il logging
@@ -340,7 +340,7 @@ def setup_admin_commands(bot: commands.Bot):
         
         # --- Logica ASSUNTO (Stabile) ---
         
-        await interaction.response.send_message(f"â Bando Assunto in fase di invio per {cittadino.mention}.", ephemeral=True)
+        await interaction.response.send_message(f" Bando Assunto in fase di invio per {cittadino.mention}.", ephemeral=True)
 
         success = False
         
@@ -349,7 +349,7 @@ def setup_admin_commands(bot: commands.Bot):
                 await cittadino.add_roles(lavoro, reason=f"Assunzione tramite bando da parte di {interaction.user.name}")
                 success = True
             except discord.Forbidden:
-                await interaction.followup.send("â ï¸ Non sono riuscito ad aggiungere il ruolo per problemi di permessi.", ephemeral=True)
+                await interaction.followup.send("Non sono riuscito ad aggiungere il ruolo per problemi di permessi.", ephemeral=True)
             except Exception:
                 pass
         else:

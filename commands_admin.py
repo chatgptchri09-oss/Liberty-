@@ -68,11 +68,11 @@ def setup_admin_commands(bot: commands.Bot):
             
             # 2. Costruisci la descrizione ESATTA
             description_content = (
-                f"**ðð¶ððð®ð±ð¶ð»ð¼**<a:casomaiconflecia:1434244328448069642> {self.citizen.mention}\n"
-                f"**ððð¶ðð¼**<a:casomaiconflecia:1434244328448069642> Rifiutato â\n"
-                f"**ðð®ðð¼ð¿ð¼**<a:casomaiconflecia:1434244328448069642> {self.role.mention}\n"
-                f"**ð ð¼ðð¶ðð¼**<a:casomaiconflecia:1434244328448069642> {motivo}\n\n"
-                f"â¬â¬â¬â¬â¬â¬â¬â¬â¬â¬â¬â¬\n"
+                f"**𝗖𝗶𝘁𝘁𝗮𝗱𝗶𝗻𝗼**<a:casomaiconflecia:1434244328448069642> {self.citizen.mention}\n"
+                f"**𝗘𝘀𝗶𝘁𝗼**<a:casomaiconflecia:1434244328448069642> Rifiutato â\n"
+                f"**𝗟𝗮𝘃𝗼𝗿𝗼**<a:casomaiconflecia:1434244328448069642> {self.role.mention}\n"
+                f"**𝗠𝗼𝘁𝗶𝘃𝗼**<a:casomaiconflecia:1434244328448069642> {motivo}\n\n"
+                f"▬▬▬▬▬▬▬▬\n"
                 f"Da <@&{STAFF_ROLE_ID}>\n"
                 f"<@{self.staff_id}>" 
             )
@@ -356,15 +356,15 @@ def setup_admin_commands(bot: commands.Bot):
             success = True
             
         embed = discord.Embed(
-            title="<a:megafono:1431932605984542720> ðð¬ð¢ð­ð¨ ððð§ðð¨ <a:si:1433573748891582566>",
+            title="<a:megafono:1431932605984542720> 𝐄𝐬𝐢𝐭𝐨 𝐛𝐚𝐧𝐝𝐨 <a:si:1433573748891582566>",
             color=discord.Color.green()
         )
         
         description_content = (
-            f"**ðð¶ððð®ð±ð¶ð»ð¼**<a:casomaiconflecia:1434244328448069642> {cittadino.mention}\n"
-            f"**ððð¶ðð¼**<a:casomaiconflecia:1434244328448069642> Assunto \n"
-            f"**ðð®ðð¼ð¿ð¼**<a:casomaiconflecia:1434244328448069642> {lavoro.mention}\n\n"
-            f"â¬â¬â¬â¬â¬â¬â¬â¬â¬â¬â¬â¬\n"
+            f"**𝗖𝗶𝘁𝘁𝗮𝗱𝗶𝗻𝗼**<a:casomaiconflecia:1434244328448069642> {cittadino.mention}\n"
+            f"**𝗘𝘀𝗶𝘁𝗼**<a:casomaiconflecia:1434244328448069642> Assunto \n"
+            f"**𝗟𝗮𝘃𝗼𝗿𝗼**<a:casomaiconflecia:1434244328448069642> {lavoro.mention}\n\n"
+            f"▬▬▬▬▬▬▬▬\n"
             f"Da <@&{STAFF_ROLE_ID}>\n"
             f"{interaction.user.mention}" 
         )
@@ -376,5 +376,5 @@ def setup_admin_commands(bot: commands.Bot):
         await log_command(
             bot, 
             LOG_CHANNEL_ID, 
-            f"ð¢ {interaction.user.mention} ha assunto {cittadino.mention} per {lavoro.name}. Ruolo aggiunto: {success}"
+            f"lo staff¢ {interaction.user.mention} ha assunto {cittadino.mention} per {lavoro.name}. Ruolo aggiunto: {success}"
         )

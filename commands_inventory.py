@@ -1,9 +1,7 @@
-import discord
+Import discord
 from discord import app_commands
 from discord.ext import commands
-from discord.ui import Button, View # Import richiesti per la paginazione
 import aiosqlite
-import math # Import richiesto per la paginazione
 
 DATABASE_NAME = "economy_bot.db"
 LOG_CHANNEL_ID = 1415297578022604850
@@ -31,7 +29,7 @@ async def update_inventory(user_id: str, item_name: str, quantity: int, mode: st
     """
     Aggiorna l'inventario dell'utente.
     mode='add': Aggiunge la quantità.
-    mode='set': Imposta la quantità.
+    mode='set': Imposta la quantità. (Non usata qui, ma utile per futuri comandi)
     mode='remove': Rimuove la quantità.
     """
     async with aiosqlite.connect(DATABASE_NAME) as db:
@@ -134,74 +132,6 @@ class ItemSelect(discord.ui.Select):
         selected_item = self.values[0]
         modal = ItemQuantityModal(self.bot, self.target_user, selected_item)
         await interaction.response.send_modal(modal)
-
-# =================================================================
-# CLASSE: PAGINAZIONE DELLO SHOP (Nuova Aggiunta)
-# =================================================================
-
-class ItemShopView(View):
-    def __init__(self, bot, items, items_per_page=5):
-        super().__init__(timeout=180) 
-        self.bot = bot
-        self.items = items
-        self.items_per_page = items_per_page
-        self.total_pages = math.ceil(len(items) / self.items_per_page)
-        self.current_page = 1
-        
-        self.update_buttons()
-
-    def create_embed(self):
-        start_index = (self.current_page - 1) * self.items_per_page
-        end_index = start_index + self.items_per_page
-        current_items = self.items[start_index:end_index]
-        
-        embed = discord.Embed(
-            title="Shop - Lista degli Item",
-            color=discord.Color.from_rgb(117, 107, 240) 
-        )
-        
-        description_lines = []
-        
-        for name, required_role_id in current_items:
-            icona_chiave = "🔑" 
-            icona_ruolo = "🎯"
-
-            description_lines.append(
-                f"**{icona_chiave} | {name}**\n"
-                f"Ruolo richiesto: {icona_ruolo} <@&{required_role_id}>\n"
-                f"---"
-            )
-
-        embed.description = "\n".join(description_lines)
-        
-        embed.set_footer(text=f"Pagina {self.current_page} di {self.total_pages}")
-        return embed
-
-    def update_buttons(self):
-        # I bottoni sono il primo e il secondo nella lista children
-        self.children[0].disabled = (self.current_page == 1)
-        self.children[1].disabled = (self.current_page == self.total_pages)
-
-    @discord.ui.button(label="◄ Pagina", style=discord.ButtonStyle.blurple, emoji="◄")
-    async def previous_page(self, interaction: discord.Interaction, button: Button):
-        if self.current_page > 1:
-            self.current_page -= 1
-            self.update_buttons()
-            new_embed = self.create_embed()
-            await interaction.response.edit_message(embed=new_embed, view=self)
-        else:
-            await interaction.response.defer()
-
-    @discord.ui.button(label="Pagina ►", style=discord.ButtonStyle.blurple, emoji="►")
-    async def next_page(self, interaction: discord.Interaction, button: Button):
-        if self.current_page < self.total_pages:
-            self.current_page += 1
-            self.update_buttons()
-            new_embed = self.create_embed()
-            await interaction.response.edit_message(embed=new_embed, view=self)
-        else:
-            await interaction.response.defer()
-
 
 # ====================
 # FUNZIONE DI SETUP
@@ -311,7 +241,7 @@ def setup_inventory_commands(bot: commands.Bot):
 
 
     # ====================
-    # COMANDO: /nuovoitem
+    # COMANDI ESISTENTI
     # ====================
     
     @bot.tree.command(name="nuovoitem", description="[STAFF] Crea un nuovo item")
@@ -339,10 +269,6 @@ def setup_inventory_commands(bot: commands.Bot):
             except aiosqlite.IntegrityError:
                 await interaction.response.send_message(f"❌ L'item **{nome_item}** esiste già!", ephemeral=True)
     
-    # ====================
-    # COMANDO: /eliminaitem
-    # ====================
-
     @bot.tree.command(name="eliminaitem", description="[STAFF] Elimina un item")
     @app_commands.describe(nome="Nome dell'item da eliminare")
     async def eliminaitem(interaction: discord.Interaction, nome: str):
@@ -360,34 +286,31 @@ def setup_inventory_commands(bot: commands.Bot):
             else:
                 await interaction.response.send_message(f"❌ L'item **{nome}** non esiste!", ephemeral=True)
     
-    # =================================================================
-    # COMANDO: /itemshop (ORA CON PAGINAZIONE INTERATTIVA)
-    # =================================================================
-
-    @bot.tree.command(name="itemshop", description="Visualizza tutti gli item disponibili (con paginazione interattiva).")
+    @bot.tree.command(name="itemshop", description="Visualizza tutti gli item disponibili")
     async def itemshop(interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=False, thinking=True) # Non ephemeral come nell'immagine
-
         async with aiosqlite.connect(DATABASE_NAME) as db:
-            async with db.execute("SELECT name, required_role_id FROM items ORDER BY name ASC") as cursor:
+            async with db.execute("SELECT name, required_role_id FROM items") as cursor:
                 items = await cursor.fetchall()
 
         if not items:
-            await interaction.followup.send("❌ Non ci sono item nello shop!", ephemeral=True)
+            await interaction.response.send_message("❌ Non ci sono item nello shop!", ephemeral=True)
             return
 
-        # 1. Crea l'oggetto View per la paginazione
-        view = ItemShopView(bot, items, items_per_page=5) 
-        
-        # 2. Invia la prima pagina con i pulsanti attivi
-        first_embed = view.create_embed()
-        await interaction.followup.send(embed=first_embed, view=view, ephemeral=False)
-        
-        await log_command(bot, LOG_CHANNEL_ID, f"🛒 {interaction.user.mention} ha visualizzato l'item shop")
+        embed = discord.Embed(
+            title="🛒 Shop - Lista degli Item",
+            description="Ecco tutti gli item disponibili:",
+            color=discord.Color.blue()
+        )
 
-    # ====================
-    # COMANDO: /vendizaino
-    # ====================
+        for name, required_role_id in items:
+            embed.add_field(
+                name=f"• {name}",
+                value=f"Ruolo richiesto: <@&{required_role_id}>",
+                inline=False
+            )
+
+        await interaction.response.send_message(embed=embed)
+        await log_command(bot, LOG_CHANNEL_ID, f"🛒 {interaction.user.mention} ha visualizzato l'item shop")
     
     @bot.tree.command(name="vendizaino", description="[MARKET] Vendi uno zaino a un utente")
     @app_commands.describe(utente="L'utente a cui vendere lo zaino")
@@ -420,10 +343,6 @@ def setup_inventory_commands(bot: commands.Bot):
 
         await log_command(bot, LOG_CHANNEL_ID, f"🎒 {interaction.user.mention} ha venduto uno zaino a {utente.mention}")
     
-    # ====================
-    # COMANDO: /rimuovizaino
-    # ====================
-    
     @bot.tree.command(name="rimuovizaino", description="[STAFF] Rimuovi lo zaino da un utente")
     @app_commands.describe(utente="L'utente a cui rimuovere lo zaino")
     async def rimuovizaino(interaction: discord.Interaction, utente: discord.Member):
@@ -451,10 +370,6 @@ def setup_inventory_commands(bot: commands.Bot):
         except:
             pass
     
-    # ====================
-    # COMANDO: /invzaino
-    # ====================
-
     @bot.tree.command(name="invzaino", description="Visualizza lo zaino tuo o di un altro utente")
     @app_commands.describe(utente="L'utente di cui visualizzare lo zaino (opzionale)")
     async def invzaino(interaction: discord.Interaction, utente: discord.Member = None):
@@ -706,4 +621,3 @@ def setup_inventory_commands(bot: commands.Bot):
 
         log_msg = f"➡️ {interaction.user.mention} ha dato {quantita}x {nome_item} a {utente.mention}"
         await log_command(bot, LOG_CHANNEL_ID, log_msg)
-

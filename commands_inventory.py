@@ -286,81 +286,33 @@ def setup_inventory_commands(bot: commands.Bot):
             else:
                 await interaction.response.send_message(f"❌ L'item **{nome}** non esiste!", ephemeral=True)
 
-@bot.tree.command(name="itemshop", description="Visualizza tutti gli item disponibili")
-async def itemshop(interaction: discord.Interaction):
+ @bot.tree.command(name="itemshop", description="Visualizza tutti gli item disponibili")
+    async def itemshop(interaction: discord.Interaction):
+        async with aiosqlite.connect(DATABASE_NAME) as db:
+            async with db.execute("SELECT name, required_role_id FROM items") as cursor:
+                items = await cursor.fetchall()
 
-    async with aiosqlite.connect(DATABASE_NAME) as db:
-        async with db.execute("SELECT name, required_role_id FROM items") as cursor:
-            items = await cursor.fetchall()
-
-    if not items:
-        await interaction.response.send_message("❌ Non ci sono item nello shop!", ephemeral=True)
-        return
-
-    ITEMS_PER_PAGE = 5
-
-    def create_embed(page: int):
-        start = page * ITEMS_PER_PAGE
-        end = start + ITEMS_PER_PAGE
-        page_items = items[start:end]
+        if not items:
+            await interaction.response.send_message("❌ Non ci sono item nello shop!", ephemeral=True)
+            return
 
         embed = discord.Embed(
             title="🛒 Shop - Lista degli Item",
+            description="Ecco tutti gli item disponibili:",
             color=discord.Color.blue()
         )
 
-        for name, role_id in page_items:
+        for name, required_role_id in items:
             embed.add_field(
                 name=f"• {name}",
-                value=f"🔑 Ruolo richiesto: <@&{role_id}>",
+                value=f"Ruolo richiesto: <@&{required_role_id}>",
                 inline=False
             )
 
-        max_page = (len(items) - 1) // ITEMS_PER_PAGE + 1
-        embed.set_footer(text=f"Pagina {page + 1} di {max_page}")
-        return embed
+        await interaction.response.send_message(embed=embed)
+        await log_command(bot, LOG_CHANNEL_ID, f"🛒 {interaction.user.mention} ha visualizzato l'item shop")
 
 
-    class ShopView(discord.ui.View):
-        def __init__(self, user):
-            super().__init__(timeout=60)
-            self.user = user
-            self.page = 0
-
-        async def update(self, interaction):
-            await interaction.response.edit_message(
-                embed=create_embed(self.page),
-                view=self
-            )
-
-        @discord.ui.button(label="◀ Pagina", style=discord.ButtonStyle.secondary)
-        async def prev(self, interaction: discord.Interaction, button: discord.ui.Button):
-            if interaction.user != self.user:
-                return await interaction.response.send_message("❌ Non puoi usare questo menu!", ephemeral=True)
-            if self.page > 0:
-                self.page -= 1
-                await self.update(interaction)
-
-        @discord.ui.button(label="Pagina ▶", style=discord.ButtonStyle.primary)
-        async def next(self, interaction: discord.Interaction, button: discord.ui.Button):
-            if interaction.user != self.user:
-                return await interaction.response.send_message("❌ Non puoi usare questo menu!", ephemeral=True)
-            max_pages = (len(items) - 1) // ITEMS_PER_PAGE
-            if self.page < max_pages:
-                self.page += 1
-                await self.update(interaction)
-
-
-    view = ShopView(interaction.user)
-
-    await interaction.response.send_message(
-        embed=create_embed(0),
-        view=view,
-        ephemeral=True  # ✅ Solo l’utente lo vede, come nello screen
-    )
-
-    await log_command(bot, LOG_CHANNEL_ID, f"🛒 {interaction.user.mention} ha visualizzato l'item shop")
-    
     @bot.tree.command(name="vendizaino", description="[MARKET] Vendi uno zaino a un utente")
     @app_commands.describe(utente="L'utente a cui vendere lo zaino")
     async def vendizaino(interaction: discord.Interaction, utente: discord.Member):

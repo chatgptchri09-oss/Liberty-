@@ -171,7 +171,7 @@ def setup_vehicle_commands(bot: commands.Bot):
         
         # --- CREAZIONE EMBED PER IL LOG SEPARATO ---
         embed = discord.Embed(
-            title="🚨 VEICOLO SEQUESTRATO",
+            title="<a:sirena:1431792628332101723> VEICOLO SEQUESTRATO",
             description=f"Il veicolo con targa **{targa}** è stato contrassegnato come sequestrato.",
             color=discord.Color.red() # Colore Rosso
         )
@@ -215,7 +215,7 @@ def setup_vehicle_commands(bot: commands.Bot):
         
         # --- CREAZIONE EMBED PER IL LOG SEPARATO ---
         embed = discord.Embed(
-            title="✅ SEQUESTRO RIMOSSO",
+            title="<a:si:1433573748891582566> SEQUESTRO RIMOSSO",
             description=f"Il sequestro è stato rimosso dal veicolo con targa **{targa}**.",
             color=discord.Color.green() # Colore Verde
         )

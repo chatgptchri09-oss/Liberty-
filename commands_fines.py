@@ -1,25 +1,25 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
-import database
+import database # Assumo che tu abbia un modulo 'database'
 from datetime import datetime
-import aiohttp # NECESSARIO per inviare messaggi a Webhook esterni
 
-# --- COSTANTI AGGIORNATE ---
+# --- COSTANTI AGGIORNATE E CONSOLIDATE ---
 LFD_ROLE_ID = 1415093546549248040
-LOG_CHANNEL_ID = 1415297578022604850
-LFD_LOG_CHANNEL_ID = 1424007218554208316
-# NUOVA COSTANTE: L'URL del Webhook per i log di arresto
-ARRESTO_WEBHOOK_URL = "https://discord.com/api/webhooks/1436348492376445000/oHUsctv4kcRwePtWcVcMfaFaxz7E8V8fXZUNWc2G2_GQARjsMTbV9HfbuYf5G8i2Zreq"
+LOG_CHANNEL_ID = 1415297578022604850       # Canale per i log generici di comando (es. chi usa /multa)
+LFD_LOG_CHANNEL_ID = 1424007218554208316  # Canale per i log di multa pagata
+ARRESTO_LOG_CHANNEL_ID = 1436347936635097179 # Canale specifico per l'Embed blu di arresto
 # ----------------------------
 
 
 def has_role(interaction: discord.Interaction, role_id: int) -> bool:
+    """Controlla se l'utente che interagisce ha un determinato ruolo."""
     if not isinstance(interaction.user, discord.Member):
         return False
     return any(role.id == role_id for role in interaction.user.roles)
 
 async def log_command(bot, channel_id: int, message: str = None, embed: discord.Embed = None):
+    """Invia un messaggio o un embed al canale di log specificato."""
     try:
         channel = bot.get_channel(channel_id)
         if channel and hasattr(channel, 'send'):
@@ -28,22 +28,8 @@ async def log_command(bot, channel_id: int, message: str = None, embed: discord.
             elif message:
                 await channel.send(message)
     except:
+        # Gestione silenziosa degli errori di logging
         pass
-
-async def log_arresto_webhook(embed: discord.Embed):
-    """Invia l'embed di log all'URL del Webhook esterno."""
-    if not ARRESTO_WEBHOOK_URL:
-        return
-        
-    payload = {
-        "embeds": [embed.to_dict()]
-    }
-    
-    async with aiohttp.ClientSession() as session:
-        try:
-            await session.post(ARRESTO_WEBHOOK_URL, json=payload)
-        except Exception:
-            pass
 
 
 class FineModal(discord.ui.Modal, title="<a:sirena:1431792628332101723> Multa"):
@@ -69,16 +55,14 @@ class FineModal(discord.ui.Modal, title="<a:sirena:1431792628332101723> Multa"):
         self.user_id = user_id
 
     async def on_submit(self, interaction: discord.Interaction):
-        # *** CORREZIONE: Defer iniziale per evitare timeout ***
-        await interaction.response.defer(ephemeral=True, thinking=True)
-        
+        # Risposta veloce necessaria per il modal
         try:
             fine_amount = int(self.fine_amount_input.value)
             if fine_amount <= 0:
-                await interaction.followup.send("<a:annulla:1431940396635652146> L'importo deve essere maggiore di 0!", ephemeral=True)
+                await interaction.response.send_message("<a:annulla:1431940396635652146> L'importo deve essere maggiore di 0!", ephemeral=True)
                 return
         except ValueError:
-            await interaction.followup.send("<a:annulla:1431940396635652146> Importo non valido!", ephemeral=True)
+            await interaction.response.send_message("<a:annulla:1431940396635652146> Importo non valido!", ephemeral=True)
             return
         
         await database.create_fine(
@@ -106,12 +90,10 @@ class FineModal(discord.ui.Modal, title="<a:sirena:1431792628332101723> Multa"):
         except:
             pass
         
-        # Dopo il defer, usiamo followup.send
-        await interaction.followup.send(f"<a:spunta:1431937738256552036> Multa inviata a <@{self.user_id}>!", ephemeral=True)
+        await interaction.response.send_message(f"<a:spunta:1431937738256552036> Multa inviata a <@{self.user_id}>!", ephemeral=True)
         await log_command(self.bot, LOG_CHANNEL_ID, f"<a:sirena:1431792628332101723> {interaction.user.mention} ha multato <@{self.user_id}> per ${fine_amount:,}")
 
 
-# --- NUOVO MODAL PER L'ARRESTO ---
 class ArrestoModal(discord.ui.Modal, title="<a:sirena:1431792628332101723> Modulo di Arresto"):
     name_input = discord.ui.TextInput(label="Nome arrestato", placeholder="Nome della persona arrestata", required=True)
     surname_input = discord.ui.TextInput(label="Cognome arrestato", placeholder="Cognome della persona arrestata", required=True)
@@ -125,13 +107,12 @@ class ArrestoModal(discord.ui.Modal, title="<a:sirena:1431792628332101723> Modul
     )
     pena_input = discord.ui.TextInput(label="Pena", placeholder="Esempio: 20 minuti in prigione", required=True)
 
-    def __init__(self, arrested_user: discord.Member):
+    def __init__(self, arrested_user: discord.Member, bot: commands.Bot):
         super().__init__(timeout=300)
         self.arrested_user = arrested_user
+        self.bot = bot
 
     async def on_submit(self, interaction: discord.Interaction):
-        # *** CORREZIONE CRITICA: Defer iniziale per evitare timeout prima dell'invio del Webhook ***
-        await interaction.response.defer(ephemeral=True, thinking=True)
         
         # 1. Creazione dell'Embed Blu
         embed = discord.Embed(
@@ -150,18 +131,14 @@ class ArrestoModal(discord.ui.Modal, title="<a:sirena:1431792628332101723> Modul
         
         embed.timestamp = datetime.now()
 
-        # 2. Invio del log al Webhook esterno (potrebbe impiegare tempo)
-        await log_arresto_webhook(embed)
-        
-        # 3. Risposta all'interazione (conferma) - Dopo il defer, usiamo followup.send
-        await interaction.followup.send(
-            f"<a:spunta:1431937738256552036> Modulo di arresto inviato per **{self.arrested_user.display_name}**! Log registrato nel canale Webhook.", 
+        # 2. Risposta immediata all'interazione (entro 3s per evitare timeout)
+        await interaction.response.send_message(
+            f"<a:spunta:1431937738256552036> Modulo di arresto compilato per **{self.arrested_user.display_name}**! Log inviato a <#{ARRESTO_LOG_CHANNEL_ID}>.", 
             ephemeral=True
         )
         
-        # Log di backup nel canale di log interno (opzionale)
-        await log_command(interaction.client, LOG_CHANNEL_ID, f"🚓 {interaction.user.mention} ha compilato un modulo di arresto per {self.arrested_user.mention}.")
-# ---------------------------------
+        # 3. Invio del log sul canale standard
+        await log_command(self.bot, ARRESTO_LOG_CHANNEL_ID, embed=embed)
 
 
 def setup_fine_commands(bot: commands.Bot):
@@ -176,17 +153,16 @@ def setup_fine_commands(bot: commands.Bot):
         modal = FineModal(bot, str(utente.id))
         await interaction.response.send_modal(modal)
 
-    # --- COMANDO: /modulo-arresto ---
-    @bot.tree.command(name="modulo-arresto", description="[LFD] Compila un modulo di arresto e logga con Webhook.")
+    @bot.tree.command(name="modulo-arresto", description="[LFD] Compila un modulo di arresto.")
     @app_commands.describe(cittadino="La persona da arrestare (tag)")
     async def modulo_arresto(interaction: discord.Interaction, cittadino: discord.Member):
         if not has_role(interaction, LFD_ROLE_ID):
             await interaction.response.send_message("<a:annulla:1431940396635652146> Solo i LFD (<@&1415093546549248040>) possono usare questo comando!", ephemeral=True)
             return
         
-        modal = ArrestoModal(cittadino)
+        # Risposta veloce che apre il Modal
+        modal = ArrestoModal(cittadino, bot)
         await interaction.response.send_modal(modal)
-    # ---------------------------------------
     
     class FineSelectMenu(discord.ui.Select):
         def __init__(self, fines, user_id):
@@ -208,7 +184,7 @@ def setup_fine_commands(bot: commands.Bot):
             super().__init__(placeholder="Seleziona una multa da pagare", options=options)
         
         async def callback(self, interaction: discord.Interaction):
-            # *** CORREZIONE: Defer iniziale per evitare timeout ***
+            # Defer per operazioni DB potenzialmente lunghe
             await interaction.response.defer(ephemeral=True, thinking=True)
 
             if str(interaction.user.id) != self.user_id:

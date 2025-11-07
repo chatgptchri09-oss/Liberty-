@@ -195,6 +195,43 @@ async def on_ready():
     # Inizializza il database
     await database.init_db()
 
+
+# --- Aggiungi questo blocco al tuo file principale, dopo la creazione del bot ---
+@bot.tree.error
+async def on_app_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
+    # Questo stamperà l'errore completo nel tuo terminale.
+    print(f"==================================================")
+    print(f"ERRORE GLOBALE: L'applicazione ha fallito nel comando '{interaction.command.name if interaction.command else 'sconosciuto'}'")
+    print(f"UTENTE: {interaction.user} (ID: {interaction.user.id})")
+    print(f"ERRORE DETTAGLIATO:")
+    
+    # Stampa la traccia completa dell'errore
+    import traceback
+    traceback.print_exception(type(error), error, error.__traceback__)
+    print(f"==================================================")
+
+    # Risposta amichevole all'utente
+    try:
+        if interaction.response.is_done():
+            # Se ha già risposto (es. con il defer), usa followup
+            await interaction.followup.send(
+                "❌ **Errore Critico!** L'applicazione ha riscontrato un problema non gestito. Controlla il terminale per i dettagli.", 
+                ephemeral=True
+            )
+        else:
+            # Altrimenti, rispondi direttamente
+            await interaction.response.send_message(
+                "❌ **Errore Critico!** L'applicazione ha riscontrato un problema non gestito. Controlla il terminale per i dettagli.", 
+                ephemeral=True
+            )
+    except:
+        # Fallback se non riusciamo a rispondere nemmeno all'errore
+        pass
+# ---------------------------------------------------------------------------------
+
+# ... (il resto del tuo codice, inclusa la chiamata a setup_fine_commands)
+
+
     # ====================
     # SETUP COMANDI (Spostato qui per risolvere l'errore di importazione ciclica)
     # ====================

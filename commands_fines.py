@@ -1,7 +1,7 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
-import database # Assumo che tu abbia un modulo 'database'
+import database
 from datetime import datetime
 import aiohttp # NECESSARIO per inviare messaggi a Webhook esterni
 
@@ -10,7 +10,6 @@ LFD_ROLE_ID = 1415093546549248040
 LOG_CHANNEL_ID = 1415297578022604850
 LFD_LOG_CHANNEL_ID = 1424007218554208316
 # NUOVA COSTANTE: L'URL del Webhook per i log di arresto
-# ATTENZIONE: Questo Webhook è esposto pubblicamente. Gestiscilo con cura!
 ARRESTO_WEBHOOK_URL = "https://discord.com/api/webhooks/1436348492376445000/oHUsctv4kcRwePtWcVcMfaFaxz7E8V8fXZUNWc2G2_GQARjsMTbV9HfbuYf5G8i2Zreq"
 # ----------------------------
 
@@ -29,30 +28,22 @@ async def log_command(bot, channel_id: int, message: str = None, embed: discord.
             elif message:
                 await channel.send(message)
     except:
-        # Gestione silenziosa degli errori di logging
         pass
 
-# --- NUOVA FUNZIONE PER IL LOG TRAMITE WEBHOOK ESTERNO ---
 async def log_arresto_webhook(embed: discord.Embed):
-    """
-    Invia l'embed di log all'URL del Webhook esterno utilizzando aiohttp.
-    """
+    """Invia l'embed di log all'URL del Webhook esterno."""
     if not ARRESTO_WEBHOOK_URL:
         return
         
-    # Discord Webhook necessita di un formato JSON specifico
     payload = {
         "embeds": [embed.to_dict()]
     }
     
     async with aiohttp.ClientSession() as session:
         try:
-            # Invio della richiesta POST al Webhook
             await session.post(ARRESTO_WEBHOOK_URL, json=payload)
         except Exception:
-            # Fallimento nell'invio del log, gestito silenziosamente
             pass
-# ---------------------------------------------------------
 
 
 class FineModal(discord.ui.Modal, title="<a:sirena:1431792628332101723> Multa"):
@@ -78,13 +69,16 @@ class FineModal(discord.ui.Modal, title="<a:sirena:1431792628332101723> Multa"):
         self.user_id = user_id
 
     async def on_submit(self, interaction: discord.Interaction):
+        # *** CORREZIONE: Defer iniziale per evitare timeout ***
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        
         try:
             fine_amount = int(self.fine_amount_input.value)
             if fine_amount <= 0:
-                await interaction.response.send_message("<a:annulla:1431940396635652146> L'importo deve essere maggiore di 0!", ephemeral=True)
+                await interaction.followup.send("<a:annulla:1431940396635652146> L'importo deve essere maggiore di 0!", ephemeral=True)
                 return
         except ValueError:
-            await interaction.response.send_message("<a:annulla:1431940396635652146> Importo non valido!", ephemeral=True)
+            await interaction.followup.send("<a:annulla:1431940396635652146> Importo non valido!", ephemeral=True)
             return
         
         await database.create_fine(
@@ -112,7 +106,8 @@ class FineModal(discord.ui.Modal, title="<a:sirena:1431792628332101723> Multa"):
         except:
             pass
         
-        await interaction.response.send_message(f"<a:spunta:1431937738256552036> Multa inviata a <@{self.user_id}>!", ephemeral=True)
+        # Dopo il defer, usiamo followup.send
+        await interaction.followup.send(f"<a:spunta:1431937738256552036> Multa inviata a <@{self.user_id}>!", ephemeral=True)
         await log_command(self.bot, LOG_CHANNEL_ID, f"<a:sirena:1431792628332101723> {interaction.user.mention} ha multato <@{self.user_id}> per ${fine_amount:,}")
 
 
@@ -131,33 +126,35 @@ class ArrestoModal(discord.ui.Modal, title="<a:sirena:1431792628332101723> Modul
     pena_input = discord.ui.TextInput(label="Pena", placeholder="Esempio: 20 minuti in prigione", required=True)
 
     def __init__(self, arrested_user: discord.Member):
-        super().__init__(timeout=300) # Aggiungo un timeout, buona pratica
+        super().__init__(timeout=300)
         self.arrested_user = arrested_user
 
     async def on_submit(self, interaction: discord.Interaction):
-        # 1. Creazione dell'Embed Blu (come richiesto)
+        # *** CORREZIONE CRITICA: Defer iniziale per evitare timeout prima dell'invio del Webhook ***
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        
+        # 1. Creazione dell'Embed Blu
         embed = discord.Embed(
             title="<a:sirena:1431792628332101723> CITTADINO ARRESTATO",
-            color=discord.Color.blue() # Colore blu richiesto
+            color=discord.Color.blue()
         )
         
-        # Aggiunta delle informazioni dell'arrestato
         arrestato_tag = self.arrested_user.mention
         esecutore_tag = interaction.user.mention
         
-        embed.add_field(name="👤 Dati Arrestato", value=f"**Nome:** {self.name_input.value}\n**Cognome:** {self.surname_input.value}\n**Età:** {self.age_input.value}\n**Tag Discord:** {arrestato_tag}", inline=False) # Tag arrestato
+        embed.add_field(name="👤 Dati Arrestato", value=f"**Nome:** {self.name_input.value}\n**Cognome:** {self.surname_input.value}\n**Età:** {self.age_input.value}\n**Tag Discord:** {arrestato_tag}", inline=False)
         embed.add_field(name="🏠 Residenza", value=self.residenza_input.value if self.residenza_input.value else "N/D", inline=True)
-        embed.add_field(name="👮 Esecutore", value=esecutore_tag, inline=True) # Tag esecutore
+        embed.add_field(name="👮 Esecutore", value=esecutore_tag, inline=True)
         embed.add_field(name="⚖️ Motivo", value=self.motivo_input.value, inline=False)
         embed.add_field(name="🚨 Pena", value=self.pena_input.value, inline=False)
         
         embed.timestamp = datetime.now()
 
-        # 2. Invio del log al Webhook esterno
+        # 2. Invio del log al Webhook esterno (potrebbe impiegare tempo)
         await log_arresto_webhook(embed)
         
-        # 3. Risposta all'interazione (conferma)
-        await interaction.response.send_message(
+        # 3. Risposta all'interazione (conferma) - Dopo il defer, usiamo followup.send
+        await interaction.followup.send(
             f"<a:spunta:1431937738256552036> Modulo di arresto inviato per **{self.arrested_user.display_name}**! Log registrato nel canale Webhook.", 
             ephemeral=True
         )
@@ -179,16 +176,14 @@ def setup_fine_commands(bot: commands.Bot):
         modal = FineModal(bot, str(utente.id))
         await interaction.response.send_modal(modal)
 
-    # --- NUOVO COMANDO: /modulo-arresto ---
+    # --- COMANDO: /modulo-arresto ---
     @bot.tree.command(name="modulo-arresto", description="[LFD] Compila un modulo di arresto e logga con Webhook.")
     @app_commands.describe(cittadino="La persona da arrestare (tag)")
     async def modulo_arresto(interaction: discord.Interaction, cittadino: discord.Member):
-        # Controllo del ruolo LFD
         if not has_role(interaction, LFD_ROLE_ID):
             await interaction.response.send_message("<a:annulla:1431940396635652146> Solo i LFD (<@&1415093546549248040>) possono usare questo comando!", ephemeral=True)
             return
         
-        # Apre il Modal all'utente
         modal = ArrestoModal(cittadino)
         await interaction.response.send_modal(modal)
     # ---------------------------------------
@@ -213,28 +208,31 @@ def setup_fine_commands(bot: commands.Bot):
             super().__init__(placeholder="Seleziona una multa da pagare", options=options)
         
         async def callback(self, interaction: discord.Interaction):
+            # *** CORREZIONE: Defer iniziale per evitare timeout ***
+            await interaction.response.defer(ephemeral=True, thinking=True)
+
             if str(interaction.user.id) != self.user_id:
-                await interaction.response.send_message("<a:annulla:1431940396635652146> Questo non è il tuo menu!", ephemeral=True)
+                await interaction.followup.send("<a:annulla:1431940396635652146> Questo non è il tuo menu!", ephemeral=True)
                 return
             
             fine_id = int(self.values[0])
             fine = await database.get_fine(fine_id)
             
             if not fine:
-                await interaction.response.send_message("<a:annulla:1431940396635652146> Multa non trovata!", ephemeral=True)
+                await interaction.followup.send("<a:annulla:1431940396635652146> Multa non trovata!", ephemeral=True)
                 return
             
             _, user_id, name, surname, age, infractions, fine_amount, paid, _ = fine
             
             if paid:
-                await interaction.response.send_message("<a:annulla:1431940396635652146> Questa multa è già stata pagata!", ephemeral=True)
+                await interaction.followup.send("<a:annulla:1431940396635652146> Questa multa è già stata pagata!", ephemeral=True)
                 return
             
             user = await database.get_user(user_id)
             total = user["cash"] + user["bank"]
             
             if total < fine_amount:
-                await interaction.response.send_message("<a:annulla:1431940396635652146> Non hai abbastanza soldi per pagare questa multa!", ephemeral=True)
+                await interaction.followup.send("<a:annulla:1431940396635652146> Non hai abbastanza soldi per pagare questa multa!", ephemeral=True)
                 return
             
             new_cash = user["cash"]
@@ -263,7 +261,7 @@ def setup_fine_commands(bot: commands.Bot):
             log_embed.timestamp = datetime.now()
             
             await log_command(bot, LFD_LOG_CHANNEL_ID, embed=log_embed)
-            await interaction.response.send_message(f"<a:spunta:1431937738256552036> Hai pagato la multa di **${fine_amount:,}**!", ephemeral=True)
+            await interaction.followup.send(f"<a:spunta:1431937738256552036> Hai pagato la multa di **${fine_amount:,}**!", ephemeral=True)
             await log_command(bot, LOG_CHANNEL_ID, f"💳 {interaction.user.mention} ha pagato una multa di ${fine_amount:,}")
     
     @bot.tree.command(name="pagamulta", description="Paga una multa ricevuta")
@@ -311,4 +309,3 @@ def setup_fine_commands(bot: commands.Bot):
         await interaction.response.send_message(embed=embed, ephemeral=True)
         await log_command(bot, LOG_CHANNEL_ID, f"👁️ {interaction.user.mention} ha controllato le multe di {utente.mention}")
 
-# Fine dello script completo

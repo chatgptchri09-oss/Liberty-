@@ -94,18 +94,10 @@ class FineModal(discord.ui.Modal, title="<a:sirena:1431792628332101723> Multa"):
         await log_command(self.bot, LOG_CHANNEL_ID, f"<a:sirena:1431792628332101723> {interaction.user.mention} ha multato <@{self.user_id}> per ${fine_amount:,}")
 
 
+# ... (Tutto il codice sopra resta invariato fino a qui)
+
 class ArrestoModal(discord.ui.Modal, title="<a:sirena:1431792628332101723> Modulo di Arresto"):
-    name_input = discord.ui.TextInput(label="Nome arrestato", placeholder="Nome della persona arrestata", required=True)
-    surname_input = discord.ui.TextInput(label="Cognome arrestato", placeholder="Cognome della persona arrestata", required=True)
-    age_input = discord.ui.TextInput(label="Età", placeholder="Età", required=True, max_length=3)
-    residenza_input = discord.ui.TextInput(label="Residenza (se presente)", placeholder="Residenza", required=False)
-    motivo_input = discord.ui.TextInput(
-        label="Motivo arresto",
-        placeholder="Descrivi il motivo dell'arresto",
-        style=discord.TextStyle.paragraph,
-        required=True
-    )
-    pena_input = discord.ui.TextInput(label="Pena", placeholder="Esempio: 20 minuti in prigione", required=True)
+    # ... (Campi input invariati)
 
     def __init__(self, arrested_user: discord.Member, bot: commands.Bot):
         super().__init__(timeout=300)
@@ -114,31 +106,50 @@ class ArrestoModal(discord.ui.Modal, title="<a:sirena:1431792628332101723> Modul
 
     async def on_submit(self, interaction: discord.Interaction):
         
-        # 1. Creazione dell'Embed Blu
-        embed = discord.Embed(
-            title="<a:sirena:1431792628332101723> CITTADINO ARRESTATO",
-            color=discord.Color.blue()
-        )
+        # *** IL PASSO PIÙ IMPORTANTE CONTRO I TIMEOUT: DEFER ***
+        # Diciamo a Discord: "Ho ricevuto l'invio, risponderò presto."
+        # Questo blocca il conto alla rovescia di 3 secondi.
+        await interaction.response.defer(ephemeral=True, thinking=True)
         
-        arrestato_tag = self.arrested_user.mention
-        esecutore_tag = interaction.user.mention
-        
-        embed.add_field(name="👤 Dati Arrestato", value=f"**Nome:** {self.name_input.value}\n**Cognome:** {self.surname_input.value}\n**Età:** {self.age_input.value}\n**Tag Discord:** {arrestato_tag}", inline=False)
-        embed.add_field(name="🏠 Residenza", value=self.residenza_input.value if self.residenza_input.value else "N/D", inline=True)
-        embed.add_field(name="👮 Esecutore", value=esecutore_tag, inline=True)
-        embed.add_field(name="⚖️ Motivo", value=self.motivo_input.value, inline=False)
-        embed.add_field(name="🚨 Pena", value=self.pena_input.value, inline=False)
-        
-        embed.timestamp = datetime.now()
+        try:
+            # 1. Creazione dell'Embed
+            embed = discord.Embed(
+                title="<a:sirena:1431792628332101723> CITTADINO ARRESTATO",
+                color=discord.Color.blue()
+            )
+            
+            # ... (Aggiunta dei campi all'embed)
+            arrestato_tag = self.arrested_user.mention
+            esecutore_tag = interaction.user.mention
+            
+            embed.add_field(name="👤 Dati Arrestato", value=f"**Nome:** {self.name_input.value}\n**Cognome:** {self.surname_input.value}\n**Età:** {self.age_input.value}\n**Tag Discord:** {arrestato_tag}", inline=False)
+            embed.add_field(name="🏠 Residenza", value=self.residenza_input.value if self.residenza_input.value else "N/D", inline=True)
+            embed.add_field(name="👮 Esecutore", value=esecutore_tag, inline=True)
+            embed.add_field(name="⚖️ Motivo", value=self.motivo_input.value, inline=False)
+            embed.add_field(name="🚨 Pena", value=self.pena_input.value, inline=False)
+            
+            embed.timestamp = datetime.now()
+            
+            # 2. Invio del log sul canale standard (isolato in un blocco try per sicurezza)
+            await log_command(self.bot, ARRESTO_LOG_CHANNEL_ID, embed=embed)
+            
+            # 3. Risposta (Followup) dopo il Defer
+            await interaction.followup.send(
+                f"<a:spunta:1431937738256552036> Modulo di arresto compilato per **{self.arrested_user.display_name}**! Log inviato a <#{ARRESTO_LOG_CHANNEL_ID}>.", 
+                ephemeral=True
+            )
 
-        # 2. Risposta immediata all'interazione (entro 3s per evitare timeout)
-        await interaction.response.send_message(
-            f"<a:spunta:1431937738256552036> Modulo di arresto compilato per **{self.arrested_user.display_name}**! Log inviato a <#{ARRESTO_LOG_CHANNEL_ID}>.", 
-            ephemeral=True
-        )
-        
-        # 3. Invio del log sul canale standard
-        await log_command(self.bot, ARRESTO_LOG_CHANNEL_ID, embed=embed)
+        except Exception as e:
+            # Se qualcosa fallisce dopo il defer (ad esempio il log),
+            # usiamo un blocco per assicurarci che l'utente riceva almeno un messaggio di errore.
+            print(f"ERRORE CRITICO NELL'INVIO DEL MODAL DI ARRESTO: {e}")
+            if not interaction.response.is_done():
+                 # Raro, ma a volte interaction.response.is_done() può essere True anche con il defer
+                 await interaction.response.send_message("❌ Si è verificato un errore critico nell'invio del modulo. Controlla il terminale.", ephemeral=True)
+            else:
+                 await interaction.followup.send("❌ Si è verificato un errore critico nell'invio del modulo. Controlla il terminale.", ephemeral=True)
+# ... (Il resto del codice resta invariato)
+
 
 
 def setup_fine_commands(bot: commands.Bot):

@@ -1,12 +1,19 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
-import database
+import database # Assumo che tu abbia un modulo 'database'
 from datetime import datetime
+import aiohttp # NECESSARIO per inviare messaggi a Webhook esterni
 
+# --- COSTANTI AGGIORNATE ---
 LFD_ROLE_ID = 1415093546549248040
 LOG_CHANNEL_ID = 1415297578022604850
 LFD_LOG_CHANNEL_ID = 1424007218554208316
+# NUOVA COSTANTE: L'URL del Webhook per i log di arresto
+# ATTENZIONE: Questo Webhook è esposto pubblicamente. Gestiscilo con cura!
+ARRESTO_WEBHOOK_URL = "https://discord.com/api/webhooks/1436348492376445000/oHUsctv4kcRwePtWcVcMfaFaxz7E8V8fXZUNWc2G2_GQARjsMTbV9HfbuYf5G8i2Zreq"
+# ----------------------------
+
 
 def has_role(interaction: discord.Interaction, role_id: int) -> bool:
     if not isinstance(interaction.user, discord.Member):
@@ -22,7 +29,31 @@ async def log_command(bot, channel_id: int, message: str = None, embed: discord.
             elif message:
                 await channel.send(message)
     except:
+        # Gestione silenziosa degli errori di logging
         pass
+
+# --- NUOVA FUNZIONE PER IL LOG TRAMITE WEBHOOK ESTERNO ---
+async def log_arresto_webhook(embed: discord.Embed):
+    """
+    Invia l'embed di log all'URL del Webhook esterno utilizzando aiohttp.
+    """
+    if not ARRESTO_WEBHOOK_URL:
+        return
+        
+    # Discord Webhook necessita di un formato JSON specifico
+    payload = {
+        "embeds": [embed.to_dict()]
+    }
+    
+    async with aiohttp.ClientSession() as session:
+        try:
+            # Invio della richiesta POST al Webhook
+            await session.post(ARRESTO_WEBHOOK_URL, json=payload)
+        except Exception:
+            # Fallimento nell'invio del log, gestito silenziosamente
+            pass
+# ---------------------------------------------------------
+
 
 class FineModal(discord.ui.Modal, title="<a:sirena:1431792628332101723> Multa"):
     name_input = discord.ui.TextInput(label="Nome", placeholder="Nome dell'arrestato", required=True)
@@ -84,6 +115,58 @@ class FineModal(discord.ui.Modal, title="<a:sirena:1431792628332101723> Multa"):
         await interaction.response.send_message(f"<a:spunta:1431937738256552036> Multa inviata a <@{self.user_id}>!", ephemeral=True)
         await log_command(self.bot, LOG_CHANNEL_ID, f"<a:sirena:1431792628332101723> {interaction.user.mention} ha multato <@{self.user_id}> per ${fine_amount:,}")
 
+
+# --- NUOVO MODAL PER L'ARRESTO ---
+class ArrestoModal(discord.ui.Modal, title="<a:sirena:1431792628332101723> Modulo di Arresto"):
+    name_input = discord.ui.TextInput(label="Nome arrestato", placeholder="Nome della persona arrestata", required=True)
+    surname_input = discord.ui.TextInput(label="Cognome arrestato", placeholder="Cognome della persona arrestata", required=True)
+    age_input = discord.ui.TextInput(label="Età", placeholder="Età", required=True, max_length=3)
+    residenza_input = discord.ui.TextInput(label="Residenza (se presente)", placeholder="Residenza", required=False)
+    motivo_input = discord.ui.TextInput(
+        label="Motivo arresto",
+        placeholder="Descrivi il motivo dell'arresto",
+        style=discord.TextStyle.paragraph,
+        required=True
+    )
+    pena_input = discord.ui.TextInput(label="Pena", placeholder="Esempio: 20 minuti in prigione", required=True)
+
+    def __init__(self, arrested_user: discord.Member):
+        super().__init__(timeout=300) # Aggiungo un timeout, buona pratica
+        self.arrested_user = arrested_user
+
+    async def on_submit(self, interaction: discord.Interaction):
+        # 1. Creazione dell'Embed Blu (come richiesto)
+        embed = discord.Embed(
+            title="<a:sirena:1431792628332101723> CITTADINO ARRESTATO",
+            color=discord.Color.blue() # Colore blu richiesto
+        )
+        
+        # Aggiunta delle informazioni dell'arrestato
+        arrestato_tag = self.arrested_user.mention
+        esecutore_tag = interaction.user.mention
+        
+        embed.add_field(name="👤 Dati Arrestato", value=f"**Nome:** {self.name_input.value}\n**Cognome:** {self.surname_input.value}\n**Età:** {self.age_input.value}\n**Tag Discord:** {arrestato_tag}", inline=False) # Tag arrestato
+        embed.add_field(name="🏠 Residenza", value=self.residenza_input.value if self.residenza_input.value else "N/D", inline=True)
+        embed.add_field(name="👮 Esecutore", value=esecutore_tag, inline=True) # Tag esecutore
+        embed.add_field(name="⚖️ Motivo", value=self.motivo_input.value, inline=False)
+        embed.add_field(name="🚨 Pena", value=self.pena_input.value, inline=False)
+        
+        embed.timestamp = datetime.now()
+
+        # 2. Invio del log al Webhook esterno
+        await log_arresto_webhook(embed)
+        
+        # 3. Risposta all'interazione (conferma)
+        await interaction.response.send_message(
+            f"<a:spunta:1431937738256552036> Modulo di arresto inviato per **{self.arrested_user.display_name}**! Log registrato nel canale Webhook.", 
+            ephemeral=True
+        )
+        
+        # Log di backup nel canale di log interno (opzionale)
+        await log_command(interaction.client, LOG_CHANNEL_ID, f"🚓 {interaction.user.mention} ha compilato un modulo di arresto per {self.arrested_user.mention}.")
+# ---------------------------------
+
+
 def setup_fine_commands(bot: commands.Bot):
     
     @bot.tree.command(name="multa", description="[LFD] Emetti una multa")
@@ -95,6 +178,20 @@ def setup_fine_commands(bot: commands.Bot):
         
         modal = FineModal(bot, str(utente.id))
         await interaction.response.send_modal(modal)
+
+    # --- NUOVO COMANDO: /modulo-arresto ---
+    @bot.tree.command(name="modulo-arresto", description="[LFD] Compila un modulo di arresto e logga con Webhook.")
+    @app_commands.describe(cittadino="La persona da arrestare (tag)")
+    async def modulo_arresto(interaction: discord.Interaction, cittadino: discord.Member):
+        # Controllo del ruolo LFD
+        if not has_role(interaction, LFD_ROLE_ID):
+            await interaction.response.send_message("<a:annulla:1431940396635652146> Solo i LFD (<@&1415093546549248040>) possono usare questo comando!", ephemeral=True)
+            return
+        
+        # Apre il Modal all'utente
+        modal = ArrestoModal(cittadino)
+        await interaction.response.send_modal(modal)
+    # ---------------------------------------
     
     class FineSelectMenu(discord.ui.Select):
         def __init__(self, fines, user_id):
@@ -213,3 +310,5 @@ def setup_fine_commands(bot: commands.Bot):
         
         await interaction.response.send_message(embed=embed, ephemeral=True)
         await log_command(bot, LOG_CHANNEL_ID, f"👁️ {interaction.user.mention} ha controllato le multe di {utente.mention}")
+
+# Fine dello script completo

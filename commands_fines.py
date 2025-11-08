@@ -107,9 +107,18 @@ class ArrestoModal(discord.ui.Modal, title="<a:sirena:1431792628332101723> Modul
         self.bot = bot
 
     async def on_submit(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True, thinking=True)
+        await interaction.response.defer(ephemeral=True)
         
         try:
+            log_channel = self.bot.get_channel(ARRESTO_LOG_CHANNEL_ID)
+            if not log_channel:
+                await interaction.followup.send(
+                    f"❌ Errore: canale di log non trovato (ID: {ARRESTO_LOG_CHANNEL_ID}). Contatta un admin.", 
+                    ephemeral=True
+                )
+                print(f"⚠️ ERRORE: Canale di log arresto (ID: {ARRESTO_LOG_CHANNEL_ID}) non trovato!")
+                return
+            
             embed = discord.Embed(
                 title="<a:sirena:1431792628332101723> CITTADINO ARRESTATO",
                 color=discord.Color.blue()
@@ -145,16 +154,27 @@ class ArrestoModal(discord.ui.Modal, title="<a:sirena:1431792628332101723> Modul
             )
             embed.timestamp = datetime.now()
             
-            await log_command(self.bot, ARRESTO_LOG_CHANNEL_ID, embed=embed)
+            await log_channel.send(embed=embed)
             
             await interaction.followup.send(
-                f"<a:spunta:1431937738256552036> Modulo di arresto compilato per **{self.arrested_user.display_name}**! L'embed è stato inviato nel canale dedicato.", 
+                f"<a:spunta:1431937738256552036> Modulo di arresto compilato per **{self.arrested_user.display_name}**! L'embed è stato inviato in <#{ARRESTO_LOG_CHANNEL_ID}>.", 
                 ephemeral=True
             )
+            
+            print(f"✅ Modulo di arresto inviato da {interaction.user.name} per {self.arrested_user.name}")
 
+        except discord.Forbidden:
+            await interaction.followup.send(
+                "❌ Errore: il bot non ha i permessi per inviare messaggi nel canale di log.", 
+                ephemeral=True
+            )
+            print(f"⚠️ ERRORE: Il bot non ha permessi per inviare nel canale {ARRESTO_LOG_CHANNEL_ID}")
         except Exception as e:
-            print(f"ERRORE CRITICO NELL'INVIO DEL MODAL DI ARRESTO: {e}")
-            await interaction.followup.send("❌ Si è verificato un errore critico. Controlla il terminale per i dettagli.", ephemeral=True)
+            print(f"❌ ERRORE NELL'INVIO DEL MODAL DI ARRESTO: {e}")
+            await interaction.followup.send(
+                f"❌ Si è verificato un errore: {str(e)[:100]}", 
+                ephemeral=True
+            )
 
 
 def setup_fine_commands(bot: commands.Bot):
@@ -199,7 +219,7 @@ def setup_fine_commands(bot: commands.Bot):
             super().__init__(placeholder="Seleziona una multa da pagare", options=options)
         
         async def callback(self, interaction: discord.Interaction):
-            await interaction.response.defer(ephemeral=True, thinking=True)
+            await interaction.response.defer(ephemeral=True)
 
             if str(interaction.user.id) != self.user_id:
                 await interaction.followup.send("<a:annulla:1431940396635652146> Questo non è il tuo menu!", ephemeral=True)

@@ -297,15 +297,15 @@ def setup_inventory_commands(bot: commands.Bot):
             return
 
         embed = discord.Embed(
-            title="🛒 ITEM SHOP",
+            title="🛒 Shop - Lista degli Item",
             description="Ecco tutti gli item disponibili:",
             color=discord.Color.blue()
         )
 
         for name, required_role_id in items:
             embed.add_field(
-                name=f"📦 {name}",
-                value=f"Ruolo richiesto: <@&{required_role_id}>",
+                name=f"• {name}",
+                value=f"🔑 Ruolo richiesto: <@&{required_role_id}>",
                 inline=False
             )
 

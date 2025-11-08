@@ -1,25 +1,21 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
-import database # Assumo che tu abbia un modulo 'database'
+import database
 from datetime import datetime
 
-# --- COSTANTI AGGIORNATE E CONSOLIDATE ---
 LFD_ROLE_ID = 1415093546549248040
-LOG_CHANNEL_ID = 1415297578022604850       # Canale per i log generici di comando (es. chi usa /multa)
-LFD_LOG_CHANNEL_ID = 1424007218554208316  # Canale per i log di multa pagata
-ARRESTO_LOG_CHANNEL_ID = 1436347936635097179 # Canale specifico per l'Embed blu di arresto
-# ----------------------------
+LOG_CHANNEL_ID = 1415297578022604850
+LFD_LOG_CHANNEL_ID = 1424007218554208316
+ARRESTO_LOG_CHANNEL_ID = 1436347936635097179
 
 
 def has_role(interaction: discord.Interaction, role_id: int) -> bool:
-    """Controlla se l'utente che interagisce ha un determinato ruolo."""
     if not isinstance(interaction.user, discord.Member):
         return False
     return any(role.id == role_id for role in interaction.user.roles)
 
 async def log_command(bot, channel_id: int, message: str = None, embed: discord.Embed = None):
-    """Invia un messaggio o un embed al canale di log specificato."""
     try:
         channel = bot.get_channel(channel_id)
         if channel and hasattr(channel, 'send'):
@@ -28,7 +24,6 @@ async def log_command(bot, channel_id: int, message: str = None, embed: discord.
             elif message:
                 await channel.send(message)
     except:
-        # Gestione silenziosa degli errori di logging
         pass
 
 
@@ -55,7 +50,6 @@ class FineModal(discord.ui.Modal, title="<a:sirena:1431792628332101723> Multa"):
         self.user_id = user_id
 
     async def on_submit(self, interaction: discord.Interaction):
-        # Risposta veloce necessaria per il modal
         try:
             fine_amount = int(self.fine_amount_input.value)
             if fine_amount <= 0:
@@ -113,12 +107,9 @@ class ArrestoModal(discord.ui.Modal, title="<a:sirena:1431792628332101723> Modul
         self.bot = bot
 
     async def on_submit(self, interaction: discord.Interaction):
-        
-        # 1. DEFER: Protezione contro il timeout
         await interaction.response.defer(ephemeral=True, thinking=True)
         
         try:
-            # --- CREAZIONE EMBED (LOGICA CONSERVATA PER REFERENZA) ---
             embed = discord.Embed(
                 title="<a:sirena:1431792628332101723> CITTADINO ARRESTATO",
                 color=discord.Color.blue()
@@ -127,24 +118,41 @@ class ArrestoModal(discord.ui.Modal, title="<a:sirena:1431792628332101723> Modul
             arrestato_tag = self.arrested_user.mention
             esecutore_tag = interaction.user.mention
             
-            embed.add_field(name="👤 Dati Arrestato", value=f"**Nome:** {self.name_input.value}\n**Cognome:** {self.surname_input.value}\n**Età:** {self.age_input.value}\n**Tag Discord:** {arrestato_tag}", inline=False)
-            embed.add_field(name="🏠 Residenza", value=self.residenza_input.value if self.residenza_input.value else "N/D", inline=True)
-            embed.add_field(name="👮 Esecutore", value=esecutore_tag, inline=True)
-            embed.add_field(name="⚖️ Motivo", value=self.motivo_input.value, inline=False)
-            embed.add_field(name="🚨 Pena", value=self.pena_input.value, inline=False)
+            embed.add_field(
+                name="👤 Dati Arrestato", 
+                value=f"**Nome:** {self.name_input.value}\n**Cognome:** {self.surname_input.value}\n**Età:** {self.age_input.value}\n**Tag Discord:** {arrestato_tag}", 
+                inline=False
+            )
+            embed.add_field(
+                name="🏠 Residenza", 
+                value=self.residenza_input.value if self.residenza_input.value else "N/D", 
+                inline=True
+            )
+            embed.add_field(
+                name="👮 Esecutore", 
+                value=esecutore_tag, 
+                inline=True
+            )
+            embed.add_field(
+                name="⚖️ Motivo", 
+                value=self.motivo_input.value, 
+                inline=False
+            )
+            embed.add_field(
+                name="🚨 Pena", 
+                value=self.pena_input.value, 
+                inline=False
+            )
             embed.timestamp = datetime.now()
-            # --------------------------------------------------------
-
-            # ❌ LA RIGA DI LOG È STATA RIMOSSA/COMMENTATA QUI!
             
-            # 2. FOLLOWUP: Risposta finale all'utente (dopo il defer)
+            await log_command(self.bot, ARRESTO_LOG_CHANNEL_ID, embed=embed)
+            
             await interaction.followup.send(
-                f"<a:spunta:1431937738256552036> Modulo di arresto compilato per **{self.arrested_user.display_name}**! (Log disattivato)", 
+                f"<a:spunta:1431937738256552036> Modulo di arresto compilato per **{self.arrested_user.display_name}**! L'embed è stato inviato nel canale dedicato.", 
                 ephemeral=True
             )
 
         except Exception as e:
-            # Gestione dell'errore (solo per debug)
             print(f"ERRORE CRITICO NELL'INVIO DEL MODAL DI ARRESTO: {e}")
             await interaction.followup.send("❌ Si è verificato un errore critico. Controlla il terminale per i dettagli.", ephemeral=True)
 
@@ -168,7 +176,6 @@ def setup_fine_commands(bot: commands.Bot):
             await interaction.response.send_message("<a:annulla:1431940396635652146> Solo i LFD (<@&1415093546549248040>) possono usare questo comando!", ephemeral=True)
             return
         
-        # Risposta veloce che apre il Modal
         modal = ArrestoModal(cittadino, bot)
         await interaction.response.send_modal(modal)
     
@@ -192,7 +199,6 @@ def setup_fine_commands(bot: commands.Bot):
             super().__init__(placeholder="Seleziona una multa da pagare", options=options)
         
         async def callback(self, interaction: discord.Interaction):
-            # Defer per operazioni DB potenzialmente lunghe
             await interaction.response.defer(ephemeral=True, thinking=True)
 
             if str(interaction.user.id) != self.user_id:
@@ -253,7 +259,7 @@ def setup_fine_commands(bot: commands.Bot):
         fines = await database.get_unpaid_fines(str(interaction.user.id))
         
         if not fines:
-            await interaction.response.send_message(" Non hai multe da pagare!", ephemeral=True)
+            await interaction.response.send_message("Non hai multe da pagare!", ephemeral=True)
             return
         
         view = discord.ui.View()
@@ -292,4 +298,3 @@ def setup_fine_commands(bot: commands.Bot):
         
         await interaction.response.send_message(embed=embed, ephemeral=True)
         await log_command(bot, LOG_CHANNEL_ID, f"👁️ {interaction.user.mention} ha controllato le multe di {utente.mention}")
-

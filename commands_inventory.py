@@ -4,12 +4,13 @@ from discord.ext import commands
 import aiosqlite
 import math
 
+# --- COSTANTI (Assicurati che siano definite all'inizio del tuo file) ---
 DATABASE_NAME = "economy_bot.db"
 LOG_CHANNEL_ID = 1415297578022604850
 STAFF_ROLE_ID = 1414738761207517214
 MARKET_ROLE_ID = 1415242295153918123
-
 ITEMS_PER_PAGE = 5
+# ------------------------------------------------------------------------
 
 def has_role(interaction: discord.Interaction, role_id: int) -> bool:
     if not isinstance(interaction.user, discord.Member):
@@ -17,6 +18,7 @@ def has_role(interaction: discord.Interaction, role_id: int) -> bool:
     return any(role.id == role_id for role in interaction.user.roles)
 
 async def log_command(bot, channel_id: int, message: str):
+    """Invia un messaggio di log a un canale specifico."""
     try:
         channel = bot.get_channel(channel_id)
         if channel and hasattr(channel, "send"):
@@ -25,6 +27,7 @@ async def log_command(bot, channel_id: int, message: str):
         pass
 
 async def update_inventory(user_id: str, item_name: str, quantity: int, mode: str = 'add'):
+    """Aggiunge o rimuove item dall'inventario di un utente."""
     async with aiosqlite.connect(DATABASE_NAME) as db:
         if mode == 'add':
             await db.execute(
@@ -72,6 +75,7 @@ class ItemShopPaginationView(discord.ui.View):
         description_lines = []
         for name, required_role_id in page_items:
             role = self.guild.get_role(int(required_role_id))
+            # Utilizza la mention se il ruolo è trovato, altrimenti usa l'ID (come richiesto)
             role_mention = role.mention if role else f"<@&{required_role_id}>"
             
             description_lines.append(f"• **{name}**")
@@ -519,94 +523,6 @@ def setup_inventory_commands(bot: commands.Bot):
         log_msg = f"🧪 {interaction.user.mention} ha utilizzato {quantita}x {nome_item}."
         await log_command(bot, LOG_CHANNEL_ID, log_msg)
 
-    @bot.tree.command(name="dai-item", description="Passa un item dal tuo zaino a un altro utente.")
-    @app_commands.describe(
-        utente="L'utente a cui dare l'item",
-        nome_item="Nome esatto dell'item da passare",
-        quantita="Quantità da trasferire (default: 1)"
-    )
-    async def dai_item(interaction: discord.Interaction, utente: discord.Member, nome_item: str, quantita: int = 1):
-        sender_id = str(interaction.user.id)
-        receiver_id = str(utente.id)
-        
-        if utente.bot:
-            await interaction.response.send_message("❌ Non puoi dare item a un bot.", ephemeral=True)
-            return
-            
-        if utente.id == interaction.user.id:
-            await interaction.response.send_message("❌ Non puoi darti un item da solo! Usa `/utilizza-item` o `/invzaino`.", ephemeral=True)
-            return
-            
-        if quantita <= 0:
-            await interaction.response.send_message("❌ La quantità deve essere almeno 1.", ephemeral=True)
-            return
-
-        await interaction.response.defer(ephemeral=True, thinking=True)
-        
-        async with aiosqlite.connect(DATABASE_NAME) as db:
-            async with db.execute(
-                "SELECT has_backpack FROM users WHERE user_id = ?", 
-                (sender_id,)
-            ) as cursor:
-                sender_backpack = await cursor.fetchone()
-                
-            if not sender_backpack or sender_backpack[0] == 0:
-                await interaction.followup.send("❌ Non puoi dare item se non hai uno zaino.", ephemeral=True)
-                return
-
-            async with db.execute(
-                "SELECT quantity FROM inventory WHERE user_id = ? AND item_name = ?", 
-                (sender_id, nome_item)
-            ) as cursor:
-                sender_item_data = await cursor.fetchone()
-            
-            if not sender_item_data or sender_item_data[0] < quantita:
-                available = sender_item_data[0] if sender_item_data else 0
-                await interaction.followup.send(
-                    f"❌ Non hai abbastanza **{nome_item}** da dare! (Disponibile: **{available}**)", 
-                    ephemeral=True
-                )
-                return
-
-            async with db.execute(
-                "SELECT has_backpack FROM users WHERE user_id = ?", 
-                (receiver_id,)
-            ) as cursor:
-                receiver_backpack = await cursor.fetchone()
-                
-            if not receiver_backpack or receiver_backpack[0] == 0:
-                await interaction.followup.send(
-                    f"❌ {utente.mention} non ha uno zaino in cui ricevere l'item!", 
-                    ephemeral=True
-                )
-                return
-            
-            await update_inventory(sender_id, nome_item, quantita, mode='remove')
-            await update_inventory(receiver_id, nome_item, quantita, mode='add')
-        
-        try:
-            embed = discord.Embed(
-                title="🎁 Oggetto Ricevuto!",
-                description=f"Hai ricevuto **{quantita}**x **{nome_item}**.",
-                color=discord.Color.green()
-            )
-            embed.add_field(name="Donatore", value=interaction.user.mention, inline=False)
-            embed.set_footer(text="Controlla il tuo zaino con /invzaino.")
-            await utente.send(embed=embed)
-        except:
-            pass
-            
-        await interaction.followup.send(
-            f"✅ Hai dato **{quantita}**x **{nome_item}** a {utente.mention} con successo!", 
-            ephemeral=True
-        )
-
-        log_msg = f"➡️ {interaction.user.mention} ha dato {quantita}x {nome_item} a {utente.mention}"
-        await log_command(bot, LOG_CHANNEL_ID, log_msg)
-
-====================
-    # NUOVO COMANDO: /dai-item (Trasferimento Item tra Utenti)
-    # ====================
     @bot.tree.command(name="dai-item", description="Passa un item dal tuo zaino a un altro utente.")
     @app_commands.describe(
         utente="L'utente a cui dare l'item",

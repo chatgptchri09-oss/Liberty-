@@ -210,7 +210,7 @@ async def on_ready():
         from commands_salary import setup_salary_commands 
         from commands_bonifico import setup_bonifico_commands
         from commands_admin import setup_admin_commands
-        from commands_arrests import setup_arrest_commands
+        
 
         setup_invoice_commands(bot)
         setup_fine_commands(bot)
@@ -222,7 +222,6 @@ async def on_ready():
         setup_salary_commands(bot) 
         setup_bonifico_commands(bot)
         setup_admin_commands(bot)
-        setup_arrest_commands(bot)
         print("✅ Tutti i moduli dei comandi sono stati caricati correttamente.")
 
     except ImportError as e:

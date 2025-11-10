@@ -299,48 +299,37 @@ def setup_rp_commands(bot: commands.Bot):
     # NUOVO COMANDO: /sondaggio (Poll) - CORRETTO
     # =========================================
     @bot.tree.command(name="sondaggio", description="Crea un sondaggio rapido con opzioni SI/NO/PIÙ TARDI.")
-    @app_commands.describe(
-        domanda="La domanda o l'oggetto del sondaggio"
-    )
-    async def sondaggio(interaction: discord.Interaction, domanda: str):
-        
-        if not has_role(interaction, POLL_ROLE_ID):
-            await interaction.response.send_message("❌ Non hai i permessi per creare sondaggi (Ruolo Poll richiesto).", ephemeral=True)
-            return
+@app_commands.describe(domanda="La domanda o l'oggetto del sondaggio")
+async def sondaggio(interaction: discord.Interaction, domanda: str):
 
-        # 1. Risposta iniziale immediata per evitare timeout
-        await interaction.response.defer(ephemeral=True, thinking=True)
-        
-        description_content = f"""
+    if not has_role(interaction, POLL_ROLE_ID):
+        await interaction.response.send_message(
+            "❌ Non hai i permessi per creare sondaggi (Ruolo Poll richiesto).",
+            ephemeral=True
+        )
+        return
+
+    # ✅ risposta pubblica = comparirà “@utente ha usato /sondaggio”
+    description_content = f"""
 > **{domanda}**
 
- <a:spunta:1431937738256552036> SI CI SARÒ 
- <a:annulla:1431940396635652146> NO NON CI SARÒ 
- <a:Orologio:1431937656744448060> VENGO PIÙ TARDI
+<a:spunta:1431937738256552036> SI CI SARÒ  
+<a:annulla:1431940396635652146> NO NON CI SARÒ  
+<a:Orologio:1431937656744448060> VENGO PIÙ TARDI
 """
-        
-        embed = discord.Embed(
-            title="<a:megafono:1431932605984542720> Sondaggio <a:megafono:1431932605984542720>",
-            description=description_content,
-            color=discord.Color.gold()
-        )
-        embed.set_footer(text=f"Sondaggio creato da {interaction.user.display_name}")
 
-        # 2. Invio del messaggio pubblico con il followup
-        poll_message = await interaction.followup.send(
-            content=f"{interaction.user.mention} ha usato </sondaggio:{interaction.command.id}>",
-            embed=embed
-        )
-        
-        # 3. Logging (prima di aggiungere le reazioni per la massima velocità)
-        await log_command(bot, LOG_CHANNEL_ID, f"🗳️ {interaction.user.mention} ha avviato un sondaggio: '{domanda}'")
+    embed = discord.Embed(
+        title="<a:megafono:1431932605984542720> Sondaggio <a:megafono:1431932605984542720>",
+        description=description_content,
+        color=discord.Color.gold()
+    )
+    embed.set_footer(text=f"Sondaggio creato da {interaction.user.display_name}")
 
-        # 4. Aggiunta delle reazioni in parallelo (per stabilità)
-        try:
-            await asyncio.gather(
-                poll_message.add_reaction("<a:spunta:1431937738256552036>"),
-                poll_message.add_reaction("<a:annulla:1431940396635652146>"),
-                poll_message.add_reaction("<a:Orologio:1431937656744448060>")
-            )
-        except Exception as e:
-            await log_command(bot, LOG_CHANNEL_ID, f"🚨 Errore nell'aggiungere reazioni al sondaggio: {e}")
+    poll_message = await interaction.response.send_message(embed=embed)
+
+    # Reazioni animate
+    await asyncio.gather(
+        poll_message.add_reaction(discord.PartialEmoji(name='spunta', id=1431937738256552036, animated=True)),
+        poll_message.add_reaction(discord.PartialEmoji(name='annulla', id=1431940396635652146, animated=True)),
+        poll_message.add_reaction(discord.PartialEmoji(name='Orologio', id=1431937656744448060, animated=True))
+    )

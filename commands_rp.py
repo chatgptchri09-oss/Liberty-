@@ -298,38 +298,3 @@ def setup_rp_commands(bot: commands.Bot):
     # =========================================
     # NUOVO COMANDO: /sondaggio (Poll) - CORRETTO
     # =========================================
-    @bot.tree.command(name="sondaggio", description="Crea un sondaggio rapido con opzioni SI/NO/PIÙ TARDI.")
-@app_commands.describe(domanda="La domanda o l'oggetto del sondaggio")
-async def sondaggio(interaction: discord.Interaction, domanda: str):
-
-    if not has_role(interaction, POLL_ROLE_ID):
-        await interaction.response.send_message(
-            "❌ Non hai i permessi per creare sondaggi (Ruolo Poll richiesto).",
-            ephemeral=True
-        )
-        return
-
-    # ✅ risposta pubblica = comparirà “@utente ha usato /sondaggio”
-    description_content = f"""
-> **{domanda}**
-
-<a:spunta:1431937738256552036> SI CI SARÒ  
-<a:annulla:1431940396635652146> NO NON CI SARÒ  
-<a:Orologio:1431937656744448060> VENGO PIÙ TARDI
-"""
-
-    embed = discord.Embed(
-        title="<a:megafono:1431932605984542720> Sondaggio <a:megafono:1431932605984542720>",
-        description=description_content,
-        color=discord.Color.gold()
-    )
-    embed.set_footer(text=f"Sondaggio creato da {interaction.user.display_name}")
-
-    poll_message = await interaction.response.send_message(embed=embed)
-
-    # Reazioni animate
-    await asyncio.gather(
-        poll_message.add_reaction(discord.PartialEmoji(name='spunta', id=1431937738256552036, animated=True)),
-        poll_message.add_reaction(discord.PartialEmoji(name='annulla', id=1431940396635652146, animated=True)),
-        poll_message.add_reaction(discord.PartialEmoji(name='Orologio', id=1431937656744448060, animated=True))
-    )

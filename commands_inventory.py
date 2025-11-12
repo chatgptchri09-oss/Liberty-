@@ -355,7 +355,7 @@ def setup_inventory_commands(bot: commands.Bot):
         log_msg = f"➖ {interaction.user.mention} ha tolto {quantita}x {item_name} a {utente.mention}"
         await log_command(bot, LOG_CHANNEL_ID, log_msg)
 
-    @bot.tree.command(name="nuovoitem", description="[STAFF] Crea un nuovo item")
+    @bot.tree.command(name="crea-item", description="[STAFF] Crea un nuovo item")
     @app_commands.describe(
         nome_item="Nome dell'item",
         ruolo_richiesto="Ruolo richiesto per acquistare l'item"

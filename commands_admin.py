@@ -312,92 +312,51 @@ def setup_admin_commands(bot: commands.Bot):
     # =========================================
     # COMANDO: /esito-bando
     # =========================================
-    @bot.tree.command(name="esito-bando", description="[STAFF] Gestisce l'esito di un bando lavorativo.")
-@app_commands.describe(
-    esito="Seleziona l'esito del bando",
-    cittadino="La persona che ha partecipato al bando",
-    lavoro="Il ruolo del lavoro per cui è stato fatto il bando",
-    grado="(Facoltativo) Il grado da assegnare al cittadino"
+@bot.tree.command(name=“esito-bando”, description=”[STAFF] Gestisce l’esito di un bando lavorativo.”) @app_commands.describe( esito=“Seleziona l’esito del bando”, cittadino=“La persona che ha partecipato al bando”, lavoro=“Il ruolo del lavoro per cui è stato fatto il bando” ) @app_commands.choices(esito=[ app_commands.Choice(name=“Assunto”, value=“ASSUNTO”), app_commands.Choice(name=“Rifiutato”, value=“RIFIUTATO”), ]) async def esito_bando( interaction: discord.Interaction, esito: app_commands.Choice[str], cittadino: discord.Member, lavoro: discord.Role ): if not has_role(interaction, STAFF_ROLE_ID): await interaction.response.send_message(“Solo lo Staff può usare questo comando.”, ephemeral=True) return
+
+# Passiamo il bot al modal per il logging
+if esito.value == "RIFIUTATO":
+    modal = RifiutoMotivoModal(cittadino, lavoro, interaction.user.id) 
+    await interaction.response.send_modal(modal)
+    return 
+
+# --- Logica ASSUNTO (Stabile) ---
+
+await interaction.response.send_message(f" Bando Assunto in fase di invio per {cittadino.mention}.", ephemeral=True)
+
+success = False
+
+if lavoro not in cittadino.roles:
+    try:
+        await cittadino.add_roles(lavoro, reason=f"Assunzione tramite bando da parte di {interaction.user.name}")
+        success = True
+    except discord.Forbidden:
+        await interaction.followup.send("Non sono riuscito ad aggiungere il ruolo per problemi di permessi.", ephemeral=True)
+    except Exception:
+        pass
+else:
+    success = True
+    
+embed = discord.Embed(
+    title="<a:megafono:1431932605984542720> 𝐄𝐬𝐢𝐭𝐨 𝐛𝐚𝐧𝐝𝐨 <a:si:1433573748891582566>",
+    color=discord.Color.green()
 )
-@app_commands.choices(esito=[
-    app_commands.Choice(name="Assunto", value="ASSUNTO"),
-    app_commands.Choice(name="Rifiutato", value="RIFIUTATO"),
-])
-async def esito_bando(
-    interaction: discord.Interaction, 
-    esito: app_commands.Choice[str], 
-    cittadino: discord.Member, 
-    lavoro: discord.Role,
-    grado: discord.Role = None  # Parametro facoltativo
-):
-    if not has_role(interaction, STAFF_ROLE_ID):
-        await interaction.response.send_message("Solo lo Staff può usare questo comando.", ephemeral=True)
-        return
-    
-    if esito.value == "RIFIUTATO":
-        modal = RifiutoMotivoModal(cittadino, lavoro, interaction.user.id) 
-        await interaction.response.send_modal(modal)
-        return 
-    
-    await interaction.response.send_message(f"Bando Assunto in fase di invio per {cittadino.mention}.", ephemeral=True)
 
-    success_lavoro = False
-    success_grado = None
+description_content = (
+    f"**𝗖𝗶𝘁𝘁𝗮𝗱𝗶𝗻𝗼**<a:casomaiconflecia:1434244328448069642> {cittadino.mention}\n"
+    f"**𝗘𝘀𝗶𝘁𝗼**<a:casomaiconflecia:1434244328448069642> Assunto \n"
+    f"**𝗟𝗮𝘃𝗼𝗿𝗼**<a:casomaiconflecia:1434244328448069642> {lavoro.mention}\n\n"
+    f"▬▬▬▬▬▬▬▬\n"
+    f"Da <@&{STAFF_ROLE_ID}>\n"
+    f"{interaction.user.mention}" 
+)
 
-    # Aggiunta ruolo lavoro
-    if lavoro not in cittadino.roles:
-        try:
-            await cittadino.add_roles(lavoro, reason=f"Assunzione tramite bando da parte di {interaction.user.name}")
-            success_lavoro = True
-        except discord.Forbidden:
-            await interaction.followup.send("Non sono riuscito ad aggiungere il ruolo di lavoro per problemi di permessi.", ephemeral=True)
-        except Exception:
-            pass
-    else:
-        success_lavoro = True
+embed.description = description_content
 
-    # Aggiunta ruolo grado (se fornito)
-    if grado:
-        if grado not in cittadino.roles:
-            try:
-                await cittadino.add_roles(grado, reason=f"Grado assegnato tramite bando da parte di {interaction.user.name}")
-                success_grado = True
-            except discord.Forbidden:
-                await interaction.followup.send("Non sono riuscito ad aggiungere il ruolo di grado per problemi di permessi.", ephemeral=True)
-            except Exception:
-                success_grado = False
-        else:
-            success_grado = True
+await interaction.channel.send(embed=embed)
 
-    embed = discord.Embed(
-        title="<a:megafono:1431932605984542720> 𝐄𝐬𝐢𝐭𝐨 𝐛𝐚𝐧𝐝𝐨 <a:si:1433573748891582566>",
-        color=discord.Color.green()
-    )
-
-    description_content = (
-        f"**𝗖𝗶𝘁𝘁𝗮𝗱𝗶𝗻𝗼**<a:casomaiconflecia:1434244328448069642> {cittadino.mention}\n"
-        f"**𝗘𝘀𝗶𝘁𝗼**<a:casomaiconflecia:1434244328448069642> Assunto\n"
-        f"**𝗟𝗮𝘃𝗼𝗿𝗼**<a:casomaiconflecia:1434244328448069642> {lavoro.mention}\n"
-    )
-
-    if grado:
-        description_content += f"**𝗚𝗿𝗮𝗱𝗼**<a:casomaiconflecia:1434244328448069642> {grado.mention}\n"
-
-    description_content += (
-        f"\n▬▬▬▬▬▬▬▬\n"
-        f"Da <@&{STAFF_ROLE_ID}>\n"
-        f"{interaction.user.mention}"
-    )
-
-    embed.description = description_content
-    await interaction.channel.send(embed=embed)
-
-    log_message = (
-        f"Lo staff {interaction.user.mention} ha assunto {cittadino.mention} per {lavoro.name}. "
-        f"Ruolo lavoro aggiunto: {success_lavoro}"
-    )
-
-    if grado:
-        log_message += f" | Ruolo grado aggiunto: {success_grado}"
-
-    await log_command(bot, LOG_CHANNEL_ID, log_message)
+await log_command(
+    bot, 
+    LOG_CHANNEL_ID, 
+    f"lo staff¢ {interaction.user.mention} ha assunto {cittadino.mention} per {lavoro.name}. Ruolo aggiunto: {success}"
+)

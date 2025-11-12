@@ -195,6 +195,11 @@ async def on_ready():
     # Inizializza il database
     await database.init_db()
 
+    # 🎯 CODICE PER IMPOSTARE LA PRESENZA DEL BOT 🎯
+    activity = discord.Activity(type=discord.ActivityType.watching, name="Liberty City")
+    await bot.change_presence(status=discord.Status.online, activity=activity)
+    print("✅ Stato di presenza impostato su 'Sta guardando Liberty City'.")
+    # 🎯 FINE CODICE PRESENZA 🎯
 
     # ====================
     # SETUP COMANDI (Spostato qui per risolvere l'errore di importazione ciclica)

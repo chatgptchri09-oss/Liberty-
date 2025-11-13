@@ -55,7 +55,7 @@ class RifiutoMotivoModal(discord.ui.Modal, title="Motivo del Rifiuto Bando"):
         motivo = self.motivo_input.value
 
         embed = discord.Embed(
-            title="<a:megafono:1431932605984542720> 𝐄𝐬𝐢𝐭𝐨 𝐛𝐚𝐧𝐝𝐨 <a:no:1434321287130882048>",
+            title="<a:megafono:1431932605984542720> 𝐄𝐬𝐢𝐭𝐨 𝐛𝐚𝐧𝐝𝐨 <a:annulla:1431940396635652146>",
             color=discord.Color.red()
         )
         

@@ -1,9 +1,9 @@
-import discord
+import discord 
 from discord import app_commands
 from discord.ext import commands
 import os
 from datetime import datetime
-import database # ASSICURATI CHE QUESTO FILE ESISTA E CONTENGA LE FUNZIONI DB
+import database
 from aiohttp import web
 import asyncio
 import aiosqlite 
@@ -37,10 +37,45 @@ STATO_ROLE_ID = 1424005156558606466
 PEGASUS_ROLE_ID = 1415262517407645828
 
 LOG_CHANNEL_ID = 1415297578022604850
-DATABASE_NAME = "economy_bot.db"
-PORTAFOGLIO_IMAGE_URL = "https://i.imgur.com/placeholder.gif" 
+DATABASE_NAME = "economy_bot.db" 
 
-# Le costanti COMPANY_LOG_CHANNELS, COMPANY_ROLES, ALL_COMPANY_ROLES sono corrette.
+COMPANY_LOG_CHANNELS = {
+    "EMS": 1424111086537281567,
+    "Armeria": 1424111403228205147,
+    "Concessionario": 1424111522107490405,
+    "Market": 1424111628374511729,
+    "Officina": 1424111759559495760,
+    "Import/Export": 1424111925360463882,
+    "Pegasus Airlines": 1424112194139984003,
+    "L.F.D": 1424007218554208316
+}
+
+COMPANY_ROLES = {
+    "EMS": EMS_ROLE_ID,
+    "Armeria": ARMERIA_ROLE_ID,
+    "Concessionario": CONCESSIONARIO_ROLE_ID,
+    "Market": MARKET_ROLE_ID,
+    "Officina": OFFICINA_ROLE_ID,
+    "Import/Export": IMPORT_EXPORT_ROLE_ID,
+    "L.F.D": LFD_ROLE_ID,
+    "Pegasus Airlines": PEGASUS_ROLE_ID
+}
+
+ALL_COMPANY_ROLES = {
+    "EMS": EMS_ROLE_ID,
+    "Armeria": ARMERIA_ROLE_ID,
+    "Concessionario": CONCESSIONARIO_ROLE_ID,
+    "Vanilla Unicorn": VANILLA_ROLE_ID,
+    "Market": MARKET_ROLE_ID,
+    "Officina": OFFICINA_ROLE_ID,
+    "Agenzia Immobiliare": AGENZIA_ROLE_ID,
+    "Import/Export": IMPORT_EXPORT_ROLE_ID,
+    "Stato": STATO_ROLE_ID,
+    "L.F.D": LFD_ROLE_ID,
+    "Pegasus Airlines": PEGASUS_ROLE_ID
+}
+
+PORTAFOGLIO_IMAGE_URL = "https://i.imgur.com/placeholder.gif"
 
 # ====================
 # FUNZIONI DI SUPPORTO
@@ -51,6 +86,7 @@ def has_role(interaction: discord.Interaction, role_id: int) -> bool:
         return False
     return any(role.id == role_id for role in interaction.user.roles)
 
+# Funzione di log che usa la variabile globale 'bot'
 async def log_command(channel_id: int, message: str = None, embed: discord.Embed = None):
     try:
         channel = bot.get_channel(channel_id)
@@ -59,58 +95,36 @@ async def log_command(channel_id: int, message: str = None, embed: discord.Embed
                 await channel.send(embed=embed)
             elif message:
                 await channel.send(message)
-    except Exception:
+    except:
         pass
 
-
-def create_bancomat_embed(user: dict, user_mention: str) -> discord.Embed:
-    """Crea l'embed del bancomat."""
-    embed = discord.Embed(
-        # TITOLO MODIFICATO QUI
-        title="<a:Bancomat:1431618497489666198> 𝐁𝐀𝐍𝐂𝐎𝐌𝐀𝐓",
-        color=discord.Color.blue()
-    )
-    embed.add_field(name="👤 𝐂𝐋𝐈𝐄𝐍𝐓𝐄", value=user_mention, inline=False)
-    embed.add_field(name="💰 𝐂𝐎𝐍𝐓𝐀𝐍𝐓𝐈", value=f"${user['cash']:,}", inline=False)
-    embed.add_field(name="💳 𝐁𝐀𝐍𝐂𝐀", value=f"${user['bank']:,}", inline=False)
-    embed.add_field(name="💵 𝐓𝐎𝐓𝐀𝐋𝐄", value=f"${user['cash'] + user['bank']:,}", inline=False)
-    return embed
 
 # ====================
 # CLASSI UI PER /BANCOMAT
 # ====================
 
-# Dichiarazione anticipata per l'uso nel Modal
-class BancomatView(View):
-    def __init__(self, user_id: str):
-        super().__init__(timeout=None)
-        self.user_id = user_id
-
-    async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        if str(interaction.user.id) != self.user_id:
-            await interaction.response.send_message("❌ Questo non è il tuo bancomat!", ephemeral=True)
-            return False
-        return True
-
-    @discord.ui.button(label="Preleva", style=discord.ButtonStyle.green, emoji="💸")
-    async def preleva_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        modal = MoneyTransferModal(action='preleva')
-        await interaction.response.send_modal(modal)
-
-    @discord.ui.button(label="Deposita", style=discord.ButtonStyle.blurple, emoji="🏠")
-    async def deposita_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        modal = MoneyTransferModal(action='deposita')
-        await interaction.response.send_modal(modal)
+def create_bancomat_embed(user: dict, user_mention: str) -> discord.Embed:
+    """Crea l'embed del bancomat."""
+    embed = discord.Embed(
+        # Utilizzo dei caratteri Unicode Math Sans Bold per il titolo 
+        title="🏦 𝐁𝐀𝐍𝐂𝐎𝐌𝐀𝐓",
+        color=discord.Color.blue()
+    )
+    # Nomi dei campi in Math Sans Bold
+    embed.add_field(name="👤 𝐂𝐋𝐈𝐄𝐍𝐓𝐄", value=user_mention, inline=False)
+    embed.add_field(name="💸 𝐂𝐎𝐍𝐓𝐀𝐍𝐓𝐈", value=f"${user['cash']:,}", inline=False)
+    embed.add_field(name="💳 𝐁𝐀𝐍𝐂𝐀", value=f"${user['bank']:,}", inline=False)
+    embed.add_field(name="💰 𝐓𝐎𝐓𝐀𝐋𝐄", value=f"${user['cash'] + user['bank']:,}", inline=False)
+    return embed
 
 
-class MoneyTransferModal(Modal):
+class MoneyTransferModal(Modal, title="Trasferimento di Denaro"):
     amount_input = TextInput(label="Importo", placeholder="La cifra da trasferire (solo numeri)", required=True)
 
     def __init__(self, action: str):
-        # Il titolo va passato direttamente a super().__init__()
-        modal_title = "💸 Preleva Contanti" if action == 'preleva' else "🏠 Deposita Denaro"
-        super().__init__(title=modal_title)
-        self.action = action 
+        super().__init__()
+        self.action = action # 'preleva' o 'deposita'
+        self.title = "💸 Preleva Contanti" if action == 'preleva' else "🏦 Deposita Denaro"
         self.amount_input.label = f"Importo da {action.capitalize()}"
 
 
@@ -121,8 +135,7 @@ class MoneyTransferModal(Modal):
         await interaction.response.defer(ephemeral=True, thinking=True)
         
         try:
-            # Rimuovi i separatori per permettere all'utente di scrivere 10.000 o $10,000
-            amount_str = self.amount_input.value.replace(',', '').replace('$', '').replace('.', '').strip()
+            amount_str = self.amount_input.value.replace(',', '').replace('$', '').strip()
             amount = int(amount_str)
             
             if amount <= 0:
@@ -166,22 +179,46 @@ class MoneyTransferModal(Modal):
 
         # 5. Risposta e aggiornamento embed
         
-        # Recupera i dati aggiornati e crea il nuovo embed
-        updated_user = await database.get_user(user_id)
+        # Crea il nuovo embed
+        updated_user = await database.get_user(user_id) # Riprendi i dati aggiornati
         updated_embed = create_bancomat_embed(updated_user, interaction.user.mention)
         
         action_text = "prelevati" if self.action == 'preleva' else "depositati"
         
-        # Edit del messaggio originale per mostrare il nuovo saldo
-        await interaction.edit_original_response(
+        view = BancomatView(user_id) # La view deve essere ricreata per coerenza
+        
+        await interaction.followup.send(
             content=f"✅ Hai **{action_text}** **${amount:,}** con successo! Ecco il tuo nuovo saldo:",
             embed=updated_embed,
-            view=BancomatView(user_id) # La view deve essere ricreata per coerenza
+            view=view,
+            ephemeral=True
         )
         
         # 6. Log
-        log_msg = f"🏠 {interaction.user.mention} ha {self.action} ${amount:,}"
+        log_msg = f"🏦 {interaction.user.mention} ha {self.action} ${amount:,}"
         await log_command(LOG_CHANNEL_ID, log_msg)
+
+
+class BancomatView(View):
+    def __init__(self, user_id: str):
+        super().__init__(timeout=None)
+        self.user_id = user_id
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if str(interaction.user.id) != self.user_id:
+            await interaction.response.send_message("❌ Questo non è il tuo bancomat!", ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(label="Preleva", style=discord.ButtonStyle.green, emoji="💸")
+    async def preleva_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        modal = MoneyTransferModal(action='preleva')
+        await interaction.response.send_modal(modal)
+
+    @discord.ui.button(label="Deposita", style=discord.ButtonStyle.blurple, emoji="🏦")
+    async def deposita_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        modal = MoneyTransferModal(action='deposita')
+        await interaction.response.send_modal(modal)
 
 
 # ====================
@@ -190,44 +227,39 @@ class MoneyTransferModal(Modal):
 
 @bot.event
 async def on_ready():
+    # Stampa di login
     print(f"✅ Logged in as {bot.user}")
     
     # Inizializza il database
     await database.init_db()
 
+# ====================
+# IMPORTAZIONE COMANDI (Assicurati che questi file esistano)
+# ====================
+from commands_invoice import setup_invoice_commands
+from commands_fines import setup_fine_commands
+from commands_documents import setup_document_commands
+from commands_wallet import setup_wallet_commands
+from commands_inventory import setup_inventory_commands
+from commands_rp import setup_rp_commands
+from commands_vehicle import setup_vehicle_commands
+from commands_salary import setup_salary_commands 
+from commands_bonifico import setup_bonifico_commands
+from commands_admin import setup_admin_commands
 
-    # ====================
-    # SETUP COMANDI (Spostato qui per risolvere l'errore di importazione ciclica)
-    # ====================
-    try:
-        from commands_invoice import setup_invoice_commands
-        from commands_fines import setup_fine_commands
-        from commands_documents import setup_document_commands
-        from commands_wallet import setup_wallet_commands
-        from commands_inventory import setup_inventory_commands
-        from commands_rp import setup_rp_commands
-        from commands_vehicle import setup_vehicle_commands
-        from commands_salary import setup_salary_commands 
-        from commands_bonifico import setup_bonifico_commands
-        from commands_admin import setup_admin_commands
-        
-
-        setup_invoice_commands(bot)
-        setup_fine_commands(bot)
-        setup_document_commands(bot)
-        setup_wallet_commands(bot)
-        setup_inventory_commands(bot)
-        setup_rp_commands(bot)
-        setup_vehicle_commands(bot)
-        setup_salary_commands(bot) 
-        setup_bonifico_commands(bot)
-        setup_admin_commands(bot)
-        print("✅ Tutti i moduli dei comandi sono stati caricati correttamente.")
-
-    except ImportError as e:
-        print(f"❌ Errore di importazione di un modulo comandi: {e}")
-    except Exception as e:
-        print(f"❌ Errore durante il setup dei comandi: {e}")
+# ====================
+# SETUP COMANDI 
+# ====================
+setup_invoice_commands(bot)
+setup_fine_commands(bot)
+setup_document_commands(bot)
+setup_wallet_commands(bot)
+setup_inventory_commands(bot)
+setup_rp_commands(bot)
+setup_vehicle_commands(bot)
+setup_salary_commands(bot) 
+setup_bonifico_commands(bot)
+setup_admin_commands(bot)
 
 
 # ====================
@@ -236,15 +268,19 @@ async def on_ready():
 
 @bot.tree.command(name="bancomat", description="Visualizza il saldo del tuo bancomat")
 async def bancomat(interaction: discord.Interaction):
+    # La funzione get_user crea l'utente se non esiste
     user = await database.get_user(str(interaction.user.id))
     user_id = str(interaction.user.id)
     user_mention = interaction.user.mention
     
+    # Creazione dell'embed
     embed = create_bancomat_embed(user, user_mention)
+    
+    # Creazione della View con i bottoni
     view = BancomatView(user_id)
     
     await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
-    await log_command(LOG_CHANNEL_ID, f"🏠 {interaction.user.mention} ha controllato il bancomat")
+    await log_command(LOG_CHANNEL_ID, f"🏦 {interaction.user.mention} ha controllato il bancomat")
 
 
 @bot.tree.command(name="sync", description="[STAFF] Sincronizza i comandi")
@@ -261,11 +297,12 @@ async def sync(interaction: discord.Interaction):
 @app_commands.describe(utente="L'utente di cui controllare il bancomat")
 async def controlla_bancomat(interaction: discord.Interaction, utente: discord.Member):
     checker_member = interaction.user
-        
+    
     if utente.bot:
         await interaction.response.send_message("❌ Non puoi controllare il bancomat di un bot.", ephemeral=True)
         return
 
+    # Non puoi controllare te stesso, devi usare /bancomat
     if utente.id == checker_member.id:
         await interaction.response.send_message("❌ Usa il comando `/bancomat` per vedere il tuo saldo.", ephemeral=True)
         return
@@ -273,18 +310,19 @@ async def controlla_bancomat(interaction: discord.Interaction, utente: discord.M
     await interaction.response.defer(ephemeral=True, thinking=True)
     
     try:
+        # 2. Recupera i dati dell'utente Controllato
         user_data = await database.get_user(str(utente.id))
         
+        # 3. Creazione dell'embed (usa la funzione esistente)
         embed = create_bancomat_embed(user_data, utente.mention)
-        
-        # TITOLO MODIFICATO QUI
-        embed.title = f"🔎 𝐂𝐎𝐍𝐓𝐑𝐎𝐋𝐋𝐎 𝐒𝐀𝐋𝐃𝐎: {utente.display_name}"
+        embed.title = f"🔍 SALDO VISTO: {utente.display_name}" # Titolo aggiornato per RP
         embed.color = discord.Color.gold()
         embed.set_footer(text=f"Visualizzato da: {checker_member.display_name}")
         
+        # 4. Invia la notifica DM all'utente controllato
         try:
             notification_embed = discord.Embed(
-                title="🚨 𝐀𝐓𝐓𝐄𝐍𝐙𝐈𝐎𝐍𝐄 ❗",
+                title="🚨 ATTENZIONE ❗",
                 description=f"{checker_member.mention} ha visualizzato il tuo conto bancario❗",
                 color=discord.Color.red()
             )
@@ -293,12 +331,14 @@ async def controlla_bancomat(interaction: discord.Interaction, utente: discord.M
         except:
             dm_status = "Notifica DM non inviabile (DM bloccati)."
 
+        # 5. Risposta a chi ha eseguito il comando
         await interaction.followup.send(
             content=f"✅ Visualizzazione completata. ({dm_status})",
             embed=embed,
-            ephemeral=True 
+            ephemeral=True # Solo l'esecutore vede l'embed
         )
         
+        # 6. Log
         log_msg = f"👀 {checker_member.mention} ha controllato il bancomat di {utente.mention} (Visibile a tutti)."
         await log_command(LOG_CHANNEL_ID, log_msg)
 
@@ -309,13 +349,13 @@ async def controlla_bancomat(interaction: discord.Interaction, utente: discord.M
 @bot.tree.command(name="help", description="Mostra la lista aggiornata dei comandi del bot")
 async def help_command(interaction: discord.Interaction):
     embed = discord.Embed(
-        title="📚 𝐋𝐈𝐒𝐓𝐀 𝐂𝐎𝐌𝐀𝐍𝐃𝐈 𝐃𝐄𝐋 𝐁𝐎𝐓",
+        title="📚 LISTA COMANDI DEL BOT",
         description="Ecco tutti i comandi disponibili nel server, suddivisi per categoria. Usa quelli del tuo lavoro!",
         color=discord.Color.blurple()
     )
 
     embed.add_field(
-        name="👮‍♂️ 𝐂𝐎𝐌𝐀𝐍𝐃𝐈 𝐃𝐈 𝐏𝐎𝐋𝐈𝐙𝐈𝐀",
+        name="👮‍♂️ COMANDI DI POLIZIA",
         value=(
             "**/ammanetto** – Ammanetta un cittadino.\n"
             "**/controllatarga** – Controlla la targa di un veicolo.\n"
@@ -330,7 +370,7 @@ async def help_command(interaction: discord.Interaction):
     )
 
     embed.add_field(
-        name="🛠️ 𝐂𝐎𝐌𝐀𝐍𝐃𝐈 𝐎𝐅𝐅𝐈𝐂𝐈𝐍𝐀",
+        name="🛠️ COMANDI OFFICINA",
         value=(
             "**/assicurazione** – Gestisci o verifica un’assicurazione.\n"
             "**/modificaveicolo** – Modifica i dati di un veicolo (solo officina)."
@@ -339,7 +379,7 @@ async def help_command(interaction: discord.Interaction):
     )
 
     embed.add_field(
-        name="📜 𝐂𝐎𝐌𝐀𝐍𝐃𝐈 𝐃𝐎𝐂𝐔𝐌𝐄𝐍𝐓𝐈",
+        name="📋 COMANDI DOCUMENTI",
         value=(
             "**/documento** – Mostra il tuo documento d’identità.\n"
             "**/dailibretto** – Rilascia un libretto di circolazione.\n"
@@ -355,7 +395,7 @@ async def help_command(interaction: discord.Interaction):
     )
 
     embed.add_field(
-        name="💵 𝐂𝐎𝐌𝐀𝐍𝐃𝐈 𝐄𝐂𝐎𝐍𝐎𝐌𝐈𝐂𝐈",
+        name="💵 COMANDI ECONOMICI",
         value=(
             "**/bancomat** – Accedi al tuo conto bancario.\n"
             "**/bonifico** – Invia un bonifico a un altro cittadino.\n"
@@ -370,7 +410,7 @@ async def help_command(interaction: discord.Interaction):
     )
 
     embed.add_field(
-        name="🎒 𝐂𝐎𝐌𝐀𝐍𝐃𝐈 𝐈𝐍𝐕𝐄𝐍𝐓𝐀𝐑𝐈𝐎 𝐄 𝐌𝐄𝐑𝐂𝐀𝐓𝐎",
+        name="🛍️ COMANDI INVENTARIO E MERCATO",
         value=(
             "**/invzaino** – Mostra il contenuto del tuo zaino.\n"
             "**/itemshop** – Mostra gli oggetti acquistabili.\n"
@@ -383,7 +423,7 @@ async def help_command(interaction: discord.Interaction):
     )
 
     embed.add_field(
-        name="💬 𝐂𝐎𝐌𝐀𝐍𝐃𝐈 𝐒𝐎𝐂𝐈𝐀𝐋 / 𝐑𝐏",
+        name="🎭 RP / SOCIAL",
         value=(
             "**/me** – Descrivi un’azione RP.\n"
             "**/anonimo** – Invia un messaggio anonimo.\n"
@@ -393,7 +433,7 @@ async def help_command(interaction: discord.Interaction):
         inline=False
     )
 
-    embed.set_footer(text="📄 Usa /help per consultare la lista dei comandi in qualsiasi momento.")
+    embed.set_footer(text="📜 Usa /help per consultare la lista dei comandi in qualsiasi momento.")
 
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
@@ -419,8 +459,10 @@ async def start_webserver():
 # ENTRY POINT PRINCIPALE
 # ====================
 async def main():
+    # Inizia il web server in background
     await start_webserver()
     
+    # Avvia il bot
     TOKEN = os.getenv("DISCORD_TOKEN")
     await bot.start(TOKEN)
 

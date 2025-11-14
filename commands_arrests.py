@@ -33,18 +33,11 @@ async def log_arrest(bot, channel_id: int, embed: discord.Embed):
 # ====================
 
 class ArrestModal(Modal, title="⛓️ Modulo di Arresto"):
-    nome = TextInput(
-        label="Nome Arrestato",
-        placeholder="Inserisci il nome dell'arrestato",
+    nome_completo = TextInput(
+        label="Nome e Cognome",
+        placeholder="Es: Mario Rossi",
         required=True,
-        max_length=50
-    )
-    
-    cognome = TextInput(
-        label="Cognome Arrestato",
-        placeholder="Inserisci il cognome dell'arrestato",
-        required=True,
-        max_length=50
+        max_length=100
     )
     
     eta = TextInput(

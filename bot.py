@@ -247,6 +247,7 @@ from commands_salary import setup_salary_commands
 from commands_bonifico import setup_bonifico_commands
 from commands_admin import setup_admin_commands
 from commands_bando import setup_bando_commands
+from commands_rp_status import setup_rpoff_commands 
 
 # ====================
 # SETUP COMANDI 
@@ -262,6 +263,7 @@ setup_salary_commands(bot)
 setup_bonifico_commands(bot)
 setup_admin_commands(bot)
 setup_bando_commands(bot)
+setup_rpoff_commands(bot)
 
 
 # ====================

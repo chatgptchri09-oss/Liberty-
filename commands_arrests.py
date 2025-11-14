@@ -127,7 +127,8 @@ def setup_arrest_commands(bot: commands.Bot):
     """Registra il comando modulo-arresto."""
     
     @bot.tree.command(name="modulo-arresto", description="[L.F.D] Registra un arresto")
-    async def modulo_arresto(interaction: discord.Interaction):
+    @app_commands.describe(cittadino="Il cittadino da arrestare")
+    async def modulo_arresto(interaction: discord.Interaction, cittadino: discord.Member):
         # Controllo permessi
         if not has_role(interaction, LFD_ROLE_ID):
             await interaction.response.send_message(
@@ -137,7 +138,7 @@ def setup_arrest_commands(bot: commands.Bot):
             return
         
         # Apri il modal
-        modal = ArrestModal(bot)
+        modal = ArrestModal(bot, cittadino)
         await interaction.response.send_modal(modal)
     
     print("✅ Comando /modulo-arresto caricato")

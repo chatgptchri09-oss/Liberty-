@@ -76,9 +76,10 @@ class ArrestModal(Modal, title="⛓️ Modulo di Arresto"):
         max_length=100
     )
 
-    def __init__(self, bot):
+    def __init__(self, bot, cittadino: discord.Member):
         super().__init__()
         self.bot = bot
+        self.cittadino = cittadino
 
     async def on_submit(self, interaction: discord.Interaction):
         # Defer per evitare timeout
@@ -100,6 +101,7 @@ class ArrestModal(Modal, title="⛓️ Modulo di Arresto"):
         )
         
         embed.add_field(name="👮 Agente", value=agente, inline=False)
+        embed.add_field(name="🚨 Cittadino Arrestato", value=self.cittadino.mention, inline=False)
         embed.add_field(name="👤 Nome Completo", value=nome_completo, inline=False)
         embed.add_field(name="🎂 Età", value=eta_value, inline=True)
         embed.add_field(name="🏠 Residenza", value=residenza_value, inline=True)
@@ -129,16 +131,39 @@ def setup_arrest_commands(bot: commands.Bot):
     @bot.tree.command(name="modulo-arresto", description="[L.F.D] Registra un arresto")
     @app_commands.describe(cittadino="Il cittadino da arrestare")
     async def modulo_arresto(interaction: discord.Interaction, cittadino: discord.Member):
+        print(f"[DEBUG] Comando /modulo-arresto chiamato da {interaction.user}")
+        
         # Controllo permessi
         if not has_role(interaction, LFD_ROLE_ID):
+            print(f"[DEBUG] {interaction.user} non ha i permessi")
             await interaction.response.send_message(
                 "❌ Solo gli agenti del L.F.D possono usare questo comando!",
                 ephemeral=True
             )
             return
         
+        print(f"[DEBUG] Permessi OK, cittadino selezionato: {cittadino}")
+        
+        # Controlla se è un bot
+        if cittadino.bot:
+            print(f"[DEBUG] Tentativo di arrestare un bot")
+            await interaction.response.send_message(
+                "❌ Non puoi arrestare un bot!",
+                ephemeral=True
+            )
+            return
+        
         # Apri il modal
-        modal = ArrestModal(bot, cittadino)
-        await interaction.response.send_modal(modal)
+        try:
+            print(f"[DEBUG] Apertura modal...")
+            modal = ArrestModal(bot, cittadino)
+            await interaction.response.send_modal(modal)
+            print(f"[DEBUG] Modal inviato con successo")
+        except Exception as e:
+            print(f"[ERRORE] Errore nell'apertura del modal: {e}")
+            await interaction.response.send_message(
+                f"❌ Errore nell'apertura del modulo: {e}",
+                ephemeral=True
+            )
     
     print("✅ Comando /modulo-arresto caricato")

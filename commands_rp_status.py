@@ -53,7 +53,7 @@ def setup_rpoff_commands(bot: commands.Bot):
             title="<a:offline:1431606235354107914> ROLEPLAY OFF",
             description=(
                 "<a:offline:1431606235354107914> La sessione di **roleplay è terminata**!\n\n"
-                "📌 • Ricorda di eseguire il comando `/fineturno` per ricevere lo stipendio della giornata lavorativa.\n\n"
+                "📌 • Ricorda di eseguire il comando `/turno` per ricevere lo stipendio della giornata lavorativa.\n\n"
                 "🙏 Grazie per aver giocato con noi su **Liberty City RP**!"
             ),
             color=discord.Color.red()
@@ -61,7 +61,7 @@ def setup_rpoff_commands(bot: commands.Bot):
         
         # Aggiungi immagine (sostituisci con il tuo URL)
         embed.set_image(url="https://cdn.discordapp.com/attachments/1235599658928308264/1250595400226963527/ServerOff.gif?ex=6918667a&is=691714fa&hm=be7932a6069a0f969d08a7d17d61584ba0a23c3ce21c6399e56355909bf56a1e&")
-        embed.set_footer(text="Rewind RP")
+        embed.set_footer(text="Liberty City RP")
         embed.timestamp = discord.utils.utcnow()
         
         # Invia l'embed
@@ -78,7 +78,7 @@ def setup_rpoff_commands(bot: commands.Bot):
         await channel.send("<@&1414752091607535727> TI ASPETTIAMO NELLA PROSSIMA SESSIONE!")
         
         await asyncio.sleep(1)
-        await channel.send("<@&1414752091607535727> NON PERDETEVI IL TURNO! TERMINA IL TUO CON `/fineturno`")
+        await channel.send("<@&1414752091607535727> NON PERDETEVI IL TURNO! TERMINA IL TUO CON `/turno`")
         
         # Log dell'azione
         log_msg = f"🔴 {interaction.user.mention} ha terminato la sessione RP con `/rpoff`"

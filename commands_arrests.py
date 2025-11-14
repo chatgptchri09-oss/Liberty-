@@ -75,16 +75,25 @@ class ArrestModal(Modal, title="⛓️ Modulo di Arresto"):
         self.cittadino = cittadino
 
     async def on_submit(self, interaction: discord.Interaction):
+        print(f"[DEBUG] Modal submit ricevuto da {interaction.user}")
+        
         # Defer per evitare timeout
-        await interaction.response.defer(ephemeral=True)
+        try:
+            await interaction.response.defer(ephemeral=True)
+            print(f"[DEBUG] Defer completato")
+        except Exception as e:
+            print(f"[ERRORE] Errore nel defer: {e}")
+            return
         
         # Prepara i dati
-        nome_completo = f"{self.nome.value} {self.cognome.value}"
+        nome_completo = self.nome_completo.value
         eta_value = self.eta.value
         residenza_value = self.residenza.value if self.residenza.value else "Non specificata"
         motivo_value = self.motivo.value
         pena_value = self.pena.value
         agente = interaction.user.mention
+        
+        print(f"[DEBUG] Dati raccolti: {nome_completo}, {eta_value}, {residenza_value}")
         
         # Creazione embed per il log
         embed = discord.Embed(
@@ -103,16 +112,26 @@ class ArrestModal(Modal, title="⛓️ Modulo di Arresto"):
         
         embed.set_footer(text="L.F.D - Los Santos Police Department")
         
+        print(f"[DEBUG] Embed creato, invio al canale log...")
+        
         # Invia il log nel canale
-        await log_arrest(self.bot, ARREST_LOG_CHANNEL_ID, embed)
+        try:
+            await log_arrest(self.bot, ARREST_LOG_CHANNEL_ID, embed)
+            print(f"[DEBUG] Log inviato con successo")
+        except Exception as e:
+            print(f"[ERRORE] Errore nell'invio del log: {e}")
         
         # Conferma all'agente
-        await interaction.followup.send(
-            f"✅ Arresto registrato con successo!\n"
-            f"**Arrestato:** {nome_completo}\n"
-            f"**Pena:** {pena_value}",
-            ephemeral=True
-        )
+        try:
+            await interaction.followup.send(
+                f"✅ Arresto registrato con successo!\n"
+                f"**Arrestato:** {nome_completo}\n"
+                f"**Pena:** {pena_value}",
+                ephemeral=True
+            )
+            print(f"[DEBUG] Conferma inviata all'agente")
+        except Exception as e:
+            print(f"[ERRORE] Errore nell'invio della conferma: {e}")
 
 # ====================
 # COMANDO /MODULO-ARRESTO

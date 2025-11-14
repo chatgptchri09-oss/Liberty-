@@ -6,7 +6,8 @@ import asyncio
 # ====================
 # COSTANTI
 # ====================
-AUTHORIZED_ROLE_ID = 1414753824463126611  # Ruolo autorizzato per /rpoff
+AUTHORIZED_ROLE_ID = 1414753824463126611  # Ruolo autorizzato per /rpoff e /rpon
+CITIZEN_ROLE_ID = 1414752091607535727  # Ruolo cittadino da menzionare
 LOG_CHANNEL_ID = 1415297578022604850  # Canale di log
 
 # ====================
@@ -32,13 +33,13 @@ async def log_command(bot, channel_id: int, message: str = None, embed: discord.
         print(f"Errore nel log: {e}")
 
 # ====================
-# COMANDO /RPOFF
+# COMANDI RP STATUS
 # ====================
 
 def setup_rpoff_commands(bot: commands.Bot):
-    """Registra i comandi RP Off."""
+    """Registra i comandi RP Status."""
     
-    @bot.tree.command(name="rpoff", description=" Termina la sessione di roleplay")
+    @bot.tree.command(name="rpoff", description="Termina la sessione di roleplay")
     async def rpoff(interaction: discord.Interaction):
         # Controllo permessi
         if not has_role(interaction, AUTHORIZED_ROLE_ID):
@@ -54,14 +55,14 @@ def setup_rpoff_commands(bot: commands.Bot):
             description=(
                 "<a:offline:1431606235354107914> La sessione di **roleplay è terminata**!\n\n"
                 "📌 • Ricorda di eseguire il comando `/turno` per ricevere lo stipendio della giornata lavorativa.\n\n"
-                "🙏 Grazie per aver giocato con noi su **Liberty City RP**!"
+                "🙏 Grazie per aver giocato con noi su **Liberty RP**!"
             ),
             color=discord.Color.red()
         )
         
         # Aggiungi immagine (sostituisci con il tuo URL)
         embed.set_image(url="https://cdn.discordapp.com/attachments/1235599658928308264/1250595400226963527/ServerOff.gif?ex=6918667a&is=691714fa&hm=be7932a6069a0f969d08a7d17d61584ba0a23c3ce21c6399e56355909bf56a1e&")
-        embed.set_footer(text="Liberty City RP")
+        embed.set_footer(text="Liberty RP")
         embed.timestamp = discord.utils.utcnow()
         
         # Invia l'embed
@@ -78,10 +79,68 @@ def setup_rpoff_commands(bot: commands.Bot):
         await channel.send("<@&1414752091607535727> TI ASPETTIAMO NELLA PROSSIMA SESSIONE!")
         
         await asyncio.sleep(1)
-        await channel.send("<@&1414752091607535727> NON PERDETEVI IL TURNO! TERMINA IL TUO CON `/turno`")
+        await channel.send("<@&1414752091607535727> NON PERDETEVI IL TURNO! INIZIA IL TUO CON `/turno`")
         
         # Log dell'azione
         log_msg = f"🔴 {interaction.user.mention} ha terminato la sessione RP con `/rpoff`"
         await log_command(bot, LOG_CHANNEL_ID, log_msg)
     
-    print("✅ Comando /rpoff caricato")
+    @bot.tree.command(name="rpon", description="[STAFF] Avvia la sessione di roleplay")
+    @app_commands.describe(idps4="L'ID PS4 dell'utente che avvia la sessione")
+    async def rpon(interaction: discord.Interaction, idps4: str):
+        # Controllo permessi
+        if not has_role(interaction, AUTHORIZED_ROLE_ID):
+            await interaction.response.send_message(
+                "❌ Non hai i permessi per utilizzare questo comando!",
+                ephemeral=True
+            )
+            return
+        
+        # Creazione embed principale
+        embed = discord.Embed(
+            title="<a:Online:1431599470897922069> ROLEPLAY ON",
+            description=(
+                "💬 La roleplay è **UFFICIALMENTE ON!**\n\n"
+                "💃🕺 **DIAMO IL VIA ALLE DANZE!**\n\n"
+                "💊 Unisciti alla nostra crew:\n"
+                "[Social Club Liberty RP]\n\n"
+                "<a:Online:1431599470897922069> ⏱️ *Avvia il tuo turno con* `/turno`"
+            ),
+            color=discord.Color.green()
+        )
+        
+        # Aggiungi immagine ROLEPLAY ON (sostituisci con il tuo URL)
+        embed.set_image(url="https://cdn.discordapp.com/attachments/1235599658928308264/1250595400616771614/ServerOn.gif?ex=6918667a&is=691714fa&hm=040de693ddd56f45ef5ee93116185cad03061f91bf9a02b04b5eda504779cd22&")
+        embed.set_footer(text="Liberty RP")
+        embed.timestamp = discord.utils.utcnow()
+        
+        # Invia l'embed
+        await interaction.response.send_message(embed=embed)
+        
+        # Ottieni il canale
+        channel = interaction.channel
+        
+        # Primo messaggio: unisciti alla sessione con ID PS4
+        await asyncio.sleep(1)
+        await channel.send(f"<@&{CITIZEN_ROLE_ID}> Unisciti alla sessione di Roleplay! ID PS4: **{idps4}**")
+        
+        # Secondo messaggio: segui il link e unisciti
+        await asyncio.sleep(1)
+        await channel.send(
+            f"<@&{CITIZEN_ROLE_ID}> SEGUI IL LINK E UNISCITI A NOI: "
+            "in arrivo "
+        )
+        
+        # Immagine Social Club (sostituisci con il tuo URL se diverso)
+        await asyncio.sleep(0.5)
+        await channel.send("https://media.discordapp.net/attachments/1234567890/socialclub-banner.png")
+        
+        # Terzo messaggio: non perdetevi la sessione
+        await asyncio.sleep(1)
+        await channel.send(f"<@&{CITIZEN_ROLE_ID}> NON PERDETEVI LA SESSIONE! INIZIA IL TUO TURNO CON `/turno`")
+        
+        # Log dell'azione
+        log_msg = f"🟢 {interaction.user.mention} ha avviato la sessione RP con `/rpon` (ID PS4: {idps4})"
+        await log_command(bot, LOG_CHANNEL_ID, log_msg)
+    
+    print("✅ Comandi /rpoff e /rpon caricati")

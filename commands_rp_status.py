@@ -35,7 +35,7 @@ async def log_command(bot, channel_id: int, message: str = None, embed: discord.
 # COMANDO /RPOFF
 # ====================
 
-def setup_rp_commands(bot: commands.Bot):
+def setup_rpoff_commands(bot: commands.Bot):
     """Registra i comandi RP Off."""
     
     @bot.tree.command(name="rpoff", description=" Termina la sessione di roleplay")

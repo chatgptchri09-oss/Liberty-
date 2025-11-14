@@ -248,6 +248,7 @@ from commands_bonifico import setup_bonifico_commands
 from commands_admin import setup_admin_commands
 from commands_bando import setup_bando_commands
 from commands_rp_status import setup_rpoff_commands 
+from commands_arrests import setup_arrest_commands
 
 # ====================
 # SETUP COMANDI 
@@ -264,6 +265,7 @@ setup_bonifico_commands(bot)
 setup_admin_commands(bot)
 setup_bando_commands(bot)
 setup_rpoff_commands(bot)
+setup_arrest_commands(bot)
 
 
 # ====================

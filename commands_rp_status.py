@@ -50,9 +50,9 @@ def setup_rpoff_commands(bot: commands.Bot):
         
         # Creazione embed principale
         embed = discord.Embed(
-            title="🔴 ROLEPLAY OFF",
+            title="<a:offline:1431606235354107914> ROLEPLAY OFF",
             description=(
-                "🔴 La sessione di **roleplay è terminata**!\n\n"
+                "<a:offline:1431606235354107914> La sessione di **roleplay è terminata**!\n\n"
                 "📌 • Ricorda di eseguire il comando `/fineturno` per ricevere lo stipendio della giornata lavorativa.\n\n"
                 "🙏 Grazie per aver giocato con noi su **Liberty City RP**!"
             ),
@@ -60,7 +60,7 @@ def setup_rpoff_commands(bot: commands.Bot):
         )
         
         # Aggiungi immagine (sostituisci con il tuo URL)
-        embed.set_image(url="https://cdn.discordapp.com/attachments/1415383066440106096/1438860643636744202/CB9CD8E0-50BC-4878-BF4D-1B63A8DC2F96.png?ex=69186ae6&is=69171966&hm=f890090b7fa98b89ba942518ee46ea028cb62823d92d9284fb9aef299d46ea12&")
+        embed.set_image(url="https://cdn.discordapp.com/attachments/1235599658928308264/1250595400226963527/ServerOff.gif?ex=6918667a&is=691714fa&hm=be7932a6069a0f969d08a7d17d61584ba0a23c3ce21c6399e56355909bf56a1e&")
         embed.set_footer(text="Rewind RP")
         embed.timestamp = discord.utils.utcnow()
         
@@ -72,13 +72,13 @@ def setup_rpoff_commands(bot: commands.Bot):
         
         # Invia i messaggi successivi con delay
         await asyncio.sleep(1)
-        await channel.send("@🚶 | Cittadino Di chicago LA SESSIONE È STATA CHIUSA GRAZIE A TUTTI PER AVER GIOCATO")
+        await channel.send("<@&1414752091607535727> LA SESSIONE È STATA CHIUSA GRAZIE A TUTTI PER AVER GIOCATO")
         
         await asyncio.sleep(1)
-        await channel.send("@🚶 | Cittadino Di chicago TI ASPETTIAMO NELLA PROSSIMA SESSIONE!")
+        await channel.send("<@&1414752091607535727> TI ASPETTIAMO NELLA PROSSIMA SESSIONE!")
         
         await asyncio.sleep(1)
-        await channel.send("@🚶 | Cittadino Di chicago NON PERDETEVI IL TURNO! INIZIA IL TUO CON `/fineturno`")
+        await channel.send("<@&1414752091607535727> NON PERDETEVI IL TURNO! TERMINA IL TUO CON `/fineturno`")
         
         # Log dell'azione
         log_msg = f"🔴 {interaction.user.mention} ha terminato la sessione RP con `/rpoff`"

@@ -179,3 +179,12 @@ def setup_arrest_commands(bot: commands.Bot):
             )
     
     print("✅ Comando /modulo-arresto caricato")
+
+# Salva l'arresto nel database
+import aiosqlite
+async with aiosqlite.connect(database.DATABASE_NAME) as db:
+    await db.execute(
+        "INSERT INTO arrests (user_id, nome_completo, eta, residenza, motivo, pena, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (str(self.cittadino.id), nome_completo, eta_value, residenza_value, motivo_value, pena_value, datetime.utcnow().isoformat())
+    )
+    await db.commit()

@@ -211,3 +211,16 @@ async def get_fine(fine_id: int):
     async with aiosqlite.connect(DATABASE_NAME) as db:
         async with db.execute("SELECT * FROM fines WHERE id = ?", (fine_id,)) as cursor:
             return await cursor.fetchone()
+
+await db.execute("""
+    CREATE TABLE IF NOT EXISTS arrests (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT,
+        nome_completo TEXT,
+        eta TEXT,
+        residenza TEXT,
+        motivo TEXT,
+        pena TEXT,
+        created_at TEXT
+    )
+""")

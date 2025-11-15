@@ -249,6 +249,9 @@ from commands_admin import setup_admin_commands
 from commands_bando import setup_bando_commands
 from commands_rp_status import setup_rpoff_commands 
 from commands_arrests import setup_arrest_commands
+from commands_criminal_record import setup_criminal_record_commands
+
+
 
 # ====================
 # SETUP COMANDI 
@@ -266,6 +269,7 @@ setup_admin_commands(bot)
 setup_bando_commands(bot)
 setup_rpoff_commands(bot)
 setup_arrest_commands(bot)
+setup_criminal_record_commands(bot)
 
 
 # ====================

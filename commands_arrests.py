@@ -2,6 +2,9 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from discord.ui import Modal, TextInput
+import aiosqlite
+from datetime import datetime
+import database
 
 # ====================
 # COSTANTI
@@ -27,6 +30,19 @@ async def log_arrest(bot, channel_id: int, embed: discord.Embed):
             await channel.send(embed=embed)
     except Exception as e:
         print(f"Errore nel log arresto: {e}")
+
+async def save_arrest_to_db(user_id: str, nome_completo: str, eta: str, residenza: str, motivo: str, pena: str):
+    """Salva l'arresto nel database."""
+    try:
+        async with aiosqlite.connect(database.DATABASE_NAME) as db:
+            await db.execute(
+                "INSERT INTO arrests (user_id, nome_completo, eta, residenza, motivo, pena, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (user_id, nome_completo, eta, residenza, motivo, pena, datetime.utcnow().isoformat())
+            )
+            await db.commit()
+        print(f"[DEBUG] Arresto salvato nel database per user_id: {user_id}")
+    except Exception as e:
+        print(f"[ERRORE] Impossibile salvare arresto nel DB: {e}")
 
 # ====================
 # MODAL PER MODULO ARRESTO
@@ -94,6 +110,16 @@ class ArrestModal(Modal, title="⛓️ Modulo di Arresto"):
         agente = interaction.user.mention
         
         print(f"[DEBUG] Dati raccolti: {nome_completo}, {eta_value}, {residenza_value}")
+        
+        # Salva l'arresto nel database
+        await save_arrest_to_db(
+            str(self.cittadino.id),
+            nome_completo,
+            eta_value,
+            residenza_value,
+            motivo_value,
+            pena_value
+        )
         
         # Creazione embed per il log
         embed = discord.Embed(
@@ -179,12 +205,3 @@ def setup_arrest_commands(bot: commands.Bot):
             )
     
     print("✅ Comando /modulo-arresto caricato")
-
-# Salva l'arresto nel database
-import aiosqlite
-async with aiosqlite.connect(database.DATABASE_NAME) as db:
-    await db.execute(
-        "INSERT INTO arrests (user_id, nome_completo, eta, residenza, motivo, pena, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        (str(self.cittadino.id), nome_completo, eta_value, residenza_value, motivo_value, pena_value, datetime.utcnow().isoformat())
-    )
-    await db.commit()

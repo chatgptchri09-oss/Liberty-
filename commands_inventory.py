@@ -503,47 +503,114 @@ def setup_inventory_commands(bot: commands.Bot):
         except:
             pass
     
-    @bot.tree.command(name="invzaino", description="Visualizza lo zaino tuo o di un altro utente")
-    @app_commands.describe(utente="L'utente di cui visualizzare lo zaino (opzionale)")
-    async def invzaino(interaction: discord.Interaction, utente: discord.Member = None):
-        target_user = utente if utente else interaction.user
+    
+# Aggiungi questa classe PRIMA del comando /invzaino nel file commands_inventory.py
 
-        async with aiosqlite.connect(DATABASE_NAME) as db:
-            async with db.execute("SELECT has_backpack FROM users WHERE user_id = ?", (str(target_user.id),)) as cursor:
-                user_data = await cursor.fetchone()
-
-            if not user_data or user_data[0] == 0:
-                if target_user.id == interaction.user.id:
-                    await interaction.response.send_message("❌ Non hai uno zaino! Compralo dal Market.", ephemeral=True)
-                else:
-                    await interaction.response.send_message(f"❌ {target_user.mention} non ha uno zaino!", ephemeral=True)
-                return
-
-            async with db.execute("SELECT item_name, quantity FROM inventory WHERE user_id = ?", (str(target_user.id),)) as cursor:
-                items = await cursor.fetchall()
-
+class BackpackPaginationView(discord.ui.View):
+    def __init__(self, items: list, target_user: discord.Member, requester: discord.Member):
+        super().__init__(timeout=180)
+        self.items = items
+        self.target_user = target_user
+        self.requester = requester
+        self.current_page = 0
+        self.items_per_page = 5
+        self.total_pages = math.ceil(len(items) / self.items_per_page) if items else 1
+        
+        self.update_buttons()
+    
+    def update_buttons(self):
+        self.prev_button.disabled = (self.current_page == 0)
+        self.next_button.disabled = (self.current_page >= self.total_pages - 1)
+    
+    def get_embed(self):
         embed = discord.Embed(
-            title=f"🎒 ZAINO DI {target_user.display_name}",
-            color=discord.Color.dark_green()
+            title=f"🎒 Zaino ({self.items_per_page * self.current_page + 1}-{min(self.items_per_page * (self.current_page + 1), len(self.items))}/{len(self.items)})",
+            color=discord.Color.blue()
         )
-
-        if items:
-            for item_name, quantity in items:
-                embed.add_field(name=f"📦 {item_name}", value=f"Quantità: **{quantity}**", inline=True)
+        
+        # Calcola gli item della pagina corrente
+        start_idx = self.current_page * self.items_per_page
+        end_idx = start_idx + self.items_per_page
+        page_items = self.items[start_idx:end_idx]
+        
+        if page_items:
+            for item_name, quantity in page_items:
+                embed.add_field(
+                    name=f"{item_name}",
+                    value=f"Quantità: **{quantity}**",
+                    inline=False
+                )
         else:
             embed.description = "Lo zaino è vuoto!"
-
-        await interaction.response.send_message(embed=embed, ephemeral=True)
-
-        if utente and utente.id != interaction.user.id:
-            try:
-                await utente.send(f"👀 ATTENZIONE‼️ {interaction.user.mention} ha appena guardato il tuo zaino. STAI ATTENTO‼️🚨")
-            except:
-                pass
-            await log_command(bot, LOG_CHANNEL_ID, f"👁️ {interaction.user.mention} ha guardato lo zaino di {utente.mention}")
+        
+        # Footer con pagina
+        embed.set_footer(text=f"👤 Pagina {self.current_page + 1} di {self.total_pages} | Richiesto da {self.requester.display_name}")
+        
+        return embed
+    
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        # Solo chi ha richiesto lo zaino può usare i bottoni
+        if interaction.user.id != self.requester.id:
+            await interaction.response.send_message("❌ Non puoi usare questi bottoni!", ephemeral=True)
+            return False
+        return True
+    
+    @discord.ui.button(label="◀️ Pagina", style=discord.ButtonStyle.primary, custom_id="prev_page_backpack")
+    async def prev_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.current_page > 0:
+            self.current_page -= 1
+            self.update_buttons()
+            await interaction.response.edit_message(embed=self.get_embed(), view=self)
         else:
-            await log_command(bot, LOG_CHANNEL_ID, f"🎒 {interaction.user.mention} ha aperto il proprio zaino")
+            await interaction.response.defer()
+    
+    @discord.ui.button(label="Pagina ▶️", style=discord.ButtonStyle.primary, custom_id="next_page_backpack")
+    async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.current_page < self.total_pages - 1:
+            self.current_page += 1
+            self.update_buttons()
+            await interaction.response.edit_message(embed=self.get_embed(), view=self)
+        else:
+            await interaction.response.defer()
 
+
+# SOSTITUISCI il comando /invzaino con questo:
+
+@bot.tree.command(name="invzaino", description="Visualizza lo zaino tuo o di un altro utente")
+@app_commands.describe(utente="L'utente di cui visualizzare lo zaino (opzionale)")
+async def invzaino(interaction: discord.Interaction, utente: discord.Member = None):
+    target_user = utente if utente else interaction.user
+
+    async with aiosqlite.connect(DATABASE_NAME) as db:
+        async with db.execute("SELECT has_backpack FROM users WHERE user_id = ?", (str(target_user.id),)) as cursor:
+            user_data = await cursor.fetchone()
+
+        if not user_data or user_data[0] == 0:
+            if target_user.id == interaction.user.id:
+                await interaction.response.send_message("❌ Non hai uno zaino! Compralo dal Market.", ephemeral=True)
+            else:
+                await interaction.response.send_message(f"❌ {target_user.mention} non ha uno zaino!", ephemeral=True)
+            return
+
+        async with db.execute("SELECT item_name, quantity FROM inventory WHERE user_id = ?", (str(target_user.id),)) as cursor:
+            items = await cursor.fetchall()
+
+    # Crea la view con paginazione
+    view = BackpackPaginationView(items, target_user, interaction.user)
+    embed = view.get_embed()
+    
+    await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+
+    # Notifica se qualcuno controlla lo zaino di un altro
+    if utente and utente.id != interaction.user.id:
+        try:
+            await utente.send(f"👀 ATTENZIONE‼️ {interaction.user.mention} ha appena guardato il tuo zaino. STAI ATTENTO‼️🚨")
+        except:
+            pass
+        await log_command(bot, LOG_CHANNEL_ID, f"👁️ {interaction.user.mention} ha guardato lo zaino di {utente.mention}")
+    else:
+        await log_command(bot, LOG_CHANNEL_ID, f"🎒 {interaction.user.mention} ha aperto il proprio zaino")
+        
     @bot.tree.command(name="item-sell", description="Acquista un item dall'Item Shop.")
     @app_commands.describe(
         nome_item="Nome dell'item da acquistare (anche parziale)",

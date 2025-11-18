@@ -445,7 +445,7 @@ def setup_inventory_commands(bot: commands.Bot):
                 await interaction.response.send_message(f"❌ L'item **{nome_item}** esiste già!", ephemeral=True)
 
 @bot.tree.command(name="eliminaitem", description="[STAFF] Elimina un item")
-    @app_commands.describe(nome="Nome dell'item da eliminare (anche parziale)")
+    @app_commands.describe(nome="Nome dell'item da eliminare")
     async def eliminaitem(interaction: discord.Interaction, nome: str):
         if not has_role(interaction, STAFF_ROLE_ID):
             await interaction.response.send_message("❌ Solo lo staff può usare questo comando!", ephemeral=True)

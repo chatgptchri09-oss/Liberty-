@@ -985,3 +985,4 @@ def setup_inventory_commands(bot: commands.Bot):
 
         log_msg = f"➡️ {interaction.user.mention} ha dato {quantita}x {selected_item} a {utente.mention}"
         await log_command(bot, LOG_CHANNEL_ID, log_msg)
+                

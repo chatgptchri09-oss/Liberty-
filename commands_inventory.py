@@ -444,7 +444,7 @@ def setup_inventory_commands(bot: commands.Bot):
             except aiosqlite.IntegrityError:
                 await interaction.response.send_message(f"❌ L'item **{nome_item}** esiste già!", ephemeral=True)
 
-@bot.tree.command(name="eliminaitem", description="[STAFF] Elimina un item")
+    @bot.tree.command(name="eliminaitem", description="[STAFF] Elimina un item")
     @app_commands.describe(nome="Nome dell'item da eliminare")
     async def eliminaitem(interaction: discord.Interaction, nome: str):
         if not has_role(interaction, STAFF_ROLE_ID):
@@ -525,7 +525,7 @@ def setup_inventory_commands(bot: commands.Bot):
                 return
 
             if user_data is None:
-                await db.execute("INSERT INTO users (user_id, has_backpack) VALUES (?, ?)", (str(utente.id), 1))
+                await db.execute("INSERT INTO users (user_id, cash, bank, has_backpack) VALUES (?, 0, 0, ?)", (str(utente.id), 1))
             else:
                 await db.execute("UPDATE users SET has_backpack = 1 WHERE user_id = ?", (str(utente.id),))
 
@@ -702,7 +702,7 @@ def setup_inventory_commands(bot: commands.Bot):
         log_msg = f"🛒 {member.mention} ha acquistato {quantita}x {item_name} (Ruolo: <@&{required_role_id}>)"
         await log_command(bot, LOG_CHANNEL_ID, log_msg)
 
-@bot.tree.command(name="utilizza-item", description="Rimuovi item dal tuo zaino per 'utilizzarli'.")
+    @bot.tree.command(name="utilizza-item", description="Rimuovi item dal tuo zaino per 'utilizzarli'.")
     @app_commands.describe(
         nome_item="Nome dell'item da utilizzare (anche parziale)",
         quantita="Quantità da utilizzare (default: 1)"
@@ -985,4 +985,3 @@ def setup_inventory_commands(bot: commands.Bot):
 
         log_msg = f"➡️ {interaction.user.mention} ha dato {quantita}x {selected_item} a {utente.mention}"
         await log_command(bot, LOG_CHANNEL_ID, log_msg)
-                

@@ -45,44 +45,39 @@ class RichiestaStipendioModal(discord.ui.Modal, title="💰 Richiesta Stipendio"
         self.allegato = allegato
 
     async def on_submit(self, interaction: discord.Interaction):
-    # Validazione importo
-    try:
-        # Rimuove le virgole (,) se l'utente le usa per migliaia
-        amount_str = self.busta_paga.value.replace(',', '').replace('$', '').strip()
-        amount = int(amount_str)
-        
-        if amount <= 0:
-            await interaction.response.send_message("❌ L'importo deve essere maggiore di 0!", ephemeral=True)
+        # Validazione importo
+        try:
+            # Rimuove le virgole (,) se l'utente le usa per migliaia
+            amount_str = self.busta_paga.value.replace(',', '').replace('$', '').strip()
+            amount = int(amount_str)
+            
+            if amount <= 0:
+                await interaction.response.send_message("❌ L'importo deve essere maggiore di 0!", ephemeral=True)
+                return
+        except ValueError:
+            await interaction.response.send_message("❌ Importo non valido! Inserisci solo numeri interi.", ephemeral=True)
             return
-    except ValueError:
-        await interaction.response.send_message("❌ Importo non valido! Inserisci solo numeri interi.", ephemeral=True)
-        return
 
-    embed = discord.Embed(
-        title="💰 𝐑𝐈𝐂𝐇𝐈𝐄𝐒𝐓𝐀 𝐒𝐓𝐈𝐏𝐄𝐍𝐃𝐈𝐎",
-        color=discord.Color.gold()
-    )
-    embed.add_field(name="👤 𝐔𝐓𝐄𝐍𝐓𝐄", value=interaction.user.mention, inline=False)
-    embed.add_field(name="📆 𝐋𝐀𝐕𝐎𝐑𝐎 𝐒𝐕𝐎𝐋𝐓𝐎", value=self.lavoro.mention, inline=False)
-    # Formatta l'importo con le virgole per chiarezza (es. 50,000)
-    embed.add_field(name="📥 𝐁𝐔𝐒𝐓𝐀 𝐏𝐀𝐆𝐀", value=f"${amount:,.2f}" if amount % 1 != 0 else f"${amount:,}", inline=False)
+        embed = discord.Embed(
+            title="💰 𝐑𝐈𝐂𝐇𝐈𝐄𝐒𝐓𝐀 𝐒𝐓𝐈𝐏𝐄𝐍𝐃𝐈𝐎",
+            color=discord.Color.gold()
+        )
+        embed.add_field(name="👤 𝐔𝐓𝐄𝐍𝐓𝐄", value=interaction.user.mention, inline=False)
+        embed.add_field(name="📆 𝐋𝐀𝐕𝐎𝐑𝐎 𝐒𝐕𝐎𝐋𝐓𝐎", value=self.lavoro.mention, inline=False)
+        # Formatta l'importo con le virgole per chiarezza (es. 50,000)
+        embed.add_field(name="📥 𝐁𝐔𝐒𝐓𝐀 𝐏𝐀𝐆𝐀", value=f"${amount:,.2f}" if amount % 1 != 0 else f"${amount:,}", inline=False)
 
 
-    # Se c'è allegato immagine, la mostra nell'embed
-    if self.allegato and self.allegato.content_type and self.allegato.content_type.startswith("image/"):
-        embed.set_image(url=self.allegato.url)
-    elif self.allegato:
-         # Se l'allegato non è un'immagine, aggiunge un link
-        embed.add_field(name="🔗 Allegato Prova", value=f"[Visualizza Allegato]({self.allegato.url})", inline=False)
+        # Se c'è allegato immagine, la mostra nell'embed
+        if self.allegato and self.allegato.content_type and self.allegato.content_type.startswith("image/"):
+            embed.set_image(url=self.allegato.url)
+        elif self.allegato:
+             # Se l'allegato non è un'immagine, aggiunge un link
+            embed.add_field(name="🔗 Allegato Prova", value=f"[Visualizza Allegato]({self.allegato.url})", inline=False)
 
 
-    view = StipendioView(self.bot, str(interaction.user.id), amount)
-    
-    # Risposta ephemeral all'utente
-    await interaction.response.send_message("✅ Richiesta stipendio inviata!", ephemeral=True)
-    
-    # Invia il messaggio NEL CANALE dove è stato usato il comando
-    await interaction.channel.send(content="<@&1414738761207517214>", embed=embed, view=view)
+        view = StipendioView(self.bot, str(interaction.user.id), amount)
+        await interaction.response.send_message(content="<@&1414738761207517214>", embed=embed, view=view)
 
 
 class StipendioView(discord.ui.View):

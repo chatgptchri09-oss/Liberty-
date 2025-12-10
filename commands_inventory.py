@@ -139,7 +139,7 @@ class BackpackPaginationView(discord.ui.View):
     
     def get_embed(self):
         embed = discord.Embed(
-            title=f"🎒 Zaino ({self.items_per_page * self.current_page + 1}-{min(self.items_per_page * (self.current_page + 1), len(self.items))}/{len(self.items)})",
+            title=f"🎒 Zaino",
             color=discord.Color.blue()
         )
         

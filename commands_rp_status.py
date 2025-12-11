@@ -103,7 +103,7 @@ def setup_rpoff_commands(bot: commands.Bot):
                 "💬 La roleplay è **UFFICIALMENTE ON!**\n\n"
                 "💃🕺 **DIAMO IL VIA ALLE DANZE!**\n\n"
                 "💊 Unisciti alla nostra crew:\n"
-                "[Social Club Liberty RP]\n\n"
+                "[Social Club Liberty RP](https://socialclub.rockstargames.com/crew/liberty_full_rp_ps4/hierarchy)\n\n"
                 "<a:Online:1431599470897922069> ⏱️ *Avvia il tuo turno con* `/turno`"
             ),
             color=discord.Color.green()

@@ -83,7 +83,7 @@ class WhitelistPassataModal(discord.ui.Modal, title="Whitelist Passata"):
         embed.add_field(name="Valutato da", value=interaction.user.mention, inline=False)
         
         # Immagine whitelist passata (ridimensionata)
-        embed.set_thumbnail(url="https://cdn.discordapp.com/attachments/1415106856245923941/1448725386211885199/5DFE5104-36EC-4F82-89F8-99409A912B17.png")
+        embed.set_image(url="https://cdn.discordapp.com/attachments/1415383066440106096/1448756620640391300/5DFE5104-36EC-4F82-89F8-99409A912B17.png?ex=693c6b3e&is=693b19be&hm=f987f984ed73b9730317cd33638bf773ceb1afb68e96d7855f152ab5b2c591a6&")
         
         # Invia nel canale con menzione
         await interaction.channel.send(content=self.cittadino.mention, embed=embed)
@@ -163,7 +163,7 @@ class WhitelistRimandataModal(discord.ui.Modal, title="Whitelist Rimandata"):
         embed.add_field(name="Valutato da", value=interaction.user.mention, inline=False)
         
         # Immagine whitelist rimandata (ridimensionata)
-        embed.set_thumbnail(url="https://cdn.discordapp.com/attachments/1415106856245923941/1448725897392685148/F518A845-EB0B-4704-894A-A8794FD99E24.png")
+        embed.set_image(url="https://cdn.discordapp.com/attachments/1415383066440106096/1448756640529649857/F518A845-EB0B-4704-894A-A8794FD99E24.png?ex=693c6b43&is=693b19c3&hm=8a49c667f511658a748e058c10a46535a5cf609a95b3e24b8ed292aca590b1b5&")
         
         # Invia nel canale con menzione
         await interaction.channel.send(content=self.cittadino.mention, embed=embed)

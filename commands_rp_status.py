@@ -128,7 +128,7 @@ def setup_rpoff_commands(bot: commands.Bot):
         await asyncio.sleep(1)
         await channel.send(
             f"<@&{CITIZEN_ROLE_ID}> SEGUI IL LINK E UNISCITI A NOI: "
-            "in arrivo "
+            "https://socialclub.rockstargames.com/crew/liberty_full_rp_ps4/hierarchy"
         )
         
         # Immagine Social Club (sostituisci con il tuo URL se diverso)

@@ -87,6 +87,39 @@ class RifiutoMotivoModal(discord.ui.Modal, title="Motivo del Rifiuto Bando"):
 
 def setup_bando_commands(bot: commands.Bot):
     
+    @bot.tree.command(name="bando", description="[STAFF] Annuncia l'apertura o chiusura di un bando")
+    @app_commands.describe(stato="Seleziona lo stato del bando")
+    @app_commands.choices(stato=[
+        app_commands.Choice(name="Aperto", value="APERTO"),
+        app_commands.Choice(name="Chiuso", value="CHIUSO"),
+    ])
+    async def bando(interaction: discord.Interaction, stato: app_commands.Choice[str]):
+        if not has_role(interaction, STAFF_ROLE_ID):
+            await interaction.response.send_message("❌ Solo lo Staff può usare questo comando.", ephemeral=True)
+            return
+        
+        if stato.value == "APERTO":
+            embed = discord.Embed(
+                title="<a:Online:1431599470897922069> 𝐁𝐚𝐧𝐝𝐨 𝐀𝐩𝐞𝐫𝐭𝐨 <a:Online:1431599470897922069>",
+                description="Lo staff annuncia che le candidature per questo bando sono ufficialmente aperte!",
+                color=discord.Color.green()
+            )
+            embed.set_image(url="https://cdn.discordapp.com/attachments/1235599658928308264/1250595402474848417/BandoAperto.png")
+            
+            await interaction.response.send_message(embed=embed)
+            await log_command(bot, LOG_CHANNEL_ID, f"🟢 {interaction.user.mention} ha aperto un bando")
+            
+        elif stato.value == "CHIUSO":
+            embed = discord.Embed(
+                title="<a:offline:1431606235354107914> 𝐁𝐚𝐧𝐝𝐨 𝐂𝐡𝐢𝐮𝐬𝐨 <a:offline:1431606235354107914>",
+                description="Lo staff annuncia che le candidature per questo bando sono ufficialmente chiuse.",
+                color=discord.Color.red()
+            )
+            embed.set_image(url="https://cdn.discordapp.com/attachments/1235599658928308264/1250595402223452160/BandoChiuso.png")
+            
+            await interaction.response.send_message(embed=embed)
+            await log_command(bot, LOG_CHANNEL_ID, f"🔴 {interaction.user.mention} ha chiuso un bando")
+    
     @bot.tree.command(name="esito-bando", description="[STAFF] Gestisce l'esito di un bando lavorativo.")
     @app_commands.describe(
         esito="Seleziona l'esito del bando",

@@ -79,7 +79,7 @@ def setup_rpoff_commands(bot: commands.Bot):
         await channel.send("<@&1414752091607535727> TI ASPETTIAMO NELLA PROSSIMA SESSIONE!")
         
         await asyncio.sleep(1)
-        await channel.send("<@&1414752091607535727> NON PERDETEVI IL TURNO! INIZIA IL TUO CON `/turno`")
+        await channel.send("<@&1414752091607535727> NON PERDETEVI IL TURNO! TERMINA IL TUO CON `/turno`")
         
         # Log dell'azione
         log_msg = f"🔴 {interaction.user.mention} ha terminato la sessione RP con `/rpoff`"

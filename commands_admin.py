@@ -73,14 +73,14 @@ class WhitelistPassataModal(discord.ui.Modal, title="Whitelist Passata"):
         
         # Crea embed verde
         embed = discord.Embed(
-            title="Esito whitelist",
+            title="<a:megafono:1431932605984542720> 𝐄𝐬𝐢𝐭𝐨 𝐰𝐡𝐢𝐭𝐞𝐥𝐢𝐬𝐭 <a:si:1433573748891582566>",
             color=discord.Color.green()
         )
         
-        embed.add_field(name="Cittadino", value=self.cittadino.mention, inline=False)
-        embed.add_field(name="Esito", value="Whitelist Passata", inline=False)
-        embed.add_field(name="Errori", value=errori, inline=False)
-        embed.add_field(name="Valutato da", value=interaction.user.mention, inline=False)
+        embed.add_field(name="𝗖𝗶𝘁𝘁𝗮𝗱𝗶𝗻𝗼<a:casomaiconflecia:1434244328448069642>", value=self.cittadino.mention, inline=True)
+        embed.add_field(name="𝗘𝘀𝗶𝘁𝗼<a:casomaiconflecia:1434244328448069642>", value="Whitelist Passata", inline=True)
+        embed.add_field(name="𝗘𝗿𝗿𝗼𝗿𝗶<a:casomaiconflecia:1434244328448069642>", value=errori, inline=True)
+        embed.add_field(name="𝗩𝗮𝗹𝘂𝘁𝗮𝘁𝗼 𝗱𝗮<a:casomaiconflecia:1434244328448069642>", value=interaction.user.mention, inline=True)
         
         # Immagine whitelist passata SOTTO l'embed
         embed.set_image(url="https://cdn.discordapp.com/attachments/1415106856245923941/1448725386211885199/5DFE5104-36EC-4F82-89F8-99409A912B17.png")
@@ -161,15 +161,15 @@ class WhitelistRimandataModal(discord.ui.Modal, title="Whitelist Rimandata"):
         
         # Crea embed rosso
         embed = discord.Embed(
-            title="Esito whitelist",
+            title="<a:megafono:1431932605984542720> 𝐄𝐬𝐢𝐭𝐨 𝐰𝐡𝐢𝐭𝐞𝐥𝐢𝐬𝐭 <a:annulla:1431940396635652146>",
             color=discord.Color.red()
         )
         
-        embed.add_field(name="Cittadino", value=self.cittadino.mention, inline=False)
-        embed.add_field(name="Esito", value="Whitelist Rimandata", inline=False)
-        embed.add_field(name="Errori", value=errori, inline=False)
-        embed.add_field(name="Motivo", value=motivo, inline=False)
-        embed.add_field(name="Valutato da", value=interaction.user.mention, inline=False)
+        embed.add_field(name="𝗖𝗶𝘁𝘁𝗮𝗱𝗶𝗻𝗼<a:casomaiconflecia:1434244328448069642>", value=self.cittadino.mention, inline=True)
+        embed.add_field(name="𝗘𝘀𝗶𝘁𝗼<a:casomaiconflecia:1434244328448069642>", value="Whitelist Rimandata", inline=True)
+        embed.add_field(name="𝗘𝗿𝗿𝗼𝗿𝗶<a:casomaiconflecia:1434244328448069642>", value=errori, inline=True)
+        embed.add_field(name="𝗠𝗼𝘁𝗶𝘃𝗼<a:casomaiconflecia:1434244328448069642>", value=motivo, inline=True)
+        embed.add_field(name="𝗩𝗮𝗹𝘂𝘁𝗮𝘁𝗼 𝗱𝗮<a:casomaiconflecia:1434244328448069642>", value=interaction.user.mention, inline=True)
         
         # Immagine whitelist rimandata SOTTO l'embed
         embed.set_image(url="https://cdn.discordapp.com/attachments/1415106856245923941/1448725897392685148/F518A845-EB0B-4704-894A-A8794FD99E24.png")

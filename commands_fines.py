@@ -1,16 +1,18 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
-import database # Assumo che tu abbia un modulo 'database'
+import database
 from datetime import datetime
+import random
 
 # --- COSTANTI AGGIORNATE E CONSOLIDATE ---
 LFD_ROLE_ID = 1415093546549248040
-LOG_CHANNEL_ID = 1415297578022604850       # Canale per i log generici di comando (es. chi usa /multa)
-LFD_LOG_CHANNEL_ID = 1424007218554208316  # Canale per i log di multa pagata
-ARRESTO_LOG_CHANNEL_ID = 1436347936635097179 # Canale specifico per l'Embed blu di arresto
-# ----------------------------
+LOG_CHANNEL_ID = 1415297578022604850
+LFD_LOG_CHANNEL_ID = 1424007218554208316
+ARRESTO_LOG_CHANNEL_ID = 1436347936635097179
 
+# Simboli slot machine con emoji
+SLOT_SYMBOLS = ["🐺", "⭐", "🍋", "💎", "🎰"]
 
 def has_role(interaction: discord.Interaction, role_id: int) -> bool:
     """Controlla se l'utente che interagisce ha un determinato ruolo."""
@@ -28,7 +30,6 @@ async def log_command(bot, channel_id: int, message: str = None, embed: discord.
             elif message:
                 await channel.send(message)
     except:
-        # Gestione silenziosa degli errori di logging
         pass
 
 
@@ -55,7 +56,6 @@ class FineModal(discord.ui.Modal, title="<a:sirena:1431792628332101723> Multa"):
         self.user_id = user_id
 
     async def on_submit(self, interaction: discord.Interaction):
-        # Risposta veloce necessaria per il modal
         try:
             fine_amount = int(self.fine_amount_input.value)
             if fine_amount <= 0:
@@ -127,7 +127,6 @@ def setup_fine_commands(bot: commands.Bot):
             super().__init__(placeholder="Seleziona una multa da pagare", options=options)
         
         async def callback(self, interaction: discord.Interaction):
-            # Defer per operazioni DB potenzialmente lunghe
             await interaction.response.defer(ephemeral=True, thinking=True)
 
             if str(interaction.user.id) != self.user_id:
@@ -188,7 +187,7 @@ def setup_fine_commands(bot: commands.Bot):
         fines = await database.get_unpaid_fines(str(interaction.user.id))
         
         if not fines:
-            await interaction.response.send_message(" Non hai multe da pagare!", ephemeral=True)
+            await interaction.response.send_message("✅ Non hai multe da pagare!", ephemeral=True)
             return
         
         view = discord.ui.View()
@@ -227,3 +226,117 @@ def setup_fine_commands(bot: commands.Bot):
         
         await interaction.response.send_message(embed=embed, ephemeral=True)
         await log_command(bot, LOG_CHANNEL_ID, f"👁️ {interaction.user.mention} ha controllato le multe di {utente.mention}")
+
+    
+    @bot.tree.command(name="slotmachine", description="Gioca alla slot machine")
+    @app_commands.describe(puntata="Importo da puntare (max $10,000)")
+    async def slotmachine(interaction: discord.Interaction, puntata: int):
+        # Validazione puntata
+        if puntata <= 0:
+            await interaction.response.send_message("<a:annulla:1431940396635652146> La puntata deve essere maggiore di 0!", ephemeral=True)
+            return
+        
+        if puntata > 10000:
+            await interaction.response.send_message("<a:annulla:1431940396635652146> La puntata massima è di $10,000!", ephemeral=True)
+            return
+        
+        # Verifica saldo utente
+        user = await database.get_user(str(interaction.user.id))
+        total_balance = user["cash"] + user["bank"]
+        
+        if total_balance < puntata:
+            await interaction.response.send_message("<a:annulla:1431940396635652146> Non hai abbastanza soldi per questa puntata!", ephemeral=True)
+            return
+        
+        # Defer per elaborazione
+        await interaction.response.defer(thinking=True)
+        
+        # Sottrai la puntata
+        new_cash = user["cash"]
+        new_bank = user["bank"]
+        remaining = puntata
+        
+        if new_bank >= remaining:
+            new_bank -= remaining
+        else:
+            remaining -= new_bank
+            new_bank = 0
+            new_cash -= remaining
+        
+        # Genera risultato slot
+        # Probabilità: ~85% perdita, ~13% due simboli uguali, ~2% jackpot
+        rand = random.random()
+        
+        if rand < 0.02:  # 2% jackpot (3 simboli uguali)
+            symbol = random.choice(SLOT_SYMBOLS)
+            symbols = [symbol, symbol, symbol]
+            winnings = int(puntata * 2.2)  # 220% della puntata (10k -> 22k)
+            result_type = "jackpot"
+        elif rand < 0.15:  # 13% due simboli uguali
+            symbol = random.choice(SLOT_SYMBOLS)
+            other = random.choice([s for s in SLOT_SYMBOLS if s != symbol])
+            symbols = [symbol, symbol, other]
+            random.shuffle(symbols)
+            winnings = int(puntata * 1.4)  # 140% della puntata (10k -> 14k)
+            result_type = "win"
+        else:  # 85% perdita
+            symbols = random.choices(SLOT_SYMBOLS, k=3)
+            # Assicurati che non ci siano due o tre simboli uguali
+            while symbols[0] == symbols[1] or symbols[1] == symbols[2] or symbols[0] == symbols[2]:
+                symbols = random.choices(SLOT_SYMBOLS, k=3)
+            winnings = 0
+            result_type = "loss"
+        
+        # Aggiorna saldo
+        if result_type != "loss":
+            new_cash += winnings
+        
+        await database.update_balance(str(interaction.user.id), cash=new_cash, bank=new_bank)
+        
+        # Crea embed risultato
+        if result_type == "jackpot":
+            embed = discord.Embed(
+                title="🎰 Risultato",
+                description=f"| {symbols[0]} | {symbols[1]} | {symbols[2]} |",
+                color=discord.Color.gold()
+            )
+            embed.add_field(
+                name="✨ Tre simboli uguali! Hai vinto",
+                value=f"**${winnings:,}**!",
+                inline=False
+            )
+        elif result_type == "win":
+            embed = discord.Embed(
+                title="🎰 Risultato",
+                description=f"| {symbols[0]} | {symbols[1]} | {symbols[2]} |",
+                color=discord.Color.purple()
+            )
+            embed.add_field(
+                name="✨ Due simboli uguali! Hai vinto",
+                value=f"**${winnings:,}**!",
+                inline=False
+            )
+        else:
+            embed = discord.Embed(
+                title="🎰 Risultato",
+                description=f"| {symbols[0]} | {symbols[1]} | {symbols[2]} |",
+                color=discord.Color.red()
+            )
+            embed.add_field(
+                name="❌ Nessuna vincita",
+                value="Ritenta!",
+                inline=False
+            )
+        
+        embed.add_field(name="Rewind RP - Slot Machine", value="", inline=False)
+        embed.set_thumbnail(url="https://i.imgur.com/slot_machine_image.png")  # Sostituisci con l'URL della tua immagine
+        
+        await interaction.followup.send(embed=embed)
+        
+        # Log
+        if result_type != "loss":
+            await log_command(bot, LOG_CHANNEL_ID, 
+                f"🎰 {interaction.user.mention} ha giocato alla slot machine con ${puntata:,} e ha vinto ${winnings:,}!")
+        else:
+            await log_command(bot, LOG_CHANNEL_ID, 
+                f"🎰 {interaction.user.mention} ha giocato alla slot machine con ${puntata:,} e ha perso.")

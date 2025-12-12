@@ -83,7 +83,7 @@ class WhitelistPassataModal(discord.ui.Modal, title="Whitelist Passata"):
         embed.add_field(name="𝗩𝗮𝗹𝘂𝘁𝗮𝘁𝗼 𝗱𝗮<a:casomaiconflecia:1434244328448069642>", value=interaction.user.mention, inline=True)
         
         # Immagine whitelist passata SOTTO l'embed
-        embed.set_image(url="https://cdn.discordapp.com/attachments/1415106856245923941/1448725386211885199/5DFE5104-36EC-4F82-89F8-99409A912B17.png")
+        embed.set_image(url="https://i.postimg.cc/L5jj6kFR/IMG-4265.jpg")
         
         # Invia nel canale con menzione
         await interaction.channel.send(content=self.cittadino.mention, embed=embed)
@@ -172,7 +172,7 @@ class WhitelistRimandataModal(discord.ui.Modal, title="Whitelist Rimandata"):
         embed.add_field(name="𝗩𝗮𝗹𝘂𝘁𝗮𝘁𝗼 𝗱𝗮<a:casomaiconflecia:1434244328448069642>", value=interaction.user.mention, inline=True)
         
         # Immagine whitelist rimandata SOTTO l'embed
-        embed.set_image(url="https://cdn.discordapp.com/attachments/1415106856245923941/1448725897392685148/F518A845-EB0B-4704-894A-A8794FD99E24.png")
+        embed.set_image(url="https://i.postimg.cc/G3vDDjVJ/IMG-4266.jpg")
         
         # Invia nel canale con menzione
         await interaction.channel.send(content=self.cittadino.mention, embed=embed)

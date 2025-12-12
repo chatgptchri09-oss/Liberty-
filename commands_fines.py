@@ -382,6 +382,7 @@ def setup_fine_commands(bot: commands.Bot):
             )
         
         final_embed.set_footer(text="Liberty RP - Slot Machine")
+        final_embed.set_thumbnail(url="https://imgur.com/a/66eSuVl")
         await message.edit(embed=final_embed)
         
         # Log

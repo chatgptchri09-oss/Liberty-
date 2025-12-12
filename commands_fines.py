@@ -377,7 +377,7 @@ def setup_fine_commands(bot: commands.Bot):
             )
             final_embed.add_field(
                 name="",
-                value="❌ Nessuna vincita. Ritenta!",
+                value="❌ Nessuna vincita. Hai perso **${puntata:,}**!",
                 inline=False
             )
         

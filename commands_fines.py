@@ -376,10 +376,10 @@ def setup_fine_commands(bot: commands.Bot):
                 color=discord.Color.red()
             )
             final_embed.add_field(
-                name="",
-                value="❌ Nessuna vincita. Hai perso **${puntata:,}**!",
-                inline=False
-            )
+    name="",
+    value=f"❌ Nessuna vincita. Hai perso **${puntata:,}**!",
+    inline=False
+)
         
         final_embed.set_footer(text="Liberty RP - Slot Machine")
         final_embed.set_thumbnail(url="https://imgur.com/a/66eSuVl")

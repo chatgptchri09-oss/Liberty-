@@ -249,7 +249,7 @@ def setup_fine_commands(bot: commands.Bot):
             return
         
         # Defer per elaborazione
-        await interaction.response.defer(thinking=True)
+        await interaction.response.defer()
         
         # Sottrai la puntata
         new_cash = user["cash"]
@@ -264,22 +264,22 @@ def setup_fine_commands(bot: commands.Bot):
             new_cash -= remaining
         
         # Genera risultato slot
-        # Probabilità: ~85% perdita, ~13% due simboli uguali, ~2% jackpot
+        # Probabilità: ~70% perdita, ~23% due simboli uguali, ~7% jackpot
         rand = random.random()
         
-        if rand < 0.02:  # 2% jackpot (3 simboli uguali)
+        if rand < 0.07:  # 7% jackpot (3 simboli uguali)
             symbol = random.choice(SLOT_SYMBOLS)
             symbols = [symbol, symbol, symbol]
             winnings = int(puntata * 2.2)  # 220% della puntata (10k -> 22k)
             result_type = "jackpot"
-        elif rand < 0.15:  # 13% due simboli uguali
+        elif rand < 0.30:  # 23% due simboli uguali
             symbol = random.choice(SLOT_SYMBOLS)
             other = random.choice([s for s in SLOT_SYMBOLS if s != symbol])
             symbols = [symbol, symbol, other]
             random.shuffle(symbols)
             winnings = int(puntata * 1.4)  # 140% della puntata (10k -> 14k)
             result_type = "win"
-        else:  # 85% perdita
+        else:  # 70% perdita
             symbols = random.choices(SLOT_SYMBOLS, k=3)
             # Assicurati che non ci siano due o tre simboli uguali
             while symbols[0] == symbols[1] or symbols[1] == symbols[2] or symbols[0] == symbols[2]:
@@ -287,51 +287,102 @@ def setup_fine_commands(bot: commands.Bot):
             winnings = 0
             result_type = "loss"
         
+        # Animazione slot machine
+        import asyncio
+        
+        # Frame 1: primo simbolo
+        embed1 = discord.Embed(
+            title="🎰 Slot Machine",
+            description="| 🎲 | ❔ | ❔ |",
+            color=discord.Color.red()
+        )
+        embed1.set_footer(text="Liberty RP - Slot Machine")
+        message = await interaction.followup.send(embed=embed1)
+        await asyncio.sleep(1)
+        
+        # Frame 2: secondo simbolo
+        embed2 = discord.Embed(
+            title="🎰 Slot Machine",
+            description="| ❔ | 🎲 | ❔ |",
+            color=discord.Color.orange()
+        )
+        embed2.set_footer(text="Liberty RP - Slot Machine")
+        await message.edit(embed=embed2)
+        await asyncio.sleep(1)
+        
+        # Frame 3: terzo simbolo
+        embed3 = discord.Embed(
+            title="🎰 Slot Machine",
+            description="| ❔ | ❔ | 🎲 |",
+            color=discord.Color.red()
+        )
+        embed3.set_footer(text="Liberty RP - Slot Machine")
+        await message.edit(embed=embed3)
+        await asyncio.sleep(1)
+        
+        # Frame 4: primi due simboli
+        embed4 = discord.Embed(
+            title="🎰 Slot Machine",
+            description="| 🎲 | 🎲 | ❔ |",
+            color=discord.Color.red()
+        )
+        embed4.set_footer(text="Liberty RP - Slot Machine")
+        await message.edit(embed=embed4)
+        await asyncio.sleep(1)
+        
+        # Frame 5: tutti e tre i simboli
+        embed5 = discord.Embed(
+            title="🎰 Slot Machine",
+            description="| 🎲 | 🎲 | 🎲 |",
+            color=0xc59dff  # Viola chiaro
+        )
+        embed5.set_footer(text="Liberty RP - Slot Machine")
+        await message.edit(embed=embed5)
+        await asyncio.sleep(1.5)
+        
         # Aggiorna saldo
         if result_type != "loss":
             new_cash += winnings
         
         await database.update_balance(str(interaction.user.id), cash=new_cash, bank=new_bank)
         
-        # Crea embed risultato
+        # Risultato finale
         if result_type == "jackpot":
-            embed = discord.Embed(
+            final_embed = discord.Embed(
                 title="🎰 Risultato",
                 description=f"| {symbols[0]} | {symbols[1]} | {symbols[2]} |",
                 color=discord.Color.gold()
             )
-            embed.add_field(
-                name="✨ Tre simboli uguali! Hai vinto",
-                value=f"**${winnings:,}**!",
+            final_embed.add_field(
+                name="",
+                value=f"🎉 **JACKPOT!** Hai vinto **${winnings:,}**!",
                 inline=False
             )
         elif result_type == "win":
-            embed = discord.Embed(
+            final_embed = discord.Embed(
                 title="🎰 Risultato",
                 description=f"| {symbols[0]} | {symbols[1]} | {symbols[2]} |",
                 color=discord.Color.purple()
             )
-            embed.add_field(
-                name="✨ Due simboli uguali! Hai vinto",
-                value=f"**${winnings:,}**!",
+            final_embed.add_field(
+                name="",
+                value=f"✨ Due simboli uguali! Hai vinto **${winnings:,}**!",
                 inline=False
             )
         else:
-            embed = discord.Embed(
+            final_embed = discord.Embed(
                 title="🎰 Risultato",
                 description=f"| {symbols[0]} | {symbols[1]} | {symbols[2]} |",
                 color=discord.Color.red()
             )
-            embed.add_field(
-                name="❌ Nessuna vincita",
-                value="Ritenta!",
+            final_embed.add_field(
+                name="",
+                value="❌ Nessuna vincita. Ritenta!",
                 inline=False
             )
         
-        embed.add_field(name="Rewind RP - Slot Machine", value="", inline=False)
-        embed.set_thumbnail(url="https://i.imgur.com/slot_machine_image.png")  # Sostituisci con l'URL della tua immagine
-        
-        await interaction.followup.send(embed=embed)
+        final_embed.set_footer(text="Liberty RP - Slot Machine")
+        await message.edit(embed=final_embed)
         
         # Log
         if result_type != "loss":

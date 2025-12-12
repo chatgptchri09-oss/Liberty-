@@ -73,7 +73,7 @@ class WhitelistPassataModal(discord.ui.Modal, title="Whitelist Passata"):
         
         # Crea embed verde
         embed = discord.Embed(
-            title="<a:megafono:1431932605984542720> Esito whitelist <a:si:1433573748891582566>",
+            title="Esito whitelist",
             color=discord.Color.green()
         )
         
@@ -82,17 +82,26 @@ class WhitelistPassataModal(discord.ui.Modal, title="Whitelist Passata"):
         embed.add_field(name="Errori", value=errori, inline=False)
         embed.add_field(name="Valutato da", value=interaction.user.mention, inline=False)
         
-        # Immagine whitelist passata (ridimensionata)
-        embed.set_image(url="https://cdn.discordapp.com/attachments/1415383066440106096/1448773038110802031/IMG_4265.jpg?ex=693c7a89&is=693b2909&hm=4c65f403750d0794e55cc02ac0519fbf3d314248ca760a20f4105d99019cba2b&")
+        # Immagine whitelist passata SOTTO l'embed
+        embed.set_image(url="https://cdn.discordapp.com/attachments/1415106856245923941/1448725386211885199/5DFE5104-36EC-4F82-89F8-99409A912B17.png")
         
         # Invia nel canale con menzione
         await interaction.channel.send(content=self.cittadino.mention, embed=embed)
         
-        # Aggiungi i ruoli
+        # RIMUOVI TUTTI I RUOLI (tranne @everyone che non può essere rimosso)
+        try:
+            # Ottieni tutti i ruoli dell'utente tranne @everyone
+            roles_to_remove = [role for role in self.cittadino.roles if role.name != "@everyone"]
+            if roles_to_remove:
+                await self.cittadino.remove_roles(*roles_to_remove, reason=f"Pulizia ruoli per whitelist passata - valutata da {interaction.user.name}")
+        except Exception as e:
+            print(f"Errore rimozione ruoli: {e}")
+        
+        # Aggiungi i nuovi ruoli
         roles_to_add = []
         for role_id in WL_ROLES:
             role = interaction.guild.get_role(role_id)
-            if role and role not in self.cittadino.roles:
+            if role:
                 roles_to_add.append(role)
         
         if roles_to_add:
@@ -113,10 +122,10 @@ class WhitelistPassataModal(discord.ui.Modal, title="Whitelist Passata"):
         except:
             pass
         
-        await interaction.followup.send(f"✅ Whitelist passata inviata per {self.cittadino.mention}!", ephemeral=True)
+        await interaction.followup.send(f"✅ Whitelist passata inviata per {self.cittadino.mention}! Ruoli aggiornati.", ephemeral=True)
         
         # Log
-        await log_command(self.bot, LOG_CHANNEL_ID, f"✅ {interaction.user.mention} ha fatto passare la whitelist a {self.cittadino.mention}")
+        await log_command(self.bot, LOG_CHANNEL_ID, f"✅ {interaction.user.mention} ha fatto passare la whitelist a {self.cittadino.mention} (Ruoli resettati e aggiornati)")
 
 # ====================
 # MODAL PER WHITELIST RIMANDATA
@@ -152,7 +161,7 @@ class WhitelistRimandataModal(discord.ui.Modal, title="Whitelist Rimandata"):
         
         # Crea embed rosso
         embed = discord.Embed(
-            title="<a:megafono:1431932605984542720> Esito whitelist <a:annulla:1431940396635652146>",
+            title="Esito whitelist",
             color=discord.Color.red()
         )
         
@@ -162,8 +171,8 @@ class WhitelistRimandataModal(discord.ui.Modal, title="Whitelist Rimandata"):
         embed.add_field(name="Motivo", value=motivo, inline=False)
         embed.add_field(name="Valutato da", value=interaction.user.mention, inline=False)
         
-        # Immagine whitelist rimandata (ridimensionata)
-        embed.set_image(url="https://cdn.discordapp.com/attachments/1415383066440106096/1448773043064279060/IMG_4266.jpg?ex=693c7a8a&is=693b290a&hm=a70eb484698cb306e41d6314008643119bc654b52c408e70fad3224c63c22c27&")
+        # Immagine whitelist rimandata SOTTO l'embed
+        embed.set_image(url="https://cdn.discordapp.com/attachments/1415106856245923941/1448725897392685148/F518A845-EB0B-4704-894A-A8794FD99E24.png")
         
         # Invia nel canale con menzione
         await interaction.channel.send(content=self.cittadino.mention, embed=embed)
@@ -277,9 +286,6 @@ def setup_admin_commands(bot: commands.Bot):
         except Exception as e:
             await interaction.followup.send(f"❌ Errore durante l'aggiunta di denaro: {e}", ephemeral=True)
 
-    # =========================================
-    # COMANDO: /remove-money
-    # =========================================
     @bot.tree.command(name="remove-money", description="[STAFF] Rimuovi soldi dal conto bancario di un utente.")
     @app_commands.describe(
         utente="L'utente a cui rimuovere i soldi",
@@ -338,9 +344,6 @@ def setup_admin_commands(bot: commands.Bot):
         except Exception as e:
             await interaction.followup.send(f"❌ Errore durante la rimozione di denaro: {e}", ephemeral=True)
 
-    # =========================================
-    # COMANDO: /set-balance
-    # =========================================
     @bot.tree.command(name="set-balance", description="[STAFF] Imposta il saldo Cash o Bank di un utente.")
     @app_commands.describe(
         utente="L'utente di cui cambiare il saldo",
@@ -400,9 +403,6 @@ def setup_admin_commands(bot: commands.Bot):
         except Exception as e:
             await interaction.followup.send(f"❌ Errore durante l'impostazione del saldo: {e}", ephemeral=True)
 
-    # =========================================
-    # COMANDO: /init-user
-    # =========================================
     @bot.tree.command(name="init-user", description="[STAFF] Inizializza un utente (resetta o crea con $0).")
     @app_commands.describe(
         utente="L'utente da inizializzare nel database economico"

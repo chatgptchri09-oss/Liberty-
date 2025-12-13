@@ -338,9 +338,9 @@ def setup_fine_commands(bot: commands.Bot):
         )
         embed5.set_footer(text="Liberty RP - Slot Machine")
         await message.edit(embed=embed5)
-        await asyncio.sleep(1.5)
+        await asyncio.sleep(1)
         
-        # Aggiorna saldo
+        #  Aggiorna saldo
         if result_type != "loss":
             new_cash += winnings
         

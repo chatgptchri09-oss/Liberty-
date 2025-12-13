@@ -147,6 +147,7 @@ async def init_db():
                 role_id TEXT,
                 start_time TEXT,
                 PRIMARY KEY (user_id, role_id)
+                ALTER TABLE work_shifts ADD COLUMN hourly_salary INTEGER DEFAULT 0;
             )
         """)
         

@@ -52,7 +52,13 @@ def setup_rp_commands(bot: commands.Bot):
 
 
 
- @bot.tree.command(name="turno", description="Inizia o termina un turno lavorativo")
+# ... (Fine del comando /ammanetto)
+
+        await interaction.response.send_message(embed=embed)
+        await log_command(bot, LOG_CHANNEL_ID, f"⛓️ {interaction.user.mention} ha ammanettato {utente.mention}")
+
+
+    @bot.tree.command(name="turno", description="Inizia o termina un turno lavorativo") # <--- Indentazione corretta!
     @app_commands.describe(
         stato="Inizio o Fine turno",
         lavoro="Il ruolo del lavoro"
@@ -61,6 +67,7 @@ def setup_rp_commands(bot: commands.Bot):
         app_commands.Choice(name="Inizio", value="inizio"),
         app_commands.Choice(name="Fine", value="fine"),
     ])
+    
     async def turno(interaction: discord.Interaction, stato: str, lavoro: discord.Role):
         member = interaction.user
 

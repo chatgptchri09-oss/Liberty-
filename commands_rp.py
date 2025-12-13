@@ -50,7 +50,9 @@ def setup_rp_commands(bot: commands.Bot):
         await interaction.response.send_message(embed=embed)
         await log_command(bot, LOG_CHANNEL_ID, f"⛓️ {interaction.user.mention} ha ammanettato {utente.mention}")
 
-     @bot.tree.command(name="turno", description="Inizia o termina un turno lavorativo")
+
+
+ @bot.tree.command(name="turno", description="Inizia o termina un turno lavorativo")
     @app_commands.describe(
         stato="Inizio o Fine turno",
         lavoro="Il ruolo del lavoro"
@@ -142,8 +144,8 @@ def setup_rp_commands(bot: commands.Bot):
                 LOG_CHANNEL_ID,
                 f"🔴 {interaction.user.mention} ha terminato turno come {lavoro.name} ({hours}h {minutes}min)"
             )
-            
-    
+
+
     @bot.tree.command(name="anonimo", description="Invia un messaggio anonimo")
     @app_commands.describe(messaggio="Il messaggio da inviare anonimamente")
     async def anonimo(interaction: discord.Interaction, messaggio: str):

@@ -12,6 +12,7 @@ DATABASE_NAME = "economy_bot.db"
 LOG_CHANNEL_ID = 1415297578022604850
 STAFF_ROLE_ID = 1414738761207517214
 SALARY_REQUEST_CHANNEL_ID = 1449436170160308457
+ADMIN_ROLE_ID = 1414735564632231988
 
 def has_role(interaction: discord.Interaction, role_id: int) -> bool:
     if not isinstance(interaction.user, discord.Member):
@@ -32,7 +33,7 @@ async def log_command(bot, channel_id: int, message: str = None, embed: discord.
 # ===================================================================================
 # SETUP COMANDI
 # ===================================================================================
-def setup_salary_commands(bot: commands.Bot):
+def setup_work_commands(bot: commands.Bot):
     
     @bot.tree.command(name="inizio-turno", description="Inizia un turno lavorativo")
     @app_commands.describe(
@@ -150,6 +151,49 @@ def setup_salary_commands(bot: commands.Bot):
         salary_embed.set_footer(text=f"User ID: {interaction.user.id} | Role ID: {lavoro.id}")
 
         await log_command(bot, SALARY_REQUEST_CHANNEL_ID, message=f"<@&{STAFF_ROLE_ID}>", embed=salary_embed)
+
+    @bot.tree.command(name="cancella-turno", description="[ADMIN] Cancella un turno attivo bloccato")
+    @app_commands.describe(
+        utente="L'utente di cui cancellare il turno",
+        lavoro="Il ruolo del lavoro da cancellare"
+    )
+    async def cancella_turno(interaction: discord.Interaction, utente: discord.Member, lavoro: discord.Role):
+        # Controllo permessi
+        if not has_role(interaction, ADMIN_ROLE_ID):
+            await interaction.response.send_message("❌ Solo gli admin possono usare questo comando!", ephemeral=True)
+            return
+
+        async with aiosqlite.connect(DATABASE_NAME) as db:
+            async with db.execute(
+                "SELECT * FROM work_shifts WHERE user_id = ? AND role_id = ?",
+                (str(utente.id), str(lavoro.id))
+            ) as cursor:
+                shift = await cursor.fetchone()
+            
+            if not shift:
+                await interaction.response.send_message(
+                    f"❌ {utente.mention} non ha un turno attivo per {lavoro.mention}!",
+                    ephemeral=True
+                )
+                return
+            
+            await db.execute(
+                "DELETE FROM work_shifts WHERE user_id = ? AND role_id = ?",
+                (str(utente.id), str(lavoro.id))
+            )
+            await db.commit()
+        
+        await interaction.response.send_message(
+            f"✅ Turno cancellato per {utente.mention} - {lavoro.mention}!",
+            ephemeral=True
+        )
+        
+        # Log
+        await log_command(
+            bot,
+            LOG_CHANNEL_ID,
+            f"🗑️ {interaction.user.mention} ha cancellato il turno di {utente.mention} per {lavoro.name}"
+        )
 
     @bot.tree.command(name="pagastipendio", description="[STAFF] Paga lo stipendio a un utente")
     @app_commands.describe(

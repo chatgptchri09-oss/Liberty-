@@ -32,19 +32,19 @@ async def log_command(bot, channel_id: int, message: str = None, embed: discord.
 # ===================================================================================
 # SETUP COMANDI
 # ===================================================================================
-def setup_salary_commands(bot: commands.Bot):
+def setup_work_commands(bot: commands.Bot):
     
     @bot.tree.command(name="turno", description="Inizia o termina un turno lavorativo")
     @app_commands.describe(
         stato="Inizio o Fine turno",
         lavoro="Il ruolo del lavoro",
-        stipendio="Stipendio orario (solo per inizio turno)"
+        stipendio_orario="Stipendio orario (solo per inizio turno)"
     )
     @app_commands.choices(stato=[
         app_commands.Choice(name="Inizio", value="inizio"),
         app_commands.Choice(name="Fine", value="fine"),
     ])
-    async def turno(interaction: discord.Interaction, stato: str, lavoro: discord.Role, stipendio: int = None):
+    async def turno(interaction: discord.Interaction, stato: str, lavoro: discord.Role, stipendio_orario: int = None):
         member = interaction.user
 
         if stato == "inizio":
@@ -56,11 +56,11 @@ def setup_salary_commands(bot: commands.Bot):
                 return
 
             # Validazione stipendio
-            if stipendio is None:
+            if stipendio_orario is None:
                 await interaction.response.send_message("❌ Devi inserire lo stipendio orario!", ephemeral=True)
                 return
             
-            if stipendio <= 0:
+            if stipendio_orario <= 0:
                 await interaction.response.send_message("❌ Lo stipendio deve essere maggiore di 0!", ephemeral=True)
                 return
 
@@ -82,7 +82,7 @@ def setup_salary_commands(bot: commands.Bot):
                 # Inserisci il nuovo turno con lo stipendio orario
                 await db.execute(
                     "INSERT INTO work_shifts (user_id, role_id, start_time, hourly_salary) VALUES (?, ?, ?, ?)",
-                    (str(interaction.user.id), str(lavoro.id), datetime.now().isoformat(), stipendio)
+                    (str(interaction.user.id), str(lavoro.id), datetime.now().isoformat(), stipendio_orario)
                 )
                 await db.commit()
 
@@ -93,7 +93,7 @@ def setup_salary_commands(bot: commands.Bot):
             )
 
             await interaction.response.send_message(embed=embed)
-            await log_command(bot, LOG_CHANNEL_ID, f"🟢 {interaction.user.mention} ha iniziato turno come {lavoro.name} (${stipendio:,}/ora)")
+            await log_command(bot, LOG_CHANNEL_ID, f"🟢 {interaction.user.mention} ha iniziato turno come {lavoro.name} (${stipendio_orario:,}/ora)")
 
         elif stato == "fine":
             async with aiosqlite.connect(DATABASE_NAME) as db:

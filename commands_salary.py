@@ -2,17 +2,16 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 import aiosqlite
-import os
+from datetime import datetime
+import database
 
 # ===================================================================================
-# COSTANTI E FUNZIONI DI SUPPORTO
-# Queste costanti e funzioni sono state dedotte dai tuoi altri file (es. commands_fines.py)
+# COSTANTI
 # ===================================================================================
-
-# Definizione dei nomi usati nei tuoi altri script
-DATABASE_NAME = "economy_bot.db" 
-LOG_CHANNEL_ID = 1415297578022604850 # Esempio dal tuo codice. Assicurati sia corretto.
-STAFF_ROLE_ID = 1414738761207517214  # Esempio dal tuo codice. Assicurati sia corretto.
+DATABASE_NAME = "economy_bot.db"
+LOG_CHANNEL_ID = 1415297578022604850
+STAFF_ROLE_ID = 1414738761207517214
+SALARY_REQUEST_CHANNEL_ID = 1449436170160308457
 
 def has_role(interaction: discord.Interaction, role_id: int) -> bool:
     if not isinstance(interaction.user, discord.Member):
@@ -27,143 +26,176 @@ async def log_command(bot, channel_id: int, message: str = None, embed: discord.
                 await channel.send(embed=embed)
             elif message:
                 await channel.send(message)
-    except Exception as e:
-        # Puoi loggare l'errore se il logging fallisce, ma per ora lo ignoriamo come nel tuo codice
+    except:
         pass
 
 # ===================================================================================
-# CLASSI E COMANDI PER LA RICHIESTA STIPENDIO
+# SETUP COMANDI
 # ===================================================================================
+def setup_work_commands(bot: commands.Bot):
+    
+    @bot.tree.command(name="turno", description="Inizia o termina un turno lavorativo")
+    @app_commands.describe(
+        stato="Inizio o Fine turno",
+        lavoro="Il ruolo del lavoro",
+        stipendio="Stipendio orario (solo per inizio turno)"
+    )
+    @app_commands.choices(stato=[
+        app_commands.Choice(name="Inizio", value="inizio"),
+        app_commands.Choice(name="Fine", value="fine"),
+    ])
+    async def turno(interaction: discord.Interaction, stato: str, lavoro: discord.Role, stipendio: int = None):
+        member = interaction.user
 
-class RichiestaStipendioModal(discord.ui.Modal, title="💰 Richiesta Stipendio"):
-    busta_paga = discord.ui.TextInput(label="Busta Paga", placeholder="Importo in $", required=True)
-
-    def __init__(self, bot: commands.Bot, lavoro: discord.Role, allegato: discord.Attachment = None):
-        super().__init__()
-        self.bot = bot
-        self.lavoro = lavoro
-        self.allegato = allegato
-
-    async def on_submit(self, interaction: discord.Interaction):
-        # Validazione importo
-        try:
-            # Rimuove le virgole (,) se l'utente le usa per migliaia
-            amount_str = self.busta_paga.value.replace(',', '').replace('$', '').strip()
-            amount = int(amount_str)
-            
-            if amount <= 0:
-                await interaction.response.send_message("❌ L'importo deve essere maggiore di 0!", ephemeral=True)
+        if stato == "inizio":
+            if lavoro not in member.roles:
+                await interaction.response.send_message(
+                    f"❌ Non puoi iniziare un turno come {lavoro.mention} perché non hai quel ruolo!",
+                    ephemeral=True
+                )
                 return
-        except ValueError:
-            await interaction.response.send_message("❌ Importo non valido! Inserisci solo numeri interi.", ephemeral=True)
-            return
 
-        embed = discord.Embed(
-            title="💰 𝐑𝐈𝐂𝐇𝐈𝐄𝐒𝐓𝐀 𝐒𝐓𝐈𝐏𝐄𝐍𝐃𝐈𝐎",
-            color=discord.Color.gold()
-        )
-        embed.add_field(name="👤 𝐔𝐓𝐄𝐍𝐓𝐄", value=interaction.user.mention, inline=False)
-        embed.add_field(name="📆 𝐋𝐀𝐕𝐎𝐑𝐎 𝐒𝐕𝐎𝐋𝐓𝐎", value=self.lavoro.mention, inline=False)
-        # Formatta l'importo con le virgole per chiarezza (es. 50,000)
-        embed.add_field(name="📥 𝐁𝐔𝐒𝐓𝐀 𝐏𝐀𝐆𝐀", value=f"${amount:,.2f}" if amount % 1 != 0 else f"${amount:,}", inline=False)
+            # Validazione stipendio
+            if stipendio is None:
+                await interaction.response.send_message("❌ Devi inserire lo stipendio orario!", ephemeral=True)
+                return
+            
+            if stipendio <= 0:
+                await interaction.response.send_message("❌ Lo stipendio deve essere maggiore di 0!", ephemeral=True)
+                return
 
+            async with aiosqlite.connect(DATABASE_NAME) as db:
+                # Controlla se esiste già un turno attivo
+                async with db.execute(
+                    "SELECT * FROM work_shifts WHERE user_id = ? AND role_id = ?",
+                    (str(interaction.user.id), str(lavoro.id))
+                ) as cursor:
+                    existing_shift = await cursor.fetchone()
 
-        # Se c'è allegato immagine, la mostra nell'embed
-        if self.allegato and self.allegato.content_type and self.allegato.content_type.startswith("image/"):
-            embed.set_image(url=self.allegato.url)
-        elif self.allegato:
-             # Se l'allegato non è un'immagine, aggiunge un link
-            embed.add_field(name="🔗 Allegato Prova", value=f"[Visualizza Allegato]({self.allegato.url})", inline=False)
+                if existing_shift:
+                    await interaction.response.send_message(
+                        f"❌ Hai già un turno attivo per {lavoro.mention}!",
+                        ephemeral=True
+                    )
+                    return
 
+                # Inserisci il nuovo turno con lo stipendio orario
+                await db.execute(
+                    "INSERT INTO work_shifts (user_id, role_id, start_time, hourly_salary) VALUES (?, ?, ?, ?)",
+                    (str(interaction.user.id), str(lavoro.id), datetime.now().isoformat(), stipendio)
+                )
+                await db.commit()
 
-        view = StipendioView(self.bot, str(interaction.user.id), amount)
-        await interaction.response.send_message(content="<@&1414738761207517214>", embed=embed, view=view)
+            embed = discord.Embed(
+                title="<a:Online:1431599470897922069> 𝐓𝐮𝐫𝐧𝐨 𝐥𝐚𝐯𝐨𝐫𝐚𝐭𝐢𝐯𝐨 <a:broom:1431606606763921408>",
+                description=f"{interaction.user.mention} ha **INIZIATO** il proprio turno di {lavoro.mention}",
+                color=discord.Color.green()
+            )
 
+            await interaction.response.send_message(embed=embed)
+            await log_command(bot, LOG_CHANNEL_ID, f"🟢 {interaction.user.mention} ha iniziato turno come {lavoro.name} (${stipendio:,}/ora)")
 
-class StipendioView(discord.ui.View):
-    def __init__(self, bot: commands.Bot, user_id: str, amount: int):
-        super().__init__(timeout=None)
-        self.bot = bot
-        self.user_id = user_id
-        self.amount = amount
+        elif stato == "fine":
+            async with aiosqlite.connect(DATABASE_NAME) as db:
+                async with db.execute(
+                    "SELECT start_time, hourly_salary FROM work_shifts WHERE user_id = ? AND role_id = ?",
+                    (str(interaction.user.id), str(lavoro.id))
+                ) as cursor:
+                    shift = await cursor.fetchone()
 
-    @discord.ui.button(label="✅ Accetta", style=discord.ButtonStyle.green)
-    async def accetta(self, interaction: discord.Interaction, button: discord.ui.Button):
-        # Verifica se l'utente che clicca è STAFF
+                if not shift:
+                    await interaction.response.send_message(
+                        f"❌ Non hai un turno attivo per {lavoro.mention}!",
+                        ephemeral=True
+                    )
+                    return
+
+                start_time = datetime.fromisoformat(shift[0])
+                hourly_salary = shift[1]
+                end_time = datetime.now()
+                duration = end_time - start_time
+
+                hours = int(duration.total_seconds() // 3600)
+                minutes = int((duration.total_seconds() % 3600) // 60)
+                
+                # Calcola lo stipendio totale (ore lavorate * stipendio orario)
+                total_hours = duration.total_seconds() / 3600
+                total_salary = int(total_hours * hourly_salary)
+
+                await db.execute(
+                    "DELETE FROM work_shifts WHERE user_id = ? AND role_id = ?",
+                    (str(interaction.user.id), str(lavoro.id))
+                )
+                await db.commit()
+
+            # Embed di fine turno
+            embed = discord.Embed(
+                title=" <a:offline:1431606235354107914> 𝐓𝐮𝐫𝐧𝐨 𝐥𝐚𝐯𝐨𝐫𝐚𝐭𝐢𝐯𝐨 <a:cigarette:1431607423256494161>",
+                description=(
+                    f"{interaction.user.mention} ha **TERMINATO** il proprio turno di {lavoro.mention}\n\n"
+                    f"**Tempo Lavorativo:** {hours}h e {minutes}min\n\n"
+                    f"💼 **Lo staff è stato avvisato per il pagamento!**"
+                ),
+                color=discord.Color.red()
+            )
+
+            await interaction.response.send_message(embed=embed)
+            await log_command(
+                bot,
+                LOG_CHANNEL_ID,
+                f"🔴 {interaction.user.mention} ha terminato turno come {lavoro.name} ({hours}h {minutes}min)"
+            )
+
+            # Embed richiesta stipendio nel canale dedicato
+            salary_embed = discord.Embed(
+                title="💰 RICHIESTA STIPENDIO",
+                color=discord.Color.orange()
+            )
+            salary_embed.add_field(name="👤 Lavoratore", value=interaction.user.mention, inline=False)
+            salary_embed.add_field(name="💼 Lavoro svolto", value=lavoro.mention, inline=False)
+            salary_embed.add_field(name="💵 Stipendio da dare", value=f"${total_salary:,}", inline=False)
+            salary_embed.add_field(name="⏱️ Ore lavorate", value=f"{hours}h e {minutes}min", inline=False)
+            salary_embed.set_footer(text=f"User ID: {interaction.user.id} | Role ID: {lavoro.id}")
+
+            await log_command(bot, SALARY_REQUEST_CHANNEL_ID, message=f"<@&{STAFF_ROLE_ID}>", embed=salary_embed)
+
+    @bot.tree.command(name="pagastipendio", description="[STAFF] Paga lo stipendio a un utente")
+    @app_commands.describe(
+        utente="L'utente da pagare",
+        somma="L'importo da pagare",
+        lavoro="Il ruolo del lavoro"
+    )
+    async def pagastipendio(interaction: discord.Interaction, utente: discord.Member, somma: int, lavoro: discord.Role):
+        # Controllo permessi
         if not has_role(interaction, STAFF_ROLE_ID):
-            await interaction.response.send_message("❌ Solo gli staff possono accettare richieste!", ephemeral=True)
+            await interaction.response.send_message("❌ Solo lo staff può usare questo comando!", ephemeral=True)
             return
 
-        # Connessione al database e aggiornamento del conto bancario
-        async with aiosqlite.connect(DATABASE_NAME) as db:
-            # 1. Recupera il saldo attuale
-            async with db.execute("SELECT bank FROM users WHERE user_id = ?", (self.user_id,)) as cursor:
-                user = await cursor.fetchone()
+        # Validazione somma
+        if somma <= 0:
+            await interaction.response.send_message("❌ La somma deve essere maggiore di 0!", ephemeral=True)
+            return
 
-            if user:
-                # 2. Calcola il nuovo saldo
-                new_bank = user[0] + self.amount
-                # 3. Aggiorna il database
-                await db.execute("UPDATE users SET bank = ? WHERE user_id = ?", (new_bank, self.user_id))
-                await db.commit()
-            else:
-                 # Se l'utente non è nel DB, crealo con il saldo iniziale e lo stipendio
-                await db.execute("INSERT OR IGNORE INTO users (user_id, bank) VALUES (?, ?)", (self.user_id, self.amount + 20000)) # Assumendo 20000 come saldo iniziale
-                await db.commit()
-        
+        # Aggiorna il saldo dell'utente (aggiungi alla banca)
+        user_data = await database.get_user(str(utente.id))
+        new_bank = user_data["bank"] + somma
+        await database.update_balance(str(utente.id), bank=new_bank)
+
         # Invia messaggio privato all'utente
         try:
-            user = await self.bot.fetch_user(int(self.user_id))
-            await user.send(f"✅ La tua richiesta stipendio di **${self.amount:,}** è stata accettata da {interaction.user.mention}!")
-        except Exception:
+            await utente.send(f"💰 Hai ricevuto il tuo stipendio di **${somma:,}** per il lavoro di {lavoro.mention}!")
+        except:
             pass
 
-        # Cancella il messaggio originale e invia la conferma
-        await interaction.message.delete()
-        await interaction.response.send_message(f"✅ Richiesta stipendio accettata e **${self.amount:,}** erogati per <@{self.user_id}>!", ephemeral=True)
-        
+        # Conferma
+        await interaction.response.send_message(
+            f"✅ Hai pagato **${somma:,}** a {utente.mention} per {lavoro.mention}!",
+            ephemeral=True
+        )
+
         # Log
-        await log_command(self.bot, LOG_CHANNEL_ID, f"💰 {interaction.user.mention} ha accettato stipendio di ${self.amount:,} per <@{self.user_id}>")
-
-    @discord.ui.button(label="❌ Rifiuta", style=discord.ButtonStyle.red)
-    async def rifiuta(self, interaction: discord.Interaction, button: discord.ui.Button):
-        # Verifica se l'utente che clicca è STAFF
-        if not has_role(interaction, STAFF_ROLE_ID):
-            await interaction.response.send_message("❌ Solo gli staff possono rifiutare richieste!", ephemeral=True)
-            return
-
-        # Invia messaggio privato all'utente (opzionale: potresti voler inviare anche qui un messaggio)
-        try:
-            user = await self.bot.fetch_user(int(self.user_id))
-            await user.send(f"❌ La tua richiesta stipendio di **${self.amount:,}** è stata rifiutata da {interaction.user.mention}.")
-        except Exception:
-            pass
-
-        # Cancella il messaggio originale e invia la conferma
-        await interaction.message.delete()
-        await interaction.response.send_message(f"❌ Richiesta stipendio rifiutata per <@{self.user_id}>!", ephemeral=True)
-        
-        # Log
-        await log_command(self.bot, LOG_CHANNEL_ID, f"❌ {interaction.user.mention} ha rifiutato stipendio per <@{self.user_id}>")
-
-
-def setup_salary_commands(bot: commands.Bot):
-    """Registra i comandi al tree del bot e li rende disponibili."""
-    
-    @bot.tree.command(name="richiesta-stipendio", description="Richiedi uno stipendio")
-    @app_commands.describe(
-        lavoro_svolto="Il ruolo del lavoro svolto",
-        allegato="Carica una prova (immagine, facoltativo)"
-    )
-    async def richiesta_stipendio(interaction: discord.Interaction, lavoro_svolto: discord.Role, allegato: discord.Attachment = None):
-        # Controllo ruolo: verifica se l'utente possiede il ruolo per cui richiede lo stipendio
-        if lavoro_svolto not in interaction.user.roles:
-            await interaction.response.send_message(
-                f"❌ Non puoi richiedere uno stipendio per **{lavoro_svolto.name}** perché non hai questo ruolo!",
-                ephemeral=True
-            )
-            await log_command(bot, LOG_CHANNEL_ID, f"⚠️ {interaction.user.mention} ha tentato richiesta stipendio per {lavoro_svolto.name} senza avere il ruolo")
-            return
-
-        modal = RichiestaStipendioModal(bot, lavoro_svolto, allegato)
-        await interaction.response.send_modal(modal)
+        await log_command(
+            bot,
+            LOG_CHANNEL_ID,
+            f"💰 {interaction.user.mention} ha pagato ${somma:,} a {utente.mention} per {lavoro.name}"
+        )

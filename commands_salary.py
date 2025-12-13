@@ -33,7 +33,7 @@ async def log_command(bot, channel_id: int, message: str = None, embed: discord.
 # ===================================================================================
 # SETUP COMANDI
 # ===================================================================================
-def setup_work_commands(bot: commands.Bot):
+def setup_salary_commands(bot: commands.Bot):
     
     @bot.tree.command(name="inizio-turno", description="Inizia un turno lavorativo")
     @app_commands.describe(

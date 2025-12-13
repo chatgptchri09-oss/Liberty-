@@ -41,10 +41,13 @@ def setup_salary_commands(bot: commands.Bot):
         stipendio_orario="Stipendio orario in $"
     )
     async def inizio_turno(interaction: discord.Interaction, lavoro: discord.Role, stipendio_orario: int):
+        # Defer immediato per evitare timeout
+        await interaction.response.defer()
+        
         member = interaction.user
 
         if lavoro not in member.roles:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 f"❌ Non puoi iniziare un turno come {lavoro.mention} perché non hai quel ruolo!",
                 ephemeral=True
             )
@@ -52,7 +55,7 @@ def setup_salary_commands(bot: commands.Bot):
 
         # Validazione stipendio
         if stipendio_orario <= 0:
-            await interaction.response.send_message("❌ Lo stipendio deve essere maggiore di 0!", ephemeral=True)
+            await interaction.followup.send("❌ Lo stipendio deve essere maggiore di 0!", ephemeral=True)
             return
 
         async with aiosqlite.connect(DATABASE_NAME) as db:
@@ -64,7 +67,7 @@ def setup_salary_commands(bot: commands.Bot):
                 existing_shift = await cursor.fetchone()
 
             if existing_shift:
-                await interaction.response.send_message(
+                await interaction.followup.send(
                     f"❌ Hai già un turno attivo per {lavoro.mention}!",
                     ephemeral=True
                 )
@@ -83,12 +86,15 @@ def setup_salary_commands(bot: commands.Bot):
             color=discord.Color.green()
         )
 
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
         await log_command(bot, LOG_CHANNEL_ID, f"🟢 {interaction.user.mention} ha iniziato turno come {lavoro.name} (${stipendio_orario:,}/ora)")
 
     @bot.tree.command(name="fine-turno", description="Termina un turno lavorativo")
     @app_commands.describe(lavoro="Il ruolo del lavoro")
     async def fine_turno(interaction: discord.Interaction, lavoro: discord.Role):
+        # Defer immediato per evitare timeout
+        await interaction.response.defer()
+        
         async with aiosqlite.connect(DATABASE_NAME) as db:
             async with db.execute(
                 "SELECT start_time, hourly_salary FROM work_shifts WHERE user_id = ? AND role_id = ?",
@@ -97,7 +103,7 @@ def setup_salary_commands(bot: commands.Bot):
                 shift = await cursor.fetchone()
 
             if not shift:
-                await interaction.response.send_message(
+                await interaction.followup.send(
                     f"❌ Non hai un turno attivo per {lavoro.mention}!",
                     ephemeral=True
                 )
@@ -132,7 +138,7 @@ def setup_salary_commands(bot: commands.Bot):
             color=discord.Color.red()
         )
 
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
         await log_command(
             bot,
             LOG_CHANNEL_ID,
@@ -163,6 +169,9 @@ def setup_salary_commands(bot: commands.Bot):
             await interaction.response.send_message("❌ Solo gli admin possono usare questo comando!", ephemeral=True)
             return
 
+        # Defer per operazioni DB
+        await interaction.response.defer(ephemeral=True)
+
         async with aiosqlite.connect(DATABASE_NAME) as db:
             async with db.execute(
                 "SELECT * FROM work_shifts WHERE user_id = ? AND role_id = ?",
@@ -171,7 +180,7 @@ def setup_salary_commands(bot: commands.Bot):
                 shift = await cursor.fetchone()
             
             if not shift:
-                await interaction.response.send_message(
+                await interaction.followup.send(
                     f"❌ {utente.mention} non ha un turno attivo per {lavoro.mention}!",
                     ephemeral=True
                 )
@@ -183,7 +192,7 @@ def setup_salary_commands(bot: commands.Bot):
             )
             await db.commit()
         
-        await interaction.response.send_message(
+        await interaction.followup.send(
             f"✅ Turno cancellato per {utente.mention} - {lavoro.mention}!",
             ephemeral=True
         )
@@ -207,9 +216,12 @@ def setup_salary_commands(bot: commands.Bot):
             await interaction.response.send_message("❌ Solo lo staff può usare questo comando!", ephemeral=True)
             return
 
+        # Defer per operazioni DB
+        await interaction.response.defer(ephemeral=True)
+
         # Validazione somma
         if somma <= 0:
-            await interaction.response.send_message("❌ La somma deve essere maggiore di 0!", ephemeral=True)
+            await interaction.followup.send("❌ La somma deve essere maggiore di 0!", ephemeral=True)
             return
 
         # Aggiorna il saldo dell'utente (aggiungi alla banca)
@@ -224,7 +236,7 @@ def setup_salary_commands(bot: commands.Bot):
             pass
 
         # Conferma
-        await interaction.response.send_message(
+        await interaction.followup.send(
             f"✅ Hai pagato **${somma:,}** a {utente.mention} per {lavoro.mention}!",
             ephemeral=True
         )

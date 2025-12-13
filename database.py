@@ -146,7 +146,6 @@ async def init_db():
         user_id TEXT,
         role_id TEXT,
         start_time TEXT,
-        hourly_salary INTEGER DEFAULT 0,
         PRIMARY KEY (user_id, role_id)
     )
 """)

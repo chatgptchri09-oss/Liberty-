@@ -5,23 +5,19 @@ import database
 from datetime import datetime
 import random
 
-# --- COSTANTI AGGIORNATE E CONSOLIDATE ---
 LFD_ROLE_ID = 1415093546549248040
 LOG_CHANNEL_ID = 1415297578022604850
 LFD_LOG_CHANNEL_ID = 1424007218554208316
 ARRESTO_LOG_CHANNEL_ID = 1436347936635097179
 
-# Simboli slot machine con emoji
 SLOT_SYMBOLS = ["🐺", "⭐", "🍋", "💎", "🎰"]
 
 def has_role(interaction: discord.Interaction, role_id: int) -> bool:
-    """Controlla se l'utente che interagisce ha un determinato ruolo."""
     if not isinstance(interaction.user, discord.Member):
         return False
     return any(role.id == role_id for role in interaction.user.roles)
 
 async def log_command(bot, channel_id: int, message: str = None, embed: discord.Embed = None):
-    """Invia un messaggio o un embed al canale di log specificato."""
     try:
         channel = bot.get_channel(channel_id)
         if channel and hasattr(channel, 'send'):
@@ -91,7 +87,18 @@ class FineModal(discord.ui.Modal, title="<a:sirena:1431792628332101723> Multa"):
             pass
         
         await interaction.response.send_message(f"<a:spunta:1431937738256552036> Multa inviata a <@{self.user_id}>!", ephemeral=True)
-        await log_command(self.bot, LOG_CHANNEL_ID, f"<a:sirena:1431792628332101723> {interaction.user.mention} ha multato <@{self.user_id}> per ${fine_amount:,}")
+        
+        # LOG CON EMBED
+        log_embed = discord.Embed(
+            title="<a:sirena:1431792628332101723> LOG MULTA EMESSA",
+            color=discord.Color.red()
+        )
+        log_embed.add_field(name="Agente", value=interaction.user.mention, inline=True)
+        log_embed.add_field(name="Multato", value=f"<@{self.user_id}>", inline=True)
+        log_embed.add_field(name="Importo", value=f"${fine_amount:,}", inline=True)
+        log_embed.add_field(name="Infrazioni", value=self.infractions_input.value[:1000], inline=False)
+        log_embed.timestamp = discord.utils.utcnow()
+        await log_command(self.bot, LOG_CHANNEL_ID, embed=log_embed)
 
 
 def setup_fine_commands(bot: commands.Bot):
@@ -180,7 +187,16 @@ def setup_fine_commands(bot: commands.Bot):
             
             await log_command(bot, LFD_LOG_CHANNEL_ID, embed=log_embed)
             await interaction.followup.send(f"<a:spunta:1431937738256552036> Hai pagato la multa di **${fine_amount:,}**!", ephemeral=True)
-            await log_command(bot, LOG_CHANNEL_ID, f"💳 {interaction.user.mention} ha pagato una multa di ${fine_amount:,}")
+            
+            # LOG CON EMBED
+            payment_log_embed = discord.Embed(
+                title="💳 LOG PAGAMENTO MULTA",
+                color=discord.Color.green()
+            )
+            payment_log_embed.add_field(name="Pagato da", value=interaction.user.mention, inline=True)
+            payment_log_embed.add_field(name="Importo", value=f"${fine_amount:,}", inline=True)
+            payment_log_embed.timestamp = discord.utils.utcnow()
+            await log_command(bot, LOG_CHANNEL_ID, embed=payment_log_embed)
     
     @bot.tree.command(name="pagamulta", description="Paga una multa ricevuta")
     async def pagamulta(interaction: discord.Interaction):
@@ -225,13 +241,22 @@ def setup_fine_commands(bot: commands.Bot):
         embed.add_field(name="💰 TOTALE MULTE", value=f"${total_fines:,}", inline=False)
         
         await interaction.response.send_message(embed=embed, ephemeral=True)
-        await log_command(bot, LOG_CHANNEL_ID, f"👁️ {interaction.user.mention} ha controllato le multe di {utente.mention}")
+        
+        # LOG CON EMBED
+        log_embed = discord.Embed(
+            title="👁️ LOG CONTROLLO MULTE",
+            color=discord.Color.blue()
+        )
+        log_embed.add_field(name="Controllato da", value=interaction.user.mention, inline=True)
+        log_embed.add_field(name="Utente controllato", value=utente.mention, inline=True)
+        log_embed.add_field(name="Multe trovate", value=str(len(fines)), inline=True)
+        log_embed.timestamp = discord.utils.utcnow()
+        await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
 
     
     @bot.tree.command(name="slotmachine", description="Gioca alla slot machine")
     @app_commands.describe(puntata="Importo da puntare (max $10,000)")
     async def slotmachine(interaction: discord.Interaction, puntata: int):
-        # Validazione puntata
         if puntata <= 0:
             await interaction.response.send_message("<a:annulla:1431940396635652146> La puntata deve essere maggiore di 0!", ephemeral=True)
             return
@@ -240,7 +265,6 @@ def setup_fine_commands(bot: commands.Bot):
             await interaction.response.send_message("<a:annulla:1431940396635652146> La puntata massima è di $10,000!", ephemeral=True)
             return
         
-        # Verifica saldo utente
         user = await database.get_user(str(interaction.user.id))
         total_balance = user["cash"] + user["bank"]
         
@@ -248,10 +272,8 @@ def setup_fine_commands(bot: commands.Bot):
             await interaction.response.send_message("<a:annulla:1431940396635652146> Non hai abbastanza soldi per questa puntata!", ephemeral=True)
             return
         
-        # Defer per elaborazione
         await interaction.response.defer()
         
-        # Sottrai la puntata
         new_cash = user["cash"]
         new_bank = user["bank"]
         remaining = puntata
@@ -263,34 +285,29 @@ def setup_fine_commands(bot: commands.Bot):
             new_bank = 0
             new_cash -= remaining
         
-        # Genera risultato slot
-        # Probabilità: ~70% perdita, ~23% due simboli uguali, ~7% jackpot
         rand = random.random()
         
-        if rand < 0.07:  # 7% jackpot (3 simboli uguali)
+        if rand < 0.07:
             symbol = random.choice(SLOT_SYMBOLS)
             symbols = [symbol, symbol, symbol]
-            winnings = int(puntata * 2.2)  # 220% della puntata (10k -> 22k)
+            winnings = int(puntata * 2.2)
             result_type = "jackpot"
-        elif rand < 0.30:  # 23% due simboli uguali
+        elif rand < 0.30:
             symbol = random.choice(SLOT_SYMBOLS)
             other = random.choice([s for s in SLOT_SYMBOLS if s != symbol])
             symbols = [symbol, symbol, other]
             random.shuffle(symbols)
-            winnings = int(puntata * 1.4)  # 140% della puntata (10k -> 14k)
+            winnings = int(puntata * 1.4)
             result_type = "win"
-        else:  # 70% perdita
+        else:
             symbols = random.choices(SLOT_SYMBOLS, k=3)
-            # Assicurati che non ci siano due o tre simboli uguali
             while symbols[0] == symbols[1] or symbols[1] == symbols[2] or symbols[0] == symbols[2]:
                 symbols = random.choices(SLOT_SYMBOLS, k=3)
             winnings = 0
             result_type = "loss"
         
-        # Animazione slot machine
         import asyncio
         
-        # Frame 1: primo simbolo
         embed1 = discord.Embed(
             title="🎰 Slot Machine",
             description="| 🎲 | ❔ | ❔ |",
@@ -300,7 +317,6 @@ def setup_fine_commands(bot: commands.Bot):
         message = await interaction.followup.send(embed=embed1)
         await asyncio.sleep(1)
         
-        # Frame 2: secondo simbolo
         embed2 = discord.Embed(
             title="🎰 Slot Machine",
             description="| ❔ | 🎲 | ❔ |",
@@ -310,7 +326,6 @@ def setup_fine_commands(bot: commands.Bot):
         await message.edit(embed=embed2)
         await asyncio.sleep(1)
         
-        # Frame 3: terzo simbolo
         embed3 = discord.Embed(
             title="🎰 Slot Machine",
             description="| ❔ | ❔ | 🎲 |",
@@ -320,7 +335,6 @@ def setup_fine_commands(bot: commands.Bot):
         await message.edit(embed=embed3)
         await asyncio.sleep(1)
         
-        # Frame 4: primi due simboli
         embed4 = discord.Embed(
             title="🎰 Slot Machine",
             description="| 🎲 | 🎲 | ❔ |",
@@ -330,23 +344,20 @@ def setup_fine_commands(bot: commands.Bot):
         await message.edit(embed=embed4)
         await asyncio.sleep(1)
         
-        # Frame 5: tutti e tre i simboli
         embed5 = discord.Embed(
             title="🎰 Slot Machine",
             description="| 🎲 | 🎲 | 🎲 |",
-            color=0xc59dff  # Viola chiaro
+            color=0xc59dff
         )
         embed5.set_footer(text="Liberty RP - Slot Machine")
         await message.edit(embed=embed5)
         await asyncio.sleep(1)
         
-        #  Aggiorna saldo
         if result_type != "loss":
             new_cash += winnings
         
         await database.update_balance(str(interaction.user.id), cash=new_cash, bank=new_bank)
         
-        # Risultato finale
         if result_type == "jackpot":
             final_embed = discord.Embed(
                 title="🎰 Risultato",
@@ -376,19 +387,26 @@ def setup_fine_commands(bot: commands.Bot):
                 color=discord.Color.red()
             )
             final_embed.add_field(
-    name="",
-    value=f"❌ Nessuna vincita. Hai perso **${puntata:,}**!",
-    inline=False
-)
+                name="",
+                value=f"❌ Nessuna vincita. Hai perso **${puntata:,}**!",
+                inline=False
+            )
         
         final_embed.set_footer(text="Liberty RP - Slot Machine")
         final_embed.set_thumbnail(url="https://i.postimg.cc/Qt136VrF/IMG-4279.gif")
         await message.edit(embed=final_embed)
         
-        # Log
+        # LOG CON EMBED
+        log_embed = discord.Embed(
+            title="🎰 LOG SLOT MACHINE",
+            color=discord.Color.gold() if result_type != "loss" else discord.Color.red()
+        )
+        log_embed.add_field(name="Giocatore", value=interaction.user.mention, inline=True)
+        log_embed.add_field(name="Puntata", value=f"${puntata:,}", inline=True)
+        log_embed.add_field(name="Risultato", value=f"| {symbols[0]} | {symbols[1]} | {symbols[2]} |", inline=False)
         if result_type != "loss":
-            await log_command(bot, LOG_CHANNEL_ID, 
-                f"🎰 {interaction.user.mention} ha giocato alla slot machine con ${puntata:,} e ha vinto ${winnings:,}!")
+            log_embed.add_field(name="Vincita", value=f"${winnings:,}", inline=True)
         else:
-            await log_command(bot, LOG_CHANNEL_ID, 
-                f"🎰 {interaction.user.mention} ha giocato alla slot machine con ${puntata:,} e ha perso.")
+            log_embed.add_field(name="Esito", value="Perso", inline=True)
+        log_embed.timestamp = discord.utils.utcnow()
+        await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)

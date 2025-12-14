@@ -9,7 +9,7 @@ import aiosqlite
 DATABASE_NAME = "economy_bot.db"
 LOG_CHANNEL_ID = 1415297578022604850
 STAFF_ROLE_ID = 1414738761207517214
-WHITELISTER_ROLE_ID = 1415090850253246534  # Ruolo Whitelister
+WHITELISTER_ROLE_ID = 1415090850253246534
 
 # Ruoli da aggiungere se la whitelist è passata
 WL_ROLES = [
@@ -82,22 +82,17 @@ class WhitelistPassataModal(discord.ui.Modal, title="Whitelist Passata"):
         embed.add_field(name="𝗘𝗿𝗿𝗼𝗿𝗶<a:casomaiconflecia:1434244328448069642>", value=errori, inline=True)
         embed.add_field(name="𝗩𝗮𝗹𝘂𝘁𝗮𝘁𝗼 𝗱𝗮<a:casomaiconflecia:1434244328448069642>", value=interaction.user.mention, inline=True)
         
-        # Immagine whitelist passata SOTTO l'embed
         embed.set_image(url="https://i.postimg.cc/L5jj6kFR/IMG-4265.jpg")
         
-        # Invia nel canale con menzione
         await interaction.channel.send(content=self.cittadino.mention, embed=embed)
         
-        # RIMUOVI TUTTI I RUOLI (tranne @everyone che non può essere rimosso)
         try:
-            # Ottieni tutti i ruoli dell'utente tranne @everyone
             roles_to_remove = [role for role in self.cittadino.roles if role.name != "@everyone"]
             if roles_to_remove:
                 await self.cittadino.remove_roles(*roles_to_remove, reason=f"Pulizia ruoli per whitelist passata - valutata da {interaction.user.name}")
         except Exception as e:
             print(f"Errore rimozione ruoli: {e}")
         
-        # Aggiungi i nuovi ruoli
         roles_to_add = []
         for role_id in WL_ROLES:
             role = interaction.guild.get_role(role_id)
@@ -110,7 +105,6 @@ class WhitelistPassataModal(discord.ui.Modal, title="Whitelist Passata"):
             except Exception as e:
                 print(f"Errore aggiunta ruoli: {e}")
         
-        # Invia DM
         try:
             dm_embed = discord.Embed(
                 title="✅ Whitelist Passata!",
@@ -124,8 +118,16 @@ class WhitelistPassataModal(discord.ui.Modal, title="Whitelist Passata"):
         
         await interaction.followup.send(f"✅ Whitelist passata inviata per {self.cittadino.mention}! Ruoli aggiornati.", ephemeral=True)
         
-        # Log
-        await log_command(self.bot, LOG_CHANNEL_ID, f"✅ {interaction.user.mention} ha fatto passare la whitelist a {self.cittadino.mention} (Ruoli resettati e aggiornati)")
+        # LOG CON EMBED
+        log_embed = discord.Embed(
+            title="✅ LOG WHITELIST PASSATA",
+            color=discord.Color.green()
+        )
+        log_embed.add_field(name="Valutatore", value=interaction.user.mention, inline=True)
+        log_embed.add_field(name="Cittadino", value=self.cittadino.mention, inline=True)
+        log_embed.add_field(name="Azione", value="Ruoli resettati e aggiornati", inline=False)
+        log_embed.timestamp = discord.utils.utcnow()
+        await log_command(self.bot, LOG_CHANNEL_ID, embed=log_embed)
 
 # ====================
 # MODAL PER WHITELIST RIMANDATA
@@ -159,7 +161,6 @@ class WhitelistRimandataModal(discord.ui.Modal, title="Whitelist Rimandata"):
         errori = self.errori_input.value
         motivo = self.motivo_input.value
         
-        # Crea embed rosso
         embed = discord.Embed(
             title="<a:megafono:1431932605984542720> 𝐄𝐬𝐢𝐭𝐨 𝐰𝐡𝐢𝐭𝐞𝐥𝐢𝐬𝐭 <a:annulla:1431940396635652146>",
             color=discord.Color.red()
@@ -171,13 +172,10 @@ class WhitelistRimandataModal(discord.ui.Modal, title="Whitelist Rimandata"):
         embed.add_field(name="𝗠𝗼𝘁𝗶𝘃𝗼<a:casomaiconflecia:1434244328448069642>", value=motivo, inline=True)
         embed.add_field(name="𝗩𝗮𝗹𝘂𝘁𝗮𝘁𝗼 𝗱𝗮<a:casomaiconflecia:1434244328448069642>", value=interaction.user.mention, inline=True)
         
-        # Immagine whitelist rimandata SOTTO l'embed
         embed.set_image(url="https://i.postimg.cc/G3vDDjVJ/IMG-4266.jpg")
         
-        # Invia nel canale con menzione
         await interaction.channel.send(content=self.cittadino.mention, embed=embed)
         
-        # Invia DM
         try:
             dm_embed = discord.Embed(
                 title="❌ Whitelist Rimandata",
@@ -192,8 +190,16 @@ class WhitelistRimandataModal(discord.ui.Modal, title="Whitelist Rimandata"):
         
         await interaction.followup.send(f"❌ Whitelist rimandata inviata per {self.cittadino.mention}!", ephemeral=True)
         
-        # Log
-        await log_command(self.bot, LOG_CHANNEL_ID, f"❌ {interaction.user.mention} ha rimandato la whitelist a {self.cittadino.mention}")
+        # LOG CON EMBED
+        log_embed = discord.Embed(
+            title="❌ LOG WHITELIST RIMANDATA",
+            color=discord.Color.red()
+        )
+        log_embed.add_field(name="Valutatore", value=interaction.user.mention, inline=True)
+        log_embed.add_field(name="Cittadino", value=self.cittadino.mention, inline=True)
+        log_embed.add_field(name="Motivo", value=motivo[:100], inline=False)
+        log_embed.timestamp = discord.utils.utcnow()
+        await log_command(self.bot, LOG_CHANNEL_ID, embed=log_embed)
 
 # ====================
 # SETUP DEI COMANDI
@@ -221,14 +227,11 @@ def setup_admin_commands(bot: commands.Bot):
         
         if esito.value == "PASSATA":
             modal = WhitelistPassataModal(bot, cittadino)
-        else:  # RIMANDATA
+        else:
             modal = WhitelistRimandataModal(bot, cittadino)
         
         await interaction.response.send_modal(modal)
     
-    # =========================================
-    # COMANDO: /annuncio
-    # =========================================
     @bot.tree.command(name="annuncio", description="[STAFF] Invia un annuncio a tutti i membri del server")
     @app_commands.describe(testo="Il testo dell'annuncio")
     async def annuncio(interaction: discord.Interaction, testo: str):
@@ -238,7 +241,6 @@ def setup_admin_commands(bot: commands.Bot):
         
         await interaction.response.defer(ephemeral=True)
         
-        # Crea embed giallo
         embed = discord.Embed(
             title="<a:annuncio:1449799366218088508> 𝐀𝐍𝐍𝐔𝐍𝐂𝐈𝐎 <a:annuncio:1449799366218088508>",
             description=testo,
@@ -246,17 +248,20 @@ def setup_admin_commands(bot: commands.Bot):
         )
         embed.set_footer(text=f"Annuncio inviato da {interaction.user.display_name}")
         
-        # Invia nel canale con @everyone
         await interaction.channel.send(content="@everyone", embed=embed)
         
         await interaction.followup.send("✅ Annuncio inviato con successo!", ephemeral=True)
         
-        # Log
-        await log_command(bot, LOG_CHANNEL_ID, f"📢 {interaction.user.mention} ha inviato un annuncio: {testo[:100]}...")
+        # LOG CON EMBED
+        log_embed = discord.Embed(
+            title="📢 LOG ANNUNCIO",
+            color=discord.Color.gold()
+        )
+        log_embed.add_field(name="Inviato da", value=interaction.user.mention, inline=False)
+        log_embed.add_field(name="Testo", value=testo[:1000], inline=False)
+        log_embed.timestamp = discord.utils.utcnow()
+        await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
     
-    # =========================================
-    # COMANDO: /add-money
-    # =========================================
     @bot.tree.command(name="add-money", description="[STAFF] Aggiungi soldi al conto bancario di un utente.")
     @app_commands.describe(
         utente="L'utente a cui aggiungere i soldi",
@@ -305,11 +310,17 @@ def setup_admin_commands(bot: commands.Bot):
                 ephemeral=True
             )
             
-            await log_command(
-                bot, 
-                LOG_CHANNEL_ID, 
-                f"💵 {interaction.user.mention} ha aggiunto **${importo:,}** a {utente.mention} (Motivo: {motivo})."
+            # LOG CON EMBED
+            log_embed = discord.Embed(
+                title="💵 LOG AGGIUNTA DENARO",
+                color=discord.Color.green()
             )
+            log_embed.add_field(name="Staff", value=interaction.user.mention, inline=True)
+            log_embed.add_field(name="Utente", value=utente.mention, inline=True)
+            log_embed.add_field(name="Importo", value=f"${importo:,}", inline=True)
+            log_embed.add_field(name="Motivo", value=motivo, inline=False)
+            log_embed.timestamp = discord.utils.utcnow()
+            await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
 
         except Exception as e:
             await interaction.followup.send(f"❌ Errore durante l'aggiunta di denaro: {e}", ephemeral=True)
@@ -363,11 +374,17 @@ def setup_admin_commands(bot: commands.Bot):
                 ephemeral=True
             )
             
-            await log_command(
-                bot, 
-                LOG_CHANNEL_ID, 
-                f"🚫 {interaction.user.mention} ha rimosso **${removed_amount:,}** a {utente.mention} (Motivo: {motivo})."
+            # LOG CON EMBED
+            log_embed = discord.Embed(
+                title="🚫 LOG RIMOZIONE DENARO",
+                color=discord.Color.red()
             )
+            log_embed.add_field(name="Staff", value=interaction.user.mention, inline=True)
+            log_embed.add_field(name="Utente", value=utente.mention, inline=True)
+            log_embed.add_field(name="Importo", value=f"${removed_amount:,}", inline=True)
+            log_embed.add_field(name="Motivo", value=motivo, inline=False)
+            log_embed.timestamp = discord.utils.utcnow()
+            await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
 
         except Exception as e:
             await interaction.followup.send(f"❌ Errore durante la rimozione di denaro: {e}", ephemeral=True)
@@ -422,11 +439,18 @@ def setup_admin_commands(bot: commands.Bot):
                 ephemeral=True
             )
             
-            await log_command(
-                bot, 
-                LOG_CHANNEL_ID, 
-                f"🛠️ {interaction.user.mention} ha impostato il saldo **{tipo_saldo.name}** di {utente.mention} su **${new_balance:,}**."
+            # LOG CON EMBED
+            log_embed = discord.Embed(
+                title="🛠️ LOG MODIFICA SALDO",
+                color=discord.Color.blue()
             )
+            log_embed.add_field(name="Staff", value=interaction.user.mention, inline=True)
+            log_embed.add_field(name="Utente", value=utente.mention, inline=True)
+            log_embed.add_field(name="Tipo", value=tipo_saldo.name, inline=True)
+            log_embed.add_field(name="Precedente", value=f"${old_balance:,}", inline=True)
+            log_embed.add_field(name="Nuovo", value=f"${new_balance:,}", inline=True)
+            log_embed.timestamp = discord.utils.utcnow()
+            await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
 
         except Exception as e:
             await interaction.followup.send(f"❌ Errore durante l'impostazione del saldo: {e}", ephemeral=True)
@@ -456,11 +480,16 @@ def setup_admin_commands(bot: commands.Bot):
                 ephemeral=True
             )
             
-            await log_command(
-                bot, 
-                LOG_CHANNEL_ID, 
-                f"🆕 {interaction.user.mention} ha inizializzato/resettato {utente.mention} nel database."
+            # LOG CON EMBED
+            log_embed = discord.Embed(
+                title="🆕 LOG INIZIALIZZAZIONE UTENTE",
+                color=discord.Color.blue()
             )
+            log_embed.add_field(name="Staff", value=interaction.user.mention, inline=True)
+            log_embed.add_field(name="Utente", value=utente.mention, inline=True)
+            log_embed.add_field(name="Azione", value="Utente inizializzato/resettato", inline=False)
+            log_embed.timestamp = discord.utils.utcnow()
+            await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
 
         except Exception as e:
             await interaction.followup.send(f"❌ Errore durante l'inizializzazione dell'utente: {e}", ephemeral=True)

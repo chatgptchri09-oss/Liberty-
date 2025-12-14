@@ -227,6 +227,34 @@ def setup_admin_commands(bot: commands.Bot):
         await interaction.response.send_modal(modal)
     
     # =========================================
+    # COMANDO: /annuncio
+    # =========================================
+    @bot.tree.command(name="annuncio", description="[STAFF] Invia un annuncio a tutti i membri del server")
+    @app_commands.describe(testo="Il testo dell'annuncio")
+    async def annuncio(interaction: discord.Interaction, testo: str):
+        if not has_role(interaction, STAFF_ROLE_ID):
+            await interaction.response.send_message("❌ Solo lo staff può usare questo comando!", ephemeral=True)
+            return
+        
+        await interaction.response.defer(ephemeral=True)
+        
+        # Crea embed giallo
+        embed = discord.Embed(
+            title="<a:annuncio:1449799366218088508> 𝐀𝐍𝐍𝐔𝐍𝐂𝐈𝐎 <a:annuncio:1449799366218088508>",
+            description=testo,
+            color=discord.Color.gold()
+        )
+        embed.set_footer(text=f"Annuncio inviato da {interaction.user.display_name}")
+        
+        # Invia nel canale con @everyone
+        await interaction.channel.send(content="@everyone", embed=embed)
+        
+        await interaction.followup.send("✅ Annuncio inviato con successo!", ephemeral=True)
+        
+        # Log
+        await log_command(bot, LOG_CHANNEL_ID, f"📢 {interaction.user.mention} ha inviato un annuncio: {testo[:100]}...")
+    
+    # =========================================
     # COMANDO: /add-money
     # =========================================
     @bot.tree.command(name="add-money", description="[STAFF] Aggiungi soldi al conto bancario di un utente.")

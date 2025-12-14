@@ -6,7 +6,6 @@ import aiosqlite
 DATABASE_NAME = "economy_bot.db"
 LOG_CHANNEL_ID = 1415297578022604850
 
-# Funzione log_command (mantenuta come nel tuo snippet)
 async def log_command(bot, channel_id: int, message: str = None, embed: discord.Embed = None):
     try:
         channel = bot.get_channel(channel_id)
@@ -21,10 +20,7 @@ async def log_command(bot, channel_id: int, message: str = None, embed: discord.
 
 def setup_wallet_commands(bot: commands.Bot):
     
-    # --- Classi Interne (Select e View) ---
-    
     class ShowDocumentView(discord.ui.View):
-        # Passiamo 'bot' per poter accedere a log_command
         def __init__(self, bot: commands.Bot, embed: discord.Embed, message: str):
             super().__init__(timeout=300)
             self.bot = bot
@@ -33,14 +29,21 @@ def setup_wallet_commands(bot: commands.Bot):
         
         @discord.ui.button(label="📢 Mostra", style=discord.ButtonStyle.secondary)
         async def show_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-            # Risposta effimera che mostra il documento all'utente che ha cliccato
             await interaction.response.send_message(self.message, embed=self.embed)
-            # Invio del log utilizzando self.bot
-            await log_command(self.bot, LOG_CHANNEL_ID, f"📢 {interaction.user.mention} ha mostrato un documento in chat")
+            
+            # LOG CON EMBED
+            log_embed = discord.Embed(
+                title="📢 LOG DOCUMENTO MOSTRATO",
+                color=discord.Color.blue()
+            )
+            log_embed.add_field(name="Mostrato da", value=interaction.user.mention, inline=True)
+            log_embed.add_field(name="Tipo", value=self.embed.title, inline=True)
+            log_embed.timestamp = discord.utils.utcnow()
+            await log_command(self.bot, LOG_CHANNEL_ID, embed=log_embed)
 
     class WalletSelect(discord.ui.Select):
         def __init__(self, bot: commands.Bot, user_id: str):
-            self.bot = bot # Salviamo l'istanza del bot
+            self.bot = bot
             self.user_id = user_id
             options = [
                 discord.SelectOption(label="Documento", value="documento", emoji="📄"),
@@ -58,7 +61,6 @@ def setup_wallet_commands(bot: commands.Bot):
             
             selection = self.values[0]
             
-            # --- Logica Documento ---
             if selection == "documento":
                 async with aiosqlite.connect(DATABASE_NAME) as db:
                     async with db.execute("SELECT * FROM documents WHERE user_id = ?", (self.user_id,)) as cursor:
@@ -82,11 +84,9 @@ def setup_wallet_commands(bot: commands.Bot):
                 if photo_url:
                     embed.set_thumbnail(url=photo_url)
                 
-                # Passiamo self.bot
                 view = ShowDocumentView(self.bot, embed, f"Questo è il documento di {interaction.user.mention}") 
                 await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
             
-            # --- Logica Patente ---
             elif selection == "patente":
                 async with aiosqlite.connect(DATABASE_NAME) as db:
                     async with db.execute("SELECT * FROM licenses WHERE user_id = ?", (self.user_id,)) as cursor:
@@ -109,11 +109,9 @@ def setup_wallet_commands(bot: commands.Bot):
                         inline=False
                     )
                 
-                # Passiamo self.bot
                 view = ShowDocumentView(self.bot, embed, f"Queste sono le patenti di {interaction.user.mention}") 
                 await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
             
-            # --- Logica Porto D'armi ---
             elif selection == "portodarmi":
                 async with aiosqlite.connect(DATABASE_NAME) as db:
                     async with db.execute("SELECT * FROM gun_licenses WHERE user_id = ?", (self.user_id,)) as cursor:
@@ -136,11 +134,9 @@ def setup_wallet_commands(bot: commands.Bot):
                         inline=False
                     )
                 
-                # Passiamo self.bot
                 view = ShowDocumentView(self.bot, embed, f"Questi sono i porti d'armi di {interaction.user.mention}")
                 await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
             
-            # --- Logica Certificati ---
             elif selection == "certificati":
                 async with aiosqlite.connect(DATABASE_NAME) as db:
                     async with db.execute("SELECT * FROM medical_certificates WHERE user_id = ?", (self.user_id,)) as cursor:
@@ -173,11 +169,9 @@ def setup_wallet_commands(bot: commands.Bot):
                         inline=False
                     )
                 
-                # Passiamo self.bot
                 view = ShowDocumentView(self.bot, embed, f"Questi sono i certificati di {interaction.user.mention}")
                 await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
             
-            # --- Logica Libretti ---
             elif selection == "libretti":
                 async with aiosqlite.connect(DATABASE_NAME) as db:
                     async with db.execute("SELECT * FROM vehicle_registrations WHERE user_id = ? AND seized = 0", (self.user_id,)) as cursor:
@@ -204,11 +198,9 @@ def setup_wallet_commands(bot: commands.Bot):
                         inline=False
                     )
                 
-                # Passiamo self.bot
                 view = ShowDocumentView(self.bot, embed, f"Questi sono i libretti di {interaction.user.mention}")
                 await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
     
-    # --- Definizione del Comando Slash (/portafoglio) ---
     @bot.tree.command(name="portafoglio", description="Visualizza il tuo portafoglio")
     async def portafoglio(interaction: discord.Interaction):
         embed = discord.Embed(
@@ -216,12 +208,17 @@ def setup_wallet_commands(bot: commands.Bot):
             description="Seleziona il documento che vuoi visualizzare dal menu a tendina qui sotto",
             color=discord.Color.gold()
         )
-        # set_thumbnail per l'immagine più piccola a destra
         embed.set_thumbnail(url="https://cdn.discordapp.com/attachments/1425847773424652288/1432317062394548234/IMG_3719.gif?ex=69009cb6&is=68ff4b36&hm=5a1189d300bc123aade318943003a628a35bf964db9cca90c1556709dbe09bab&")
 
         view = discord.ui.View()
-        # Passiamo l'istanza del bot qui
         view.add_item(WalletSelect(bot, str(interaction.user.id)))
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
         
-        await log_command(bot, LOG_CHANNEL_ID, f"<:Portafoglio:1431695497034203256> {interaction.user.mention} ha aperto il portafoglio")
+        # LOG CON EMBED
+        log_embed = discord.Embed(
+            title="<:Portafoglio:1431695497034203256> LOG PORTAFOGLIO APERTO",
+            color=discord.Color.gold()
+        )
+        log_embed.add_field(name="Aperto da", value=interaction.user.mention, inline=True)
+        log_embed.timestamp = discord.utils.utcnow()
+        await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)

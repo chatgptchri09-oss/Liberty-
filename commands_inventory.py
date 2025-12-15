@@ -286,16 +286,7 @@ def setup_inventory_commands(bot: commands.Bot):
             await interaction.response.send_message(
                 f"❌ Solo lo staff può usare questo comando! (Richiesto: <@&{STAFF_ROLE_ID}>)", 
                 
-                log_embed = discord.Embed(
-    title="➕ LOG ITEM DATO",
-    color=discord.Color.green()
-)
-log_embed.add_field(name="👮 Staff", value=interaction.user.mention, inline=True)
-log_embed.add_field(name="👤 Ricevente", value=self.target_user.mention, inline=True)
-log_embed.add_field(name="📦 Item", value=self.item_name, inline=False)
-log_embed.add_field(name="🔢 Quantità", value=str(quantity), inline=False)
-log_embed.timestamp = discord.utils.utcnow()
-await log_command(self.bot, LOG_CHANNEL_ID, embed=log_embed)
+    
             )
             return
         

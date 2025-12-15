@@ -89,7 +89,19 @@ def setup_invoice_commands(bot: commands.Bot):
             pass
         
         await interaction.response.send_message(f"<a:spunta:1431937738256552036> Fattura inviata a {cliente.mention}!", ephemeral=True)
-        await log_command(bot, LOG_CHANNEL_ID, f"📄 {interaction.user.mention} ha inviato una fattura a {cliente.mention} per ${prezzo:,} ({azienda})")
+        
+        # LOG CON EMBED
+        log_embed = discord.Embed(
+            title="📄 LOG FATTURA EMESSA",
+            color=discord.Color.orange()
+        )
+        log_embed.add_field(name="👨‍💼 Dipendente", value=interaction.user.mention, inline=True)
+        log_embed.add_field(name="👤 Cliente", value=cliente.mention, inline=True)
+        log_embed.add_field(name="🏢 Azienda", value=azienda, inline=False)
+        log_embed.add_field(name="📝 Descrizione", value=descrizione[:1024], inline=False)
+        log_embed.add_field(name="💰 Importo", value=f"${prezzo:,}", inline=False)
+        log_embed.timestamp = discord.utils.utcnow()
+        await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
     
     class InvoiceSelectMenu(discord.ui.Select):
         def __init__(self, invoices, user_id):
@@ -175,7 +187,19 @@ def setup_invoice_commands(bot: commands.Bot):
                 await log_command(bot, log_channel_id, embed=log_embed)
             
             await interaction.response.send_message(f"<a:spunta:1431937738256552036> Hai pagato la fattura di **${price:,}**!", ephemeral=True)
-            await log_command(bot, LOG_CHANNEL_ID, f"💳 <@{client_id}> ha pagato una fattura di ${price:,} ({company})")
+            
+            # LOG GENERALE CON EMBED
+            log_embed_general = discord.Embed(
+                title="💳 LOG FATTURA PAGATA",
+                color=discord.Color.green()
+            )
+            log_embed_general.add_field(name="👤 Pagata da", value=f"<@{client_id}>", inline=True)
+            log_embed_general.add_field(name="👨‍💼 Dipendente", value=f"<@{sender_id}>", inline=True)
+            log_embed_general.add_field(name="🏢 Azienda", value=company, inline=False)
+            log_embed_general.add_field(name="💰 Importo Totale", value=f"${price:,}", inline=True)
+            log_embed_general.add_field(name="💵 Guadagno Dipendente", value=f"${employee_cut:,}", inline=True)
+            log_embed_general.timestamp = discord.utils.utcnow()
+            await log_command(bot, LOG_CHANNEL_ID, embed=log_embed_general)
     
     @bot.tree.command(name="pagafattura", description="Paga una fattura ricevuta")
     async def pagafattura(interaction: discord.Interaction):

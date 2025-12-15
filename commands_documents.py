@@ -17,11 +17,14 @@ def has_role(interaction: discord.Interaction, role_id: int) -> bool:
         return False
     return any(role.id == role_id for role in interaction.user.roles)
 
-async def log_command(bot, channel_id: int, message: str):
+async def log_command(bot, channel_id: int, message: str = None, embed: discord.Embed = None):
     try:
         channel = bot.get_channel(channel_id)
         if channel and hasattr(channel, 'send'):
-            await channel.send(message)
+            if embed:
+                await channel.send(embed=embed)
+            elif message:
+                await channel.send(message)
     except:
         pass
 
@@ -49,7 +52,21 @@ def setup_document_commands(bot: commands.Bot):
                 await db.commit()
             
             await interaction.response.send_message(f"✅ Documento registrato per <@{self.user_id}>!", ephemeral=True)
-            await log_command(self.bot, LOG_CHANNEL_ID, f"📄 {interaction.user.mention} ha registrato un documento per <@{self.user_id}>")
+            
+            # LOG CON EMBED
+            log_embed = discord.Embed(
+                title="📄 LOG DOCUMENTO CREATO",
+                color=discord.Color.blue()
+            )
+            log_embed.add_field(name="👮 Creato da", value=interaction.user.mention, inline=True)
+            log_embed.add_field(name="👤 Per l'utente", value=f"<@{self.user_id}>", inline=True)
+            log_embed.add_field(name="📝 Nome", value=f"{self.nome.value} {self.cognome.value}", inline=False)
+            log_embed.add_field(name="📅 Data Nascita", value=self.data_nascita.value, inline=True)
+            log_embed.add_field(name="📍 Luogo Nascita", value=self.luogo_nascita.value, inline=True)
+            log_embed.add_field(name="🌍 Nazionalità", value=self.nazionalita.value, inline=True)
+            log_embed.set_thumbnail(url=self.photo_url)
+            log_embed.timestamp = discord.utils.utcnow()
+            await log_command(self.bot, LOG_CHANNEL_ID, embed=log_embed)
     
     @bot.tree.command(name="documento", description="[LFD] Crea un documento per un utente")
     @app_commands.describe(
@@ -84,7 +101,16 @@ def setup_document_commands(bot: commands.Bot):
             await db.commit()
         
         await interaction.response.send_message(f"✅ Documento rimosso da {utente.mention}!", ephemeral=True)
-        await log_command(bot, LOG_CHANNEL_ID, f"🗑️ {interaction.user.mention} ha rimosso il documento di {utente.mention}")
+        
+        # LOG CON EMBED
+        log_embed = discord.Embed(
+            title="🗑️ LOG DOCUMENTO RIMOSSO",
+            color=discord.Color.red()
+        )
+        log_embed.add_field(name="👮 Rimosso da", value=interaction.user.mention, inline=True)
+        log_embed.add_field(name="👤 Utente", value=utente.mention, inline=True)
+        log_embed.timestamp = discord.utils.utcnow()
+        await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
         
         try:
             await utente.send("⚠️ Il tuo documento è stato rimosso da uno staff!")
@@ -110,7 +136,18 @@ def setup_document_commands(bot: commands.Bot):
                 await db.commit()
             
             await interaction.response.send_message(f"✅ Patente registrata per <@{self.user_id}>!", ephemeral=True)
-            await log_command(self.bot, LOG_CHANNEL_ID, f"🚗 {interaction.user.mention} ha registrato una patente per <@{self.user_id}>")
+            
+            # LOG CON EMBED
+            log_embed = discord.Embed(
+                title="🚗 LOG PATENTE RILASCIATA",
+                color=discord.Color.green()
+            )
+            log_embed.add_field(name="👮 Rilasciata da", value=interaction.user.mention, inline=True)
+            log_embed.add_field(name="👤 Per l'utente", value=f"<@{self.user_id}>", inline=True)
+            log_embed.add_field(name="📝 Nome", value=f"{self.nome.value} {self.cognome.value}", inline=False)
+            log_embed.add_field(name="🚙 Tipo Patente", value=self.tipo.value, inline=False)
+            log_embed.timestamp = discord.utils.utcnow()
+            await log_command(self.bot, LOG_CHANNEL_ID, embed=log_embed)
     
     @bot.tree.command(name="daipatente", description="[CONCESSIONARIO] Registra una patente")
     @app_commands.describe(utente="L'utente per cui registrare la patente")
@@ -142,7 +179,19 @@ def setup_document_commands(bot: commands.Bot):
                 await db.commit()
             
             await interaction.response.send_message(f"✅ Porto d'armi registrato per <@{self.user_id}>!", ephemeral=True)
-            await log_command(self.bot, LOG_CHANNEL_ID, f"🔫 {interaction.user.mention} ha registrato un porto d'armi per <@{self.user_id}>")
+            
+            # LOG CON EMBED
+            log_embed = discord.Embed(
+                title="🔫 LOG PORTO D'ARMI RILASCIATO",
+                color=discord.Color.orange()
+            )
+            log_embed.add_field(name="👮 Rilasciato da", value=interaction.user.mention, inline=True)
+            log_embed.add_field(name="👤 Per l'utente", value=f"<@{self.user_id}>", inline=True)
+            log_embed.add_field(name="📝 Nome", value=f"{self.nome.value} {self.cognome.value}", inline=False)
+            log_embed.add_field(name="🎂 Età", value=self.eta.value, inline=True)
+            log_embed.add_field(name="📊 Livello", value=self.livello.value, inline=True)
+            log_embed.timestamp = discord.utils.utcnow()
+            await log_command(self.bot, LOG_CHANNEL_ID, embed=log_embed)
     
     @bot.tree.command(name="daiportodarmi", description="[LFD] Registra un porto d'armi")
     @app_commands.describe(utente="L'utente per cui registrare il porto d'armi")
@@ -174,7 +223,19 @@ def setup_document_commands(bot: commands.Bot):
                 await db.commit()
             
             await interaction.response.send_message(f"✅ Libretto registrato per <@{self.user_id}>!", ephemeral=True)
-            await log_command(self.bot, LOG_CHANNEL_ID, f"📋 {interaction.user.mention} ha registrato un libretto per <@{self.user_id}>")
+            
+            # LOG CON EMBED
+            log_embed = discord.Embed(
+                title="📋 LOG LIBRETTO RILASCIATO",
+                color=discord.Color.blue()
+            )
+            log_embed.add_field(name="👮 Rilasciato da", value=interaction.user.mention, inline=True)
+            log_embed.add_field(name="👤 Per l'utente", value=f"<@{self.user_id}>", inline=True)
+            log_embed.add_field(name="📝 Proprietario", value=f"{self.nome.value} {self.cognome.value}", inline=False)
+            log_embed.add_field(name="🚙 Modello", value=self.modello.value, inline=True)
+            log_embed.add_field(name="🔖 Targa", value=self.targa.value, inline=True)
+            log_embed.timestamp = discord.utils.utcnow()
+            await log_command(self.bot, LOG_CHANNEL_ID, embed=log_embed)
     
     @bot.tree.command(name="dailibretto", description="[CONCESSIONARIO] Registra un libretto")
     @app_commands.describe(cliente="Il cliente per cui registrare il libretto")
@@ -206,7 +267,19 @@ def setup_document_commands(bot: commands.Bot):
                 await db.commit()
             
             await interaction.response.send_message(f"✅ Certificato medico registrato per <@{self.user_id}>!", ephemeral=True)
-            await log_command(self.bot, LOG_CHANNEL_ID, f"🏥 {interaction.user.mention} ha registrato un certificato medico per <@{self.user_id}>")
+            
+            # LOG CON EMBED
+            log_embed = discord.Embed(
+                title="🏥 LOG CERTIFICATO MEDICO RILASCIATO",
+                color=discord.Color.green()
+            )
+            log_embed.add_field(name="👨‍⚕️ Rilasciato da", value=interaction.user.mention, inline=True)
+            log_embed.add_field(name="👤 Per l'utente", value=f"<@{self.user_id}>", inline=True)
+            log_embed.add_field(name="📝 Paziente", value=f"{self.nome.value} {self.cognome.value}", inline=False)
+            log_embed.add_field(name="🎂 Età", value=self.eta.value, inline=True)
+            log_embed.add_field(name="📊 Esito", value=self.esito.value, inline=True)
+            log_embed.timestamp = discord.utils.utcnow()
+            await log_command(self.bot, LOG_CHANNEL_ID, embed=log_embed)
     
     @bot.tree.command(name="daicertificatomedico", description="[EMS] Registra un certificato medico")
     @app_commands.describe(utente="L'utente per cui registrare il certificato")
@@ -238,7 +311,19 @@ def setup_document_commands(bot: commands.Bot):
                 await db.commit()
             
             await interaction.response.send_message(f"✅ Certificato balistico registrato per <@{self.user_id}>!", ephemeral=True)
-            await log_command(self.bot, LOG_CHANNEL_ID, f"🎯 {interaction.user.mention} ha registrato un certificato balistico per <@{self.user_id}>")
+            
+            # LOG CON EMBED
+            log_embed = discord.Embed(
+                title="🎯 LOG CERTIFICATO BALISTICO RILASCIATO",
+                color=discord.Color.dark_blue()
+            )
+            log_embed.add_field(name="👮 Rilasciato da", value=interaction.user.mention, inline=True)
+            log_embed.add_field(name="👤 Per l'utente", value=f"<@{self.user_id}>", inline=True)
+            log_embed.add_field(name="📝 Cliente", value=f"{self.nome.value} {self.cognome.value}", inline=False)
+            log_embed.add_field(name="🎂 Età", value=self.eta.value, inline=True)
+            log_embed.add_field(name="📊 Esito", value=self.esito.value, inline=True)
+            log_embed.timestamp = discord.utils.utcnow()
+            await log_command(self.bot, LOG_CHANNEL_ID, embed=log_embed)
     
     @bot.tree.command(name="daicertificatobalistico", description="[ARMERIA] Registra un certificato balistico")
     @app_commands.describe(utente="L'utente per cui registrare il certificato")
@@ -269,7 +354,16 @@ def setup_document_commands(bot: commands.Bot):
             await db.commit()
         
         await interaction.response.send_message(f"✅ Certificato balistico rimosso da {utente.mention}!", ephemeral=True)
-        await log_command(bot, LOG_CHANNEL_ID, f"🗑️ {interaction.user.mention} ha rimosso il certificato balistico di {utente.mention}")
+        
+        # LOG CON EMBED
+        log_embed = discord.Embed(
+            title="🗑️ LOG CERTIFICATO BALISTICO RIMOSSO",
+            color=discord.Color.red()
+        )
+        log_embed.add_field(name="👮 Rimosso da", value=interaction.user.mention, inline=True)
+        log_embed.add_field(name="👤 Utente", value=utente.mention, inline=True)
+        log_embed.timestamp = discord.utils.utcnow()
+        await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
         
         try:
             await utente.send("⚠️ Il tuo certificato balistico è stato rimosso!")
@@ -295,7 +389,16 @@ def setup_document_commands(bot: commands.Bot):
             await db.commit()
         
         await interaction.response.send_message(f"✅ Certificato medico rimosso da {utente.mention}!", ephemeral=True)
-        await log_command(bot, LOG_CHANNEL_ID, f"🗑️ {interaction.user.mention} ha rimosso il certificato medico di {utente.mention}")
+        
+        # LOG CON EMBED
+        log_embed = discord.Embed(
+            title="🗑️ LOG CERTIFICATO MEDICO RIMOSSO",
+            color=discord.Color.red()
+        )
+        log_embed.add_field(name="👮 Rimosso da", value=interaction.user.mention, inline=True)
+        log_embed.add_field(name="👤 Utente", value=utente.mention, inline=True)
+        log_embed.timestamp = discord.utils.utcnow()
+        await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
         
         try:
             await utente.send("⚠️ Il tuo certificato medico è stato rimosso!")

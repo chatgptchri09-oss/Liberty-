@@ -4,15 +4,9 @@ from discord.ext import commands
 import aiosqlite
 import os
 
-# ===================================================================================
-# COSTANTI E FUNZIONI DI SUPPORTO
-# Queste costanti e funzioni sono state dedotte dai tuoi altri file (es. commands_fines.py)
-# ===================================================================================
-
-# Definizione dei nomi usati nei tuoi altri script
 DATABASE_NAME = "economy_bot.db" 
-LOG_CHANNEL_ID = 1415297578022604850 # Esempio dal tuo codice. Assicurati sia corretto.
-STAFF_ROLE_ID = 1414738761207517214  # Esempio dal tuo codice. Assicurati sia corretto.
+LOG_CHANNEL_ID = 1415297578022604850
+STAFF_ROLE_ID = 1414738761207517214
 
 def has_role(interaction: discord.Interaction, role_id: int) -> bool:
     if not isinstance(interaction.user, discord.Member):
@@ -28,12 +22,7 @@ async def log_command(bot, channel_id: int, message: str = None, embed: discord.
             elif message:
                 await channel.send(message)
     except Exception as e:
-        # Puoi loggare l'errore se il logging fallisce, ma per ora lo ignoriamo come nel tuo codice
         pass
-
-# ===================================================================================
-# CLASSI E COMANDI PER LA RICHIESTA STIPENDIO
-# ===================================================================================
 
 class RichiestaStipendioModal(discord.ui.Modal, title="💰 Richiesta Stipendio"):
     busta_paga = discord.ui.TextInput(label="Busta Paga", placeholder="Importo in $", required=True)
@@ -45,9 +34,7 @@ class RichiestaStipendioModal(discord.ui.Modal, title="💰 Richiesta Stipendio"
         self.allegato = allegato
 
     async def on_submit(self, interaction: discord.Interaction):
-        # Validazione importo
         try:
-            # Rimuove le virgole (,) se l'utente le usa per migliaia
             amount_str = self.busta_paga.value.replace(',', '').replace('$', '').strip()
             amount = int(amount_str)
             
@@ -64,17 +51,12 @@ class RichiestaStipendioModal(discord.ui.Modal, title="💰 Richiesta Stipendio"
         )
         embed.add_field(name="👤 𝐔𝐓𝐄𝐍𝐓𝐄", value=interaction.user.mention, inline=False)
         embed.add_field(name="📆 𝐋𝐀𝐕𝐎𝐑𝐎 𝐒𝐕𝐎𝐋𝐓𝐎", value=self.lavoro.mention, inline=False)
-        # Formatta l'importo con le virgole per chiarezza (es. 50,000)
         embed.add_field(name="📥 𝐁𝐔𝐒𝐓𝐀 𝐏𝐀𝐆𝐀", value=f"${amount:,.2f}" if amount % 1 != 0 else f"${amount:,}", inline=False)
 
-
-        # Se c'è allegato immagine, la mostra nell'embed
         if self.allegato and self.allegato.content_type and self.allegato.content_type.startswith("image/"):
             embed.set_image(url=self.allegato.url)
         elif self.allegato:
-             # Se l'allegato non è un'immagine, aggiunge un link
             embed.add_field(name="🔗 Allegato Prova", value=f"[Visualizza Allegato]({self.allegato.url})", inline=False)
-
 
         view = StipendioView(self.bot, str(interaction.user.id), amount)
         await interaction.response.send_message(content="<@&1414738761207517214>", embed=embed, view=view)
@@ -89,66 +71,70 @@ class StipendioView(discord.ui.View):
 
     @discord.ui.button(label="✅ Accetta", style=discord.ButtonStyle.green)
     async def accetta(self, interaction: discord.Interaction, button: discord.ui.Button):
-        # Verifica se l'utente che clicca è STAFF
         if not has_role(interaction, STAFF_ROLE_ID):
             await interaction.response.send_message("❌ Solo gli staff possono accettare richieste!", ephemeral=True)
             return
 
-        # Connessione al database e aggiornamento del conto bancario
         async with aiosqlite.connect(DATABASE_NAME) as db:
-            # 1. Recupera il saldo attuale
             async with db.execute("SELECT bank FROM users WHERE user_id = ?", (self.user_id,)) as cursor:
                 user = await cursor.fetchone()
 
             if user:
-                # 2. Calcola il nuovo saldo
                 new_bank = user[0] + self.amount
-                # 3. Aggiorna il database
                 await db.execute("UPDATE users SET bank = ? WHERE user_id = ?", (new_bank, self.user_id))
                 await db.commit()
             else:
-                 # Se l'utente non è nel DB, crealo con il saldo iniziale e lo stipendio
-                await db.execute("INSERT OR IGNORE INTO users (user_id, bank) VALUES (?, ?)", (self.user_id, self.amount + 20000)) # Assumendo 20000 come saldo iniziale
+                await db.execute("INSERT OR IGNORE INTO users (user_id, bank) VALUES (?, ?)", (self.user_id, self.amount + 20000))
                 await db.commit()
         
-        # Invia messaggio privato all'utente
         try:
             user = await self.bot.fetch_user(int(self.user_id))
             await user.send(f"✅ La tua richiesta stipendio di **${self.amount:,}** è stata accettata da {interaction.user.mention}!")
         except Exception:
             pass
 
-        # Cancella il messaggio originale e invia la conferma
         await interaction.message.delete()
         await interaction.response.send_message(f"✅ Richiesta stipendio accettata e **${self.amount:,}** erogati per <@{self.user_id}>!", ephemeral=True)
         
-        # Log
-        await log_command(self.bot, LOG_CHANNEL_ID, f"💰 {interaction.user.mention} ha accettato stipendio di ${self.amount:,} per <@{self.user_id}>")
+        # LOG CON EMBED
+        log_embed = discord.Embed(
+            title="💰 LOG STIPENDIO ACCETTATO",
+            color=discord.Color.green()
+        )
+        log_embed.add_field(name="👮 Approvato da", value=interaction.user.mention, inline=True)
+        log_embed.add_field(name="👤 Dipendente", value=f"<@{self.user_id}>", inline=True)
+        log_embed.add_field(name="💵 Importo", value=f"${self.amount:,}", inline=False)
+        log_embed.timestamp = discord.utils.utcnow()
+        await log_command(self.bot, LOG_CHANNEL_ID, embed=log_embed)
 
     @discord.ui.button(label="❌ Rifiuta", style=discord.ButtonStyle.red)
     async def rifiuta(self, interaction: discord.Interaction, button: discord.ui.Button):
-        # Verifica se l'utente che clicca è STAFF
         if not has_role(interaction, STAFF_ROLE_ID):
             await interaction.response.send_message("❌ Solo gli staff possono rifiutare richieste!", ephemeral=True)
             return
 
-        # Invia messaggio privato all'utente (opzionale: potresti voler inviare anche qui un messaggio)
         try:
             user = await self.bot.fetch_user(int(self.user_id))
             await user.send(f"❌ La tua richiesta stipendio di **${self.amount:,}** è stata rifiutata da {interaction.user.mention}.")
         except Exception:
             pass
 
-        # Cancella il messaggio originale e invia la conferma
         await interaction.message.delete()
         await interaction.response.send_message(f"❌ Richiesta stipendio rifiutata per <@{self.user_id}>!", ephemeral=True)
         
-        # Log
-        await log_command(self.bot, LOG_CHANNEL_ID, f"❌ {interaction.user.mention} ha rifiutato stipendio per <@{self.user_id}>")
+        # LOG CON EMBED
+        log_embed = discord.Embed(
+            title="❌ LOG STIPENDIO RIFIUTATO",
+            color=discord.Color.red()
+        )
+        log_embed.add_field(name="👮 Rifiutato da", value=interaction.user.mention, inline=True)
+        log_embed.add_field(name="👤 Dipendente", value=f"<@{self.user_id}>", inline=True)
+        log_embed.add_field(name="💵 Importo Richiesto", value=f"${self.amount:,}", inline=False)
+        log_embed.timestamp = discord.utils.utcnow()
+        await log_command(self.bot, LOG_CHANNEL_ID, embed=log_embed)
 
 
 def setup_salary_commands(bot: commands.Bot):
-    """Registra i comandi al tree del bot e li rende disponibili."""
     
     @bot.tree.command(name="richiesta-stipendio", description="Richiedi uno stipendio")
     @app_commands.describe(
@@ -156,13 +142,22 @@ def setup_salary_commands(bot: commands.Bot):
         allegato="Carica una prova (immagine, facoltativo)"
     )
     async def richiesta_stipendio(interaction: discord.Interaction, lavoro_svolto: discord.Role, allegato: discord.Attachment = None):
-        # Controllo ruolo: verifica se l'utente possiede il ruolo per cui richiede lo stipendio
         if lavoro_svolto not in interaction.user.roles:
             await interaction.response.send_message(
                 f"❌ Non puoi richiedere uno stipendio per **{lavoro_svolto.name}** perché non hai questo ruolo!",
                 ephemeral=True
             )
-            await log_command(bot, LOG_CHANNEL_ID, f"⚠️ {interaction.user.mention} ha tentato richiesta stipendio per {lavoro_svolto.name} senza avere il ruolo")
+            
+            # LOG TENTATIVO FALLITO CON EMBED
+            log_embed = discord.Embed(
+                title="⚠️ LOG RICHIESTA STIPENDIO NEGATA",
+                color=discord.Color.orange()
+            )
+            log_embed.add_field(name="👤 Utente", value=interaction.user.mention, inline=True)
+            log_embed.add_field(name="💼 Lavoro Richiesto", value=lavoro_svolto.name, inline=True)
+            log_embed.add_field(name="❌ Motivo", value="Ruolo non posseduto", inline=False)
+            log_embed.timestamp = discord.utils.utcnow()
+            await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
             return
 
         modal = RichiestaStipendioModal(bot, lavoro_svolto, allegato)

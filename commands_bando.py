@@ -169,23 +169,29 @@ def setup_bando_commands(bot: commands.Bot):
         
         staff_id = interaction.user.id
 
+        # --- Logica RIFIUTATO ---
         if esito.value == "RIFIUTATO":
             modal = RifiutoMotivoModal(cittadino, lavoro, staff_id) 
             await interaction.response.send_modal(modal)
             return 
         
+        # --- Logica ASSUNTO ---
+        
         await interaction.response.defer(ephemeral=True, thinking=True)
         
         roles_to_add = []
         
+        # 1. Aggiungi il Ruolo Lavoro Principale
         if lavoro not in cittadino.roles:
             roles_to_add.append(lavoro)
         
+        # 2. Aggiungi il Ruolo Grado (se specificato)
         if grado and grado not in cittadino.roles:
             roles_to_add.append(grado)
 
         log_success = "Nessun ruolo aggiunto (Già posseduti)."
         
+        # 3. Esegui l'aggiunta dei ruoli
         if roles_to_add:
             try:
                 reason = f"Assunzione tramite bando da parte di {interaction.user.name}. Ruoli: {', '.join([r.name for r in roles_to_add])}"
@@ -198,6 +204,9 @@ def setup_bando_commands(bot: commands.Bot):
                 await interaction.followup.send(f"❌ Errore sconosciuto nell'aggiunta ruoli: {e}", ephemeral=True)
                 return
 
+
+        # 4. Creazione dell'Embed di Notifica (Pubblico)
+        
         embed = discord.Embed(
             title="<a:megafono:1431932605984542720> 𝐄𝐬𝐢𝐭𝐨 𝐛𝐚𝐧𝐝𝐨 <a:si:1433573748891582566>",
             color=discord.Color.green()
@@ -222,9 +231,10 @@ def setup_bando_commands(bot: commands.Bot):
         
         await interaction.channel.send(embed=embed)
         
+        # 5. Risposta finale (Ephemera)
         await interaction.followup.send(f"✅ Bando Assunto inviato con successo e ruoli aggiunti a {cittadino.mention}.", ephemeral=True)
         
-        # LOG CON EMBED
+        # 6. Log Generale CON EMBED
         log_embed = discord.Embed(
             title="💰 LOG BANDO ASSUNZIONE",
             color=discord.Color.green()

@@ -285,7 +285,6 @@ def setup_inventory_commands(bot: commands.Bot):
         if not has_role(interaction, STAFF_ROLE_ID):
             await interaction.response.send_message(
                 f"❌ Solo lo staff può usare questo comando! (Richiesto: <@&{STAFF_ROLE_ID}>)", 
-                ephemeral=True
                 
                 log_embed = discord.Embed(
     title="➕ LOG ITEM DATO",

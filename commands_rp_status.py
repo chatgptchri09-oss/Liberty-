@@ -81,10 +81,7 @@ def setup_rpoff_commands(bot: commands.Bot):
         await asyncio.sleep(1)
         await channel.send("<@&1414752091607535727> NON PERDETEVI IL TURNO! TERMINA IL TUO CON `/turno`")
         
-        # Log dell'azione
-        log_msg = f"🔴 {interaction.user.mention} ha terminato la sessione RP con `/rpoff`"
-        await log_command(bot, LOG_CHANNEL_ID, log_msg)
-    
+
     @bot.tree.command(name="rpon", description="[STAFF] Avvia la sessione di roleplay")
     @app_commands.describe(idps4="L'ID PS4 dell'utente che avvia la sessione")
     async def rpon(interaction: discord.Interaction, idps4: str):
@@ -137,10 +134,4 @@ def setup_rpoff_commands(bot: commands.Bot):
         
         # Terzo messaggio: non perdetevi la sessione
         await asyncio.sleep(1)
-        await channel.send(f"<@&{CITIZEN_ROLE_ID}> NON PERDETEVI LA SESSIONE! INIZIA IL TUO TURNO CON `/turno`")
-        
-        # Log dell'azione
-        log_msg = f"🟢 {interaction.user.mention} ha avviato la sessione RP con `/rpon` (ID PS4: {idps4})"
-        await log_command(bot, LOG_CHANNEL_ID, log_msg)
-    
-    print("✅ Comandi /rpoff e /rpon caricati")
+        await channel.send(f"<@&{CITIZEN_ROLE_ID}> NON PERDETEVI LA SESSIONE! INIZIA IL TUO TURNO CON `/turno`"

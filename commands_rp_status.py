@@ -134,4 +134,4 @@ def setup_rpoff_commands(bot: commands.Bot):
         
         # Terzo messaggio: non perdetevi la sessione
         await asyncio.sleep(1)
-        await channel.send(f"<@&{CITIZEN_ROLE_ID}> NON PERDETEVI LA SESSIONE! INIZIA IL TUO TURNO CON `/turno`"
+        await channel.send(f"<@&{CITIZEN_ROLE_ID}> NON PERDETEVI LA SESSIONE! INIZIA IL TUO TURNO CON `/turno`")

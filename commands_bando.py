@@ -72,9 +72,6 @@ class RifiutoMotivoModal(discord.ui.Modal, title="Motivo del Rifiuto Bando"):
         await interaction.channel.send(embed=embed)
         
         await interaction.followup.send(f"✅ Bando Rifiutato inviato con successo.", ephemeral=True)
-        
-    
-        )
 
 # ====================
 # SETUP COMANDI BANDO

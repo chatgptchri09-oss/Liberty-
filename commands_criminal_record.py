@@ -92,15 +92,7 @@ def setup_criminal_record_commands(bot: commands.Bot):
         
         await interaction.followup.send(embed=embed, ephemeral=True)
         
-        # LOG CON EMBED
-        log_embed = discord.Embed(
-            title="📂 LOG CONTROLLO FEDINA PENALE",
-            color=discord.Color.blue()
-        )
-        log_embed.add_field(name="Utente", value=interaction.user.mention, inline=False)
-        log_embed.timestamp = discord.utils.utcnow()
-        await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
-    
+        
     @bot.tree.command(name="cercapersona", description="[L.F.D] Cerca una persona nel database criminale")
     @app_commands.describe(
         nome="Nome della persona da cercare",
@@ -162,17 +154,7 @@ def setup_criminal_record_commands(bot: commands.Bot):
         
         await interaction.followup.send(embed=embed, ephemeral=True)
         
-        # LOG CON EMBED
-        log_embed = discord.Embed(
-            title="🔍 LOG RICERCA PERSONA",
-            color=discord.Color.orange()
-        )
-        log_embed.add_field(name="Agente", value=interaction.user.mention, inline=True)
-        log_embed.add_field(name="Persona cercata", value=nome_completo, inline=True)
-        log_embed.add_field(name="Risultati", value=f"Multe: {len(fines)} | Arresti: {len(arrests)}", inline=False)
-        log_embed.timestamp = discord.utils.utcnow()
-        await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
-    
+        
     @bot.tree.command(name="puliziafedinapenale", description="[L.F.D] Pulisce la fedina penale di un utente")
     @app_commands.describe(utente="L'utente a cui pulire la fedina penale")
     async def puliziafedinapenale(interaction: discord.Interaction, utente: discord.Member):
@@ -219,17 +201,4 @@ def setup_criminal_record_commands(bot: commands.Bot):
             f"✅ Fedina penale di {utente.mention} pulita con successo!\n{dm_status}",
             ephemeral=True
         )
-        
-        # LOG CON EMBED
-        log_embed = discord.Embed(
-            title="🧹 LOG PULIZIA FEDINA PENALE",
-            color=discord.Color.green()
-        )
-        log_embed.add_field(name="Agente", value=interaction.user.mention, inline=True)
-        log_embed.add_field(name="Cittadino", value=utente.mention, inline=True)
-        log_embed.add_field(name="Multe Rimosse", value=str(len(fines)), inline=True)
-        log_embed.add_field(name="Arresti Rimossi", value=str(len(arrests)), inline=True)
-        log_embed.timestamp = discord.utils.utcnow()
-        await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
-    
-    print("✅ Comandi fedina penale caricati")
+  

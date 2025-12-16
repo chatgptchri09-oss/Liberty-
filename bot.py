@@ -248,6 +248,7 @@ from commands_rp_status import setup_rpoff_commands
 from commands_arrests import setup_arrest_commands
 from commands_criminal_record import setup_criminal_record_commands
 from commands_properties import setup_property_commands
+from commands_wipepg import setup_wipepg_commands
 
 
 
@@ -269,6 +270,7 @@ setup_rpoff_commands(bot)
 setup_arrest_commands(bot)
 setup_criminal_record_commands(bot)
 setup_property_commands(bot)
+setup_wipepg_commands(bot)
 
 
 # ====================

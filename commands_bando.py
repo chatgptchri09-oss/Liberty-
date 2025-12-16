@@ -73,21 +73,7 @@ class RifiutoMotivoModal(discord.ui.Modal, title="Motivo del Rifiuto Bando"):
         
         await interaction.followup.send(f"✅ Bando Rifiutato inviato con successo.", ephemeral=True)
         
-        # LOG CON EMBED
-        log_embed = discord.Embed(
-            title="🚫 LOG BANDO RIFIUTATO",
-            color=discord.Color.red()
-        )
-        log_embed.add_field(name="👮 Staff", value=f"{interaction.user.mention}", inline=True)
-        log_embed.add_field(name="👤 Candidato", value=f"{self.cittadino.mention}", inline=True)
-        log_embed.add_field(name="💼 Lavoro", value=self.lavoro.name, inline=False)
-        log_embed.add_field(name="📝 Motivo", value=motivo, inline=False)
-        log_embed.timestamp = discord.utils.utcnow()
-        
-        await log_command(
-            interaction.client,
-            LOG_CHANNEL_ID, 
-            embed=log_embed
+    
         )
 
 # ====================
@@ -117,14 +103,7 @@ def setup_bando_commands(bot: commands.Bot):
             
             await interaction.response.send_message(embed=embed)
             
-            # LOG CON EMBED
-            log_embed = discord.Embed(
-                title="🟢 LOG BANDO APERTO",
-                color=discord.Color.green()
-            )
-            log_embed.add_field(name="👮 Eseguito da", value=interaction.user.mention, inline=False)
-            log_embed.timestamp = discord.utils.utcnow()
-            await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
+    
             
         elif stato.value == "CHIUSO":
             embed = discord.Embed(
@@ -136,14 +115,7 @@ def setup_bando_commands(bot: commands.Bot):
             
             await interaction.response.send_message(embed=embed)
             
-            # LOG CON EMBED
-            log_embed = discord.Embed(
-                title="🔴 LOG BANDO CHIUSO",
-                color=discord.Color.red()
-            )
-            log_embed.add_field(name="👮 Eseguito da", value=interaction.user.mention, inline=False)
-            log_embed.timestamp = discord.utils.utcnow()
-            await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
+            
     
     @bot.tree.command(name="esito-bando", description="[STAFF] Gestisce l'esito di un bando lavorativo.")
     @app_commands.describe(
@@ -234,21 +206,5 @@ def setup_bando_commands(bot: commands.Bot):
         # 5. Risposta finale (Ephemera)
         await interaction.followup.send(f"✅ Bando Assunto inviato con successo e ruoli aggiunti a {cittadino.mention}.", ephemeral=True)
         
-        # 6. Log Generale CON EMBED
-        log_embed = discord.Embed(
-            title="💰 LOG BANDO ASSUNZIONE",
-            color=discord.Color.green()
-        )
-        log_embed.add_field(name="👮 Staff", value=interaction.user.mention, inline=True)
-        log_embed.add_field(name="👤 Assunto", value=cittadino.mention, inline=True)
-        log_embed.add_field(name="💼 Lavoro", value=lavoro.name, inline=False)
-        if grado:
-            log_embed.add_field(name="🎖️ Grado", value=grado.name, inline=False)
-        log_embed.add_field(name="📋 Status", value=log_success, inline=False)
-        log_embed.timestamp = discord.utils.utcnow()
-        
-        await log_command(
-            bot, 
-            LOG_CHANNEL_ID, 
-            embed=log_embed
+       
         )

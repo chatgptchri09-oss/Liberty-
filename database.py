@@ -6,6 +6,25 @@ DATABASE_NAME = "economy_bot.db"
 
 async def init_db():
     async with aiosqlite.connect(DATABASE_NAME) as db:
+        
+        # ... tutte le tue tabelle esistenti ...
+        
+        # TABELLA PROPRIETÀ (NUOVA)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS properties (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
+                owner_name TEXT NOT NULL,
+                owner_surname TEXT NOT NULL,
+                owner_age TEXT NOT NULL,
+                property_name TEXT NOT NULL,
+                property_type TEXT NOT NULL,
+                assigned_by TEXT NOT NULL,
+                assigned_at TEXT NOT NULL
+            )
+        """)
+        
+        await db.commit()
         await db.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 user_id TEXT PRIMARY KEY,

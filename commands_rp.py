@@ -106,15 +106,7 @@ def setup_rp_commands(bot: commands.Bot):
 
             await interaction.response.send_message(embed=embed)
             
-            # LOG CON EMBED
-            log_embed = discord.Embed(
-                title="🟢 LOG INIZIO TURNO",
-                color=discord.Color.green()
-            )
-            log_embed.add_field(name="👤 Dipendente", value=interaction.user.mention, inline=True)
-            log_embed.add_field(name="💼 Lavoro", value=lavoro.name, inline=True)
-            log_embed.timestamp = discord.utils.utcnow()
-            await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
+            
 
         elif stato == "fine":
             async with aiosqlite.connect(DATABASE_NAME) as db:
@@ -155,17 +147,6 @@ def setup_rp_commands(bot: commands.Bot):
 
             await interaction.response.send_message(embed=embed)
             
-            # LOG CON EMBED
-            log_embed = discord.Embed(
-                title="🔴 LOG FINE TURNO",
-                color=discord.Color.red()
-            )
-            log_embed.add_field(name="👤 Dipendente", value=interaction.user.mention, inline=True)
-            log_embed.add_field(name="💼 Lavoro", value=lavoro.name, inline=True)
-            log_embed.add_field(name="⏱️ Durata", value=f"{hours}h {minutes}min", inline=False)
-            log_embed.timestamp = discord.utils.utcnow()
-            await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
-
 
     @bot.tree.command(name="anonimo", description="Invia un messaggio anonimo")
     @app_commands.describe(messaggio="Il messaggio da inviare anonimamente")

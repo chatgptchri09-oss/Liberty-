@@ -222,17 +222,7 @@ def setup_rp_commands(bot: commands.Bot):
         await interaction.response.send_message("✅ Azione RP inviata!", ephemeral=True)
         await interaction.channel.send(embed=embed)
         
-        # LOG CON EMBED
-        log_embed = discord.Embed(
-            title="🎬 LOG AZIONE RP",
-            color=discord.Color.purple()
-        )
-        log_embed.add_field(name="👤 Eseguita da", value=interaction.user.mention, inline=False)
-        log_embed.add_field(name="🎭 Azione", value=azione[:1024], inline=False)
-        log_embed.add_field(name="📍 Canale", value=interaction.channel.mention, inline=False)
-        log_embed.timestamp = discord.utils.utcnow()
-        await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
-
+    
     @bot.tree.command(name="revoca-patente", description="[LFD] Rimuovi la licenza di guida a un utente.")
     @app_commands.describe(utente="L'utente a cui revocare la patente")
     async def revoca_patente(interaction: discord.Interaction, utente: discord.Member):

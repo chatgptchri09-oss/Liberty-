@@ -202,6 +202,3 @@ def setup_bando_commands(bot: commands.Bot):
         
         # 5. Risposta finale (Ephemera)
         await interaction.followup.send(f"✅ Bando Assunto inviato con successo e ruoli aggiunti a {cittadino.mention}.", ephemeral=True)
-        
-       
-        )

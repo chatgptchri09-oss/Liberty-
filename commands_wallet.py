@@ -31,15 +31,7 @@ def setup_wallet_commands(bot: commands.Bot):
         async def show_button(self, interaction: discord.Interaction, button: discord.ui.Button):
             await interaction.response.send_message(self.message, embed=self.embed)
             
-            # LOG CON EMBED
-            log_embed = discord.Embed(
-                title="📢 LOG DOCUMENTO MOSTRATO",
-                color=discord.Color.blue()
-            )
-            log_embed.add_field(name="Mostrato da", value=interaction.user.mention, inline=True)
-            log_embed.add_field(name="Tipo", value=self.embed.title, inline=True)
-            log_embed.timestamp = discord.utils.utcnow()
-            await log_command(self.bot, LOG_CHANNEL_ID, embed=log_embed)
+            
 
     class WalletSelect(discord.ui.Select):
         def __init__(self, bot: commands.Bot, user_id: str):
@@ -213,12 +205,3 @@ def setup_wallet_commands(bot: commands.Bot):
         view = discord.ui.View()
         view.add_item(WalletSelect(bot, str(interaction.user.id)))
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
-        
-        # LOG CON EMBED
-        log_embed = discord.Embed(
-            title="<:Portafoglio:1431695497034203256> LOG PORTAFOGLIO APERTO",
-            color=discord.Color.gold()
-        )
-        log_embed.add_field(name="Aperto da", value=interaction.user.mention, inline=True)
-        log_embed.timestamp = discord.utils.utcnow()
-        await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)

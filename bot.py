@@ -194,10 +194,7 @@ class MoneyTransferModal(Modal, title="Trasferimento di Denaro"):
             ephemeral=True
         )
         
-        # 6. Log
-        log_msg = f"🏦 {interaction.user.mention} ha {self.action} ${amount:,}"
-        await log_command(LOG_CHANNEL_ID, log_msg)
-
+        
 
 class BancomatView(View):
     def __init__(self, user_id: str):
@@ -349,103 +346,20 @@ async def controlla_bancomat(interaction: discord.Interaction, utente: discord.M
         )
         
         # 6. Log
-        log_msg = f"👀 {checker_member.mention} ha controllato il bancomat di {utente.mention} (Visibile a tutti)."
-        await log_command(LOG_CHANNEL_ID, log_msg)
+        log_embed = discord.Embed(
+            title="👁️ LOG CONTROLLO BANCOMAT",
+            color=discord.Color.gold()
+        )
+        log_embed.add_field(name="👮 Controllato da", value=checker_member.mention, inline=True)
+        log_embed.add_field(name="👤 Utente Controllato", value=utente.mention, inline=True)
+        log_embed.add_field(name="💵 Contanti", value=f"${user_data['cash']:,}", inline=False)
+        log_embed.add_field(name="🏦 Banca", value=f"${user_data['bank']:,}", inline=False)
+        log_embed.timestamp = discord.utils.utcnow()
+        await log_command(LOG_CHANNEL_ID, embed=log_embed)
 
     except Exception as e:
         print(f"Errore in /controlla-bancomat: {e}")
         await interaction.followup.send("❌ Si è verificato un errore nel controllo del bancomat.", ephemeral=True)
-
-@bot.tree.command(name="help", description="Mostra la lista aggiornata dei comandi del bot")
-async def help_command(interaction: discord.Interaction):
-    embed = discord.Embed(
-        title="📚 LISTA COMANDI DEL BOT",
-        description="Ecco tutti i comandi disponibili nel server, suddivisi per categoria. Usa quelli del tuo lavoro!",
-        color=discord.Color.blurple()
-    )
-
-    embed.add_field(
-        name="👮‍♂️ COMANDI DI POLIZIA",
-        value=(
-            "**/ammanetto** – Ammanetta un cittadino.\n"
-            "**/controllatarga** – Controlla la targa di un veicolo.\n"
-            "**/controllomulta** – Mostra le multe di un cittadino.\n"
-            "**/dissequestraveicolo** – Rimuove un sequestro da un veicolo.\n"
-            "**/modificaveicolo** – Modifica i dati di un veicolo.\n"
-            "**/multa** – Emetti una multa.\n"
-            "**/revoca-patente** – Revoca la patente di un cittadino.\n"
-            "**/sequestraveicolo** – Sequestra un veicolo."
-        ),
-        inline=False
-    )
-
-    embed.add_field(
-        name="🛠️ COMANDI OFFICINA",
-        value=(
-            "**/assicurazione** – Gestisci o verifica un’assicurazione.\n"
-            "**/modificaveicolo** – Modifica i dati di un veicolo (solo officina)."
-        ),
-        inline=False
-    )
-
-    embed.add_field(
-        name="📋 COMANDI DOCUMENTI",
-        value=(
-            "**/documento** – Mostra il tuo documento d’identità.\n"
-            "**/dailibretto** – Rilascia un libretto di circolazione.\n"
-            "**/daipatente** – Rilascia una patente.\n"
-            "**/daiportodarmi** – Consegna un porto d’armi.\n"
-            "**/daicertificatobalistico** – Rilascia un certificato balistico.\n"
-            "**/daicertificatomedico** – Rilascia un certificato medico.\n"
-            "**/rimuovilibretto** – Rimuove un libretto di circolazione.\n"
-            "**/rimuovicertificatobalistico** – Revoca un certificato balistico.\n"
-            "**/rimuovicertificatomedico** – Revoca un certificato medico."
-        ),
-        inline=False
-    )
-
-    embed.add_field(
-        name="💵 COMANDI ECONOMICI",
-        value=(
-            "**/bancomat** – Accedi al tuo conto bancario.\n"
-            "**/bonifico** – Invia un bonifico a un altro cittadino.\n"
-            "**/portafoglio** – Mostra i tuoi contanti.\n"
-            "**/controlla-bancomat** – Controlla il conto di un altro utente.\n"
-            "**/fattura** – Emetti una fattura lavorativa.\n"
-            "**/pagafattura** – Paga una fattura ricevuta.\n"
-            "**/pagamulta** – Paga una multa.\n"
-            "**/richiesta-stipendio** – Richiedi il tuo stipendio lavorativo."
-        ),
-        inline=False
-    )
-
-    embed.add_field(
-        name="🛍️ COMANDI INVENTARIO E MERCATO",
-        value=(
-            "**/invzaino** – Mostra il contenuto del tuo zaino.\n"
-            "**/itemshop** – Mostra gli oggetti acquistabili.\n"
-            "**/dai-item** – Dai un oggetto a un altro cittadino.\n"
-            "**/utilizza-item** – Usa un oggetto dal tuo zaino.\n"
-            "**/vendizaino** – Vendi un oggetto dal tuo zaino.\n"
-            "**/item-sell** – Vendi un oggetto del negozio."
-        ),
-        inline=False
-    )
-
-    embed.add_field(
-        name="🎭 RP / SOCIAL",
-        value=(
-            "**/me** – Descrivi un’azione RP.\n"
-            "**/anonimo** – Invia un messaggio anonimo.\n"
-            "**/nascondo** – Nasconditi per evitare di essere localizzato.\n"
-            "**/turno** – Inizia o termina il turno lavorativo."
-        ),
-        inline=False
-    )
-
-    embed.set_footer(text="📜 Usa /help per consultare la lista dei comandi in qualsiasi momento.")
-
-    await interaction.response.send_message(embed=embed, ephemeral=True)
 
 # ====================
 # WEBSERVER H24

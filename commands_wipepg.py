@@ -84,6 +84,25 @@ class WipeConfirmView(discord.ui.View):
         self.target_user = target_user
         self.admin_user = admin_user
 
+    async def safe_delete(self, db, table_name: str, user_id: str) -> int:
+        """Elimina dati da una tabella in modo sicuro, anche se la tabella non esiste"""
+        try:
+            cursor = await db.execute(f"DELETE FROM {table_name} WHERE user_id = ?", (user_id,))
+            return cursor.rowcount
+        except:
+            return 0
+
+    async def safe_delete_double(self, db, table_name: str, user_id: str, column1: str, column2: str) -> int:
+        """Elimina dati da una tabella con due colonne possibili (es. fatture)"""
+        try:
+            cursor = await db.execute(
+                f"DELETE FROM {table_name} WHERE {column1} = ? OR {column2} = ?",
+                (user_id, user_id)
+            )
+            return cursor.rowcount
+        except:
+            return 0
+
     @discord.ui.button(label="✅ Conferma", style=discord.ButtonStyle.danger)
     async def confirm_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id != self.admin_user.id:
@@ -97,67 +116,66 @@ class WipeConfirmView(discord.ui.View):
 
         try:
             async with aiosqlite.connect(DATABASE_NAME) as db:
-                # 1. RESET SOLDI (a $20,000 iniziali)
-                await db.execute(
-                    "UPDATE users SET cash = 0, bank = 20000, has_backpack = 0 WHERE user_id = ?",
-                    (user_id,)
-                )
-                deleted_data["soldi"] = "Reset a $20,000"
+                # 1. RESET SOLDI (a $20,000 iniziali) - Sempre eseguito
+                try:
+                    # Prima controlla se l'utente esiste nella tabella users
+                    cursor = await db.execute("SELECT user_id FROM users WHERE user_id = ?", (user_id,))
+                    exists = await cursor.fetchone()
+                    
+                    if exists:
+                        # Utente esiste, aggiorna
+                        await db.execute(
+                            "UPDATE users SET cash = 0, bank = 20000, has_backpack = 0 WHERE user_id = ?",
+                            (user_id,)
+                        )
+                    else:
+                        # Utente non esiste, crealo con saldo iniziale
+                        await db.execute(
+                            "INSERT INTO users (user_id, cash, bank, has_backpack) VALUES (?, 0, 20000, 0)",
+                            (user_id,)
+                        )
+                    deleted_data["soldi"] = "Reset a $20,000"
+                except Exception as e:
+                    deleted_data["soldi"] = f"Errore: {str(e)}"
 
                 # 2. ELIMINA INVENTARIO
-                cursor = await db.execute("DELETE FROM inventory WHERE user_id = ?", (user_id,))
-                deleted_data["inventory"] = cursor.rowcount
+                deleted_data["inventory"] = await self.safe_delete(db, "inventory", user_id)
 
                 # 3. ELIMINA PROPRIETÀ
-                cursor = await db.execute("DELETE FROM properties WHERE user_id = ?", (user_id,))
-                deleted_data["properties"] = cursor.rowcount
+                deleted_data["properties"] = await self.safe_delete(db, "properties", user_id)
 
                 # 4. ELIMINA DOCUMENTI
-                cursor = await db.execute("DELETE FROM documents WHERE user_id = ?", (user_id,))
-                deleted_data["documents"] = cursor.rowcount
+                deleted_data["documents"] = await self.safe_delete(db, "documents", user_id)
 
                 # 5. ELIMINA PATENTI
-                cursor = await db.execute("DELETE FROM licenses WHERE user_id = ?", (user_id,))
-                deleted_data["licenses"] = cursor.rowcount
+                deleted_data["licenses"] = await self.safe_delete(db, "licenses", user_id)
 
                 # 6. ELIMINA PORTO D'ARMI
-                cursor = await db.execute("DELETE FROM gun_licenses WHERE user_id = ?", (user_id,))
-                deleted_data["gun_licenses"] = cursor.rowcount
+                deleted_data["gun_licenses"] = await self.safe_delete(db, "gun_licenses", user_id)
 
                 # 7. ELIMINA LIBRETTI VEICOLI
-                cursor = await db.execute("DELETE FROM vehicle_registrations WHERE user_id = ?", (user_id,))
-                deleted_data["vehicle_registrations"] = cursor.rowcount
+                deleted_data["vehicle_registrations"] = await self.safe_delete(db, "vehicle_registrations", user_id)
 
                 # 8. ELIMINA CERTIFICATI MEDICI
-                cursor = await db.execute("DELETE FROM medical_certificates WHERE user_id = ?", (user_id,))
-                deleted_data["medical_certificates"] = cursor.rowcount
+                deleted_data["medical_certificates"] = await self.safe_delete(db, "medical_certificates", user_id)
 
                 # 9. ELIMINA CERTIFICATI BALISTICI
-                cursor = await db.execute("DELETE FROM ballistic_certificates WHERE user_id = ?", (user_id,))
-                deleted_data["ballistic_certificates"] = cursor.rowcount
+                deleted_data["ballistic_certificates"] = await self.safe_delete(db, "ballistic_certificates", user_id)
 
                 # 10. ELIMINA MULTE
-                cursor = await db.execute("DELETE FROM fines WHERE user_id = ?", (user_id,))
-                deleted_data["fines"] = cursor.rowcount
+                deleted_data["fines"] = await self.safe_delete(db, "fines", user_id)
 
                 # 11. ELIMINA FATTURE (sia come cliente che come sender)
-                cursor = await db.execute(
-                    "DELETE FROM invoices WHERE client_id = ? OR sender_id = ?",
-                    (user_id, user_id)
-                )
-                deleted_data["invoices"] = cursor.rowcount
+                deleted_data["invoices"] = await self.safe_delete_double(db, "invoices", user_id, "client_id", "sender_id")
 
                 # 12. ELIMINA ARRESTI
-                cursor = await db.execute("DELETE FROM arrests WHERE user_id = ?", (user_id,))
-                deleted_data["arrests"] = cursor.rowcount
+                deleted_data["arrests"] = await self.safe_delete(db, "arrests", user_id)
 
                 # 13. ELIMINA FEDINA PENALE
-                cursor = await db.execute("DELETE FROM criminal_records WHERE user_id = ?", (user_id,))
-                deleted_data["criminal_records"] = cursor.rowcount
+                deleted_data["criminal_records"] = await self.safe_delete(db, "criminal_records", user_id)
 
                 # 14. ELIMINA TURNI DI LAVORO
-                cursor = await db.execute("DELETE FROM work_shifts WHERE user_id = ?", (user_id,))
-                deleted_data["work_shifts"] = cursor.rowcount
+                deleted_data["work_shifts"] = await self.safe_delete(db, "work_shifts", user_id)
 
                 await db.commit()
 
@@ -231,8 +249,8 @@ class WipeConfirmView(discord.ui.View):
 
         except Exception as e:
             error_embed = discord.Embed(
-                title="❌ ERRORE",
-                description=f"Si è verificato un errore durante il wipe:\n```{str(e)}```",
+                title="❌ ERRORE CRITICO",
+                description=f"Si è verificato un errore imprevisto durante il wipe:\n```{str(e)}```",
                 color=discord.Color.red()
             )
             await interaction.followup.send(embed=error_embed, ephemeral=True)

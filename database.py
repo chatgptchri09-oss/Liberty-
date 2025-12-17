@@ -6,13 +6,6 @@ DATABASE_NAME = "economy_bot.db"
 
 async def init_db():
     async with aiosqlite.connect(DATABASE_NAME) as db:
-        
-
-async def init_db():
-    async with aiosqlite.connect(DATABASE_NAME) as db:
-        
-        # ... (tutte le altre tabelle esistenti) ...
-        
         # NUOVA TABELLA PER DEPOSITI FAZIONI
         await db.execute("""
             CREATE TABLE IF NOT EXISTS deposit_inventory (
@@ -24,9 +17,7 @@ async def init_db():
             )
         """)
         
-        await db.commit()
-    
-    print("✅ Database inizializzato con successo (inclusa tabella deposit_inventory)")
+        # TABELLA PROPRIETÀ
         await db.execute("""
             CREATE TABLE IF NOT EXISTS properties (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -41,7 +32,7 @@ async def init_db():
             )
         """)
         
-        await db.commit()
+        # TABELLA UTENTI
         await db.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 user_id TEXT PRIMARY KEY,
@@ -51,6 +42,7 @@ async def init_db():
             )
         """)
         
+        # TABELLA FATTURE
         await db.execute("""
             CREATE TABLE IF NOT EXISTS invoices (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -64,6 +56,7 @@ async def init_db():
             )
         """)
         
+        # TABELLA MULTE
         await db.execute("""
             CREATE TABLE IF NOT EXISTS fines (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -78,6 +71,7 @@ async def init_db():
             )
         """)
         
+        # TABELLA ARRESTI
         await db.execute("""
             CREATE TABLE IF NOT EXISTS arrests (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -91,6 +85,7 @@ async def init_db():
             )
         """)
         
+        # TABELLA DOCUMENTI
         await db.execute("""
             CREATE TABLE IF NOT EXISTS documents (
                 user_id TEXT PRIMARY KEY,
@@ -103,6 +98,7 @@ async def init_db():
             )
         """)
         
+        # TABELLA PATENTI
         await db.execute("""
             CREATE TABLE IF NOT EXISTS licenses (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -113,6 +109,7 @@ async def init_db():
             )
         """)
         
+        # TABELLA PORTO D'ARMI
         await db.execute("""
             CREATE TABLE IF NOT EXISTS gun_licenses (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -124,6 +121,7 @@ async def init_db():
             )
         """)
         
+        # TABELLA VEICOLI
         await db.execute("""
             CREATE TABLE IF NOT EXISTS vehicle_registrations (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -138,6 +136,7 @@ async def init_db():
             )
         """)
         
+        # TABELLA CERTIFICATI MEDICI
         await db.execute("""
             CREATE TABLE IF NOT EXISTS medical_certificates (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -149,6 +148,7 @@ async def init_db():
             )
         """)
         
+        # TABELLA CERTIFICATI BALISTICI
         await db.execute("""
             CREATE TABLE IF NOT EXISTS ballistic_certificates (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -160,6 +160,7 @@ async def init_db():
             )
         """)
         
+        # TABELLA OGGETTI
         await db.execute("""
             CREATE TABLE IF NOT EXISTS items (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -168,6 +169,7 @@ async def init_db():
             )
         """)
         
+        # TABELLA INVENTARIO
         await db.execute("""
             CREATE TABLE IF NOT EXISTS inventory (
                 user_id TEXT,
@@ -177,16 +179,18 @@ async def init_db():
             )
         """)
         
+        # TABELLA TURNI LAVORO
         await db.execute("""
-    CREATE TABLE IF NOT EXISTS work_shifts (
-        user_id TEXT,
-        role_id TEXT,
-        start_time TEXT,
-        PRIMARY KEY (user_id, role_id)
-    )
-""")
+            CREATE TABLE IF NOT EXISTS work_shifts (
+                user_id TEXT,
+                role_id TEXT,
+                start_time TEXT,
+                PRIMARY KEY (user_id, role_id)
+            )
+        """)
         
         await db.commit()
+    print("✅ Database inizializzato con successo!")
 
 async def get_user(user_id: str):
     async with aiosqlite.connect(DATABASE_NAME) as db:

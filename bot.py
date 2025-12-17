@@ -291,7 +291,7 @@ async def bancomat(interaction: discord.Interaction):
     view = BancomatView(user_id)
     
     await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
-    await log_command(LOG_CHANNEL_ID, f"🏦 {interaction.user.mention} ha controllato il bancomat")
+
 
 
 @bot.tree.command(name="sync", description="[STAFF] Sincronizza i comandi")

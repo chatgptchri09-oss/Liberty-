@@ -7,9 +7,6 @@ DATABASE_NAME = "economy_bot.db"
 async def init_db():
     async with aiosqlite.connect(DATABASE_NAME) as db:
         
-        # ... tutte le tue tabelle esistenti ...
-        
-        # # AGGIUNGI QUESTA TABELLA AL TUO database.py nella funzione init_db()
 
 async def init_db():
     async with aiosqlite.connect(DATABASE_NAME) as db:

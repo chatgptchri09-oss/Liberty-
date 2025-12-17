@@ -9,7 +9,27 @@ async def init_db():
         
         # ... tutte le tue tabelle esistenti ...
         
-        # TABELLA PROPRIETÀ (NUOVA)
+        # # AGGIUNGI QUESTA TABELLA AL TUO database.py nella funzione init_db()
+
+async def init_db():
+    async with aiosqlite.connect(DATABASE_NAME) as db:
+        
+        # ... (tutte le altre tabelle esistenti) ...
+        
+        # NUOVA TABELLA PER DEPOSITI FAZIONI
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS deposit_inventory (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                deposit_name TEXT NOT NULL,
+                item_name TEXT NOT NULL,
+                quantity INTEGER NOT NULL DEFAULT 0,
+                UNIQUE(deposit_name, item_name)
+            )
+        """)
+        
+        await db.commit()
+    
+    print("✅ Database inizializzato con successo (inclusa tabella deposit_inventory)")
         await db.execute("""
             CREATE TABLE IF NOT EXISTS properties (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,

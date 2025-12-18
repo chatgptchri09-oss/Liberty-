@@ -738,19 +738,11 @@ def setup_deposit_commands(bot: commands.Bot):
         if items:
             items_text = ""
             for item_name, quantity in items:
-                items_text += f"📦 **{item_name}** - Quantità: **{quantity}**\n"
-            embed.add_field(name="Items disponibili:", value=items_text, inline=False)
+                items_text += f" **{quantity}** **{item_name}**"
         else:
             embed.description = "Il deposito è vuoto!"
         
-        embed.add_field(
-            name="📖 Come funziona:",
-            value=(
-                "• **📥 Deposita Item** - Metti item dal tuo zaino nel deposito\n"
-                "• **🎒 Preleva Item** - Prendi item dal deposito al tuo zaino\n\n"
-                "Clicca sui bottoni qui sotto per iniziare!"
-            ),
-            inline=False
+        
         )
         
         embed.set_footer(text=f"Visualizzato da {interaction.user.display_name}")

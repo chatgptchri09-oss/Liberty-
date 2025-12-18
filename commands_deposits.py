@@ -295,6 +295,9 @@ class ItemSelectView(discord.ui.View):
             await interaction.response.send_message("❌ Non puoi usare questo menu!", ephemeral=True)
             return
         
+        # Defer SUBITO per evitare timeout
+        await interaction.response.defer()
+        
         selected_item = interaction.values[0]
         quantity_owned = self.user_items[selected_item]
         
@@ -319,7 +322,8 @@ class ItemSelectView(discord.ui.View):
             self.user_items
         )
         
-        await interaction.response.edit_message(embed=embed, view=view)
+        # Usa edit_original_response perché abbiamo già fatto defer()
+        await interaction.edit_original_response(embed=embed, view=view)
 
 
 class QuantitySelectView(discord.ui.View):

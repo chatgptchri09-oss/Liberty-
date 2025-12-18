@@ -242,17 +242,7 @@ def setup_fine_commands(bot: commands.Bot):
         
         await interaction.response.send_message(embed=embed, ephemeral=True)
         
-        # LOG CON EMBED
-        log_embed = discord.Embed(
-            title="👁️ LOG CONTROLLO MULTE",
-            color=discord.Color.blue()
-        )
-        log_embed.add_field(name="Controllato da", value=interaction.user.mention, inline=True)
-        log_embed.add_field(name="Utente controllato", value=utente.mention, inline=True)
-        log_embed.add_field(name="Multe trovate", value=str(len(fines)), inline=True)
-        log_embed.timestamp = discord.utils.utcnow()
-        await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
-
+        
     
     @bot.tree.command(name="slotmachine", description="Gioca alla slot machine")
     @app_commands.describe(puntata="Importo da puntare (max $10,000)")
@@ -396,17 +386,4 @@ def setup_fine_commands(bot: commands.Bot):
         final_embed.set_thumbnail(url="https://i.postimg.cc/Qt136VrF/IMG-4279.gif")
         await message.edit(embed=final_embed)
         
-        # LOG CON EMBED
-        log_embed = discord.Embed(
-            title="🎰 LOG SLOT MACHINE",
-            color=discord.Color.gold() if result_type != "loss" else discord.Color.red()
-        )
-        log_embed.add_field(name="Giocatore", value=interaction.user.mention, inline=True)
-        log_embed.add_field(name="Puntata", value=f"${puntata:,}", inline=True)
-        log_embed.add_field(name="Risultato", value=f"| {symbols[0]} | {symbols[1]} | {symbols[2]} |", inline=False)
-        if result_type != "loss":
-            log_embed.add_field(name="Vincita", value=f"${winnings:,}", inline=True)
-        else:
-            log_embed.add_field(name="Esito", value="Perso", inline=True)
-        log_embed.timestamp = discord.utils.utcnow()
-        await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
+    

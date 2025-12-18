@@ -13,6 +13,7 @@ COMPANY_ROLES = {
     "Import/Export": 1424004700608401428,
     "L.F.D": 1415093546549248040,
     "Pegasus Airlines": 1415262517407645828
+    "Dinasty 8": 1424381004944244828
 }
 
 COMPANY_LOG_CHANNELS = {
@@ -24,6 +25,7 @@ COMPANY_LOG_CHANNELS = {
     "Import/Export": 1424111925360463882,
     "Pegasus Airlines": 1424112194139984003,
     "L.F.D": 1424007218554208316
+    "Dinasty 8": 1414729656917033023/1451256740950573127
 }
 
 LOG_CHANNEL_ID = 1415297578022604850
@@ -62,6 +64,7 @@ def setup_invoice_commands(bot: commands.Bot):
         app_commands.Choice(name="Import/Export", value="Import/Export"),
         app_commands.Choice(name="L.F.D", value="L.F.D"),
         app_commands.Choice(name="Pegasus Airlines", value="Pegasus Airlines"),
+        app_commands.Choice(name="Dinasty 8", value="Dinasty 8"),
     ])
     async def fattura(interaction: discord.Interaction, cliente: discord.Member, descrizione: str, prezzo: int, azienda: str):
         if not has_role(interaction, COMPANY_ROLES[azienda]):

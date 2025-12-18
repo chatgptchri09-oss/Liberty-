@@ -96,7 +96,6 @@ async def get_deposit_inventory(deposit_name: str):
 async def move_item_to_deposit(user_id: str, deposit_name: str, item_name: str, quantity: int):
     """Sposta item dallo zaino al deposito"""
     async with aiosqlite.connect(DATABASE_NAME) as db:
-        # Rimuovi dallo zaino utente
         await db.execute(
             "UPDATE inventory SET quantity = quantity - ? WHERE user_id = ? AND item_name = ?",
             (quantity, user_id, item_name)
@@ -106,7 +105,6 @@ async def move_item_to_deposit(user_id: str, deposit_name: str, item_name: str, 
             (user_id, item_name)
         )
         
-        # Aggiungi al deposito
         await db.execute(
             """INSERT INTO deposit_inventory (deposit_name, item_name, quantity) 
                VALUES (?, ?, ?) 
@@ -120,7 +118,6 @@ async def move_item_to_deposit(user_id: str, deposit_name: str, item_name: str, 
 async def move_item_from_deposit(user_id: str, deposit_name: str, item_name: str, quantity: int):
     """Sposta item dal deposito allo zaino"""
     async with aiosqlite.connect(DATABASE_NAME) as db:
-        # Rimuovi dal deposito
         await db.execute(
             "UPDATE deposit_inventory SET quantity = quantity - ? WHERE deposit_name = ? AND item_name = ?",
             (quantity, deposit_name, item_name)
@@ -130,7 +127,6 @@ async def move_item_from_deposit(user_id: str, deposit_name: str, item_name: str
             (deposit_name, item_name)
         )
         
-        # Aggiungi allo zaino utente
         await db.execute(
             """INSERT INTO inventory (user_id, item_name, quantity) 
                VALUES (?, ?, ?) 
@@ -180,7 +176,6 @@ class DepositMainView(discord.ui.View):
                     await interaction.followup.send("❌ La quantità deve essere maggiore di 0!", ephemeral=True)
                     return
                 
-                # Verifica che l'item esista nel deposito
                 async with aiosqlite.connect(DATABASE_NAME) as db:
                     async with db.execute(
                         "SELECT quantity FROM deposit_inventory WHERE deposit_name = ? AND item_name = ?",
@@ -199,7 +194,6 @@ class DepositMainView(discord.ui.View):
                     )
                     return
                 
-                # Verifica che l'utente abbia lo zaino
                 async with aiosqlite.connect(DATABASE_NAME) as db:
                     async with db.execute(
                         "SELECT has_backpack FROM users WHERE user_id = ?",
@@ -216,7 +210,6 @@ class DepositMainView(discord.ui.View):
                 except:
                     pass
                 
-                # Sposta l'item
                 await move_item_from_deposit(
                     str(self.user.id),
                     self.deposit_name,
@@ -226,7 +219,6 @@ class DepositMainView(discord.ui.View):
                 
                 emoji = DEPOSITS[self.deposit_name]["emoji"]
                 
-                # Messaggio pubblico
                 public_embed = discord.Embed(
                     title=f"{emoji} Prelievo Effettuato",
                     description=f"{self.user.mention} ha prelevato degli item dal deposito **{self.deposit_name}**",
@@ -237,7 +229,6 @@ class DepositMainView(discord.ui.View):
                 
                 await interaction.channel.send(embed=public_embed)
                 
-                # Log per staff
                 log_embed = discord.Embed(
                     title="📤 LOG PRELIEVO ITEM",
                     color=discord.Color.orange()
@@ -271,7 +262,6 @@ class ItemSelectView(discord.ui.View):
         self.deposit_name = deposit_name
         self.user_items = {item[0]: item[1] for item in user_items}
         
-        # Crea select per items
         options = []
         for item_name, quantity in list(self.user_items.items())[:25]:
             options.append(
@@ -284,59 +274,43 @@ class ItemSelectView(discord.ui.View):
         
         select = discord.ui.Select(
             placeholder="Seleziona un item da depositare...",
-            options=options,
-            custom_id="item_select"
+            options=options
         )
         select.callback = self.select_callback
         self.add_item(select)
     
     async def select_callback(self, interaction: discord.Interaction):
-        if interaction.user.id != self.user.id:
-            await interaction.response.send_message("❌ Non puoi usare questo menu!", ephemeral=True)
-            return
-        
-        selected_item = interaction.values[0]
-        quantity_owned = self.user_items[selected_item]
-        
-        # Mostra view per scegliere quantità
-        embed = discord.Embed(
-            title="📦 Scegli quantità da depositare",
-            color=discord.Color.blue()
-        )
-        embed.add_field(name="Item:", value=selected_item, inline=False)
-        embed.add_field(name="Ne possiedi:", value=str(quantity_owned), inline=False)
-        
-        view = QuantitySelectView(
-            self.bot,
-            self.user,
-            self.deposit_name,
-            selected_item,
-            quantity_owned,
-            self.user_items
-        )
-        
-        await interaction.response.edit_message(embed=embed, view=view)
-    
-    async def show_quantity_selection(self, interaction: discord.Interaction, item_name: str, quantity_owned: int):
-        """Mostra la selezione della quantità"""
-        embed = discord.Embed(
-            title="📦 Scegli quantità da depositare",
-            color=discord.Color.blue()
-        )
-        embed.add_field(name="Item:", value=item_name, inline=False)
-        embed.add_field(name="Ne possiedi:", value=str(quantity_owned), inline=False)
-        
-        view = QuantitySelectView(
-            self.bot,
-            self.user,
-            self.deposit_name,
-            item_name,
-            quantity_owned,
-            self.user_items
-        )
-        
-        # Usa edit_original_response perché abbiamo già fatto defer()
-        await interaction.edit_original_response(embed=embed, view=view)
+        try:
+            if interaction.user.id != self.user.id:
+                await interaction.response.send_message("❌ Non puoi usare questo menu!", ephemeral=True)
+                return
+            
+            selected_item = interaction.values[0]
+            quantity_owned = self.user_items[selected_item]
+            
+            embed = discord.Embed(
+                title="📦 Scegli quantità da depositare",
+                color=discord.Color.blue()
+            )
+            embed.add_field(name="Item:", value=selected_item, inline=False)
+            embed.add_field(name="Ne possiedi:", value=str(quantity_owned), inline=False)
+            
+            view = QuantitySelectView(
+                self.bot,
+                self.user,
+                self.deposit_name,
+                selected_item,
+                quantity_owned,
+                self.user_items
+            )
+            
+            await interaction.response.edit_message(embed=embed, view=view)
+        except Exception as e:
+            print(f"Errore in select_callback: {e}")
+            try:
+                await interaction.response.send_message(f"❌ Errore: {e}", ephemeral=True)
+            except:
+                pass
 
 
 class QuantitySelectView(discord.ui.View):
@@ -351,7 +325,6 @@ class QuantitySelectView(discord.ui.View):
         self.quantity_owned = quantity_owned
         self.all_items = all_items
         
-        # Crea select per quantità
         options = []
         max_display = min(quantity_owned, 25)
         
@@ -366,22 +339,22 @@ class QuantitySelectView(discord.ui.View):
         if options:
             select = discord.ui.Select(
                 placeholder="Seleziona la quantità...",
-                options=options,
-                custom_id="quantity_select"
+                options=options
             )
             select.callback = self.select_callback
             self.add_item(select)
     
     async def select_callback(self, interaction: discord.Interaction):
-        if interaction.user.id != self.user.id:
-            await interaction.response.send_message("❌ Non puoi usare questo menu!", ephemeral=True)
-            return
-        
-        quantity = int(interaction.values[0])
-        
-        # Usa defer invece di response per evitare conflitti
-        await interaction.response.defer(ephemeral=True)
-        await self.process_deposit(interaction, quantity, deferred=True)
+        try:
+            if interaction.user.id != self.user.id:
+                await interaction.response.send_message("❌ Non puoi usare questo menu!", ephemeral=True)
+                return
+            
+            quantity = int(interaction.values[0])
+            await interaction.response.defer()
+            await self.process_deposit(interaction, quantity)
+        except Exception as e:
+            print(f"Errore in quantity select: {e}")
     
     @discord.ui.button(label="🔢 Quantità Personalizzata", style=discord.ButtonStyle.primary, row=1)
     async def custom_quantity_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -420,7 +393,7 @@ class QuantitySelectView(discord.ui.View):
                 except:
                     pass
                 
-                await self.process_deposit(interaction, quantity, followup=True)
+                await self.process_deposit(interaction, quantity)
                 
             except ValueError:
                 await interaction.followup.send("❌ Quantità non valida! Inserisci solo numeri.", ephemeral=True)
@@ -466,7 +439,7 @@ class QuantitySelectView(discord.ui.View):
         
         await interaction.response.edit_message(embed=embed, view=view)
     
-    async def process_deposit(self, interaction: discord.Interaction, quantity: int, followup: bool = False, deferred: bool = False):
+    async def process_deposit(self, interaction: discord.Interaction, quantity: int):
         """Processa il deposito dell'item"""
         try:
             await move_item_to_deposit(
@@ -500,14 +473,10 @@ class QuantitySelectView(discord.ui.View):
             
             await log_command(self.bot, LOG_CHANNEL_ID, embed=log_embed)
             
-            success_msg = f"✅ Hai depositato **{quantity}x {self.item_name}** nel deposito **{self.deposit_name}**!"
-            
-            if deferred:
-                await interaction.followup.send(success_msg, ephemeral=True)
-            elif followup:
-                await interaction.followup.send(success_msg, ephemeral=True)
-            else:
-                await interaction.response.send_message(success_msg, ephemeral=True)
+            await interaction.followup.send(
+                f"✅ Hai depositato **{quantity}x {self.item_name}** nel deposito **{self.deposit_name}**!",
+                ephemeral=True
+            )
             
             user_items_list = await get_user_inventory(str(self.user.id))
             
@@ -532,21 +501,15 @@ class QuantitySelectView(discord.ui.View):
                 await interaction.message.edit(embed=embed, view=view)
         
         except Exception as e:
-            error_msg = f"❌ Errore durante il deposito: {str(e)}"
-            if deferred or followup:
-                await interaction.followup.send(error_msg, ephemeral=True)
-            else:
-                await interaction.response.send_message(error_msg, ephemeral=True)
+            await interaction.followup.send(f"❌ Errore durante il deposito: {str(e)}", ephemeral=True)
 
 
 def setup_deposit_commands(bot: commands.Bot):
     
-    # Autocomplete per depositi
     async def deposit_autocomplete(
         interaction: discord.Interaction,
         current: str,
     ) -> list[app_commands.Choice[str]]:
-        # Mostra TUTTI i depositi nell'autocomplete
         choices = []
         for name, data in DEPOSITS.items():
             emoji = data["emoji"]
@@ -557,7 +520,6 @@ def setup_deposit_commands(bot: commands.Bot):
                 )
             )
         
-        # Filtra in base a quello che l'utente sta scrivendo
         if current:
             return [
                 choice for choice in choices
@@ -569,12 +531,10 @@ def setup_deposit_commands(bot: commands.Bot):
     @app_commands.describe(deposito="Seleziona il deposito da visualizzare")
     @app_commands.autocomplete(deposito=deposit_autocomplete)
     async def depositi(interaction: discord.Interaction, deposito: str):
-        # Verifica che il deposito esista
         if deposito not in DEPOSITS:
             await interaction.response.send_message("❌ Deposito non valido!", ephemeral=True)
             return
         
-        # Verifica ruolo
         if not has_role(interaction, DEPOSITS[deposito]["role_id"]):
             await interaction.response.send_message(
                 f"❌ Non hai i permessi per accedere a questo deposito",
@@ -614,12 +574,10 @@ def setup_deposit_commands(bot: commands.Bot):
     @app_commands.describe(deposito="Seleziona in quale deposito depositare")
     @app_commands.autocomplete(deposito=deposit_autocomplete)
     async def mettidep(interaction: discord.Interaction, deposito: str):
-        # Verifica che il deposito esista
         if deposito not in DEPOSITS:
             await interaction.response.send_message("❌ Deposito non valido!", ephemeral=True)
             return
         
-        # Verifica ruolo
         if not has_role(interaction, DEPOSITS[deposito]["role_id"]):
             await interaction.response.send_message(
                 f"❌ Non hai i permessi per accedere a questo deposito",
@@ -629,7 +587,6 @@ def setup_deposit_commands(bot: commands.Bot):
         
         await interaction.response.defer(ephemeral=True, thinking=True)
         
-        # Verifica zaino
         async with aiosqlite.connect(DATABASE_NAME) as db:
             async with db.execute(
                 "SELECT has_backpack FROM users WHERE user_id = ?",
@@ -641,14 +598,12 @@ def setup_deposit_commands(bot: commands.Bot):
             await interaction.followup.send("❌ Non hai uno zaino!", ephemeral=True)
             return
         
-        # Recupera inventario utente
         user_items = await get_user_inventory(str(interaction.user.id))
         
         if not user_items:
             await interaction.followup.send("❌ Il tuo zaino è vuoto!", ephemeral=True)
             return
         
-        # Mostra embed con istruzioni
         emoji = DEPOSITS[deposito]["emoji"]
         
         embed = discord.Embed(

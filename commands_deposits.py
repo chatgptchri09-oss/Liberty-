@@ -741,10 +741,6 @@ def setup_deposit_commands(bot: commands.Bot):
                 items_text += f" **{quantity}** **{item_name}**"
         else:
             embed.description = "Il deposito è vuoto!"
-        
-        
-        )
-        
         embed.set_footer(text=f"Visualizzato da {interaction.user.display_name}")
         
         view = DepositView(bot, deposito)

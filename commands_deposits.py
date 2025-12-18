@@ -295,14 +295,27 @@ class ItemSelectView(discord.ui.View):
             await interaction.response.send_message("❌ Non puoi usare questo menu!", ephemeral=True)
             return
         
-        # Defer SUBITO per evitare timeout
-        await interaction.response.defer()
-        
         selected_item = interaction.values[0]
         quantity_owned = self.user_items[selected_item]
         
         # Mostra view per scegliere quantità
-        await self.show_quantity_selection(interaction, selected_item, quantity_owned)
+        embed = discord.Embed(
+            title="📦 Scegli quantità da depositare",
+            color=discord.Color.blue()
+        )
+        embed.add_field(name="Item:", value=selected_item, inline=False)
+        embed.add_field(name="Ne possiedi:", value=str(quantity_owned), inline=False)
+        
+        view = QuantitySelectView(
+            self.bot,
+            self.user,
+            self.deposit_name,
+            selected_item,
+            quantity_owned,
+            self.user_items
+        )
+        
+        await interaction.response.edit_message(embed=embed, view=view)
     
     async def show_quantity_selection(self, interaction: discord.Interaction, item_name: str, quantity_owned: int):
         """Mostra la selezione della quantità"""

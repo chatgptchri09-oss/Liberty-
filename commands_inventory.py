@@ -538,10 +538,7 @@ def setup_inventory_commands(bot: commands.Bot):
         
         await interaction.response.send_message(embed=embed, view=view)
         
-        log_embed = discord.Embed(title="🛒 LOG ITEM SHOP VISUALIZZATO", color=discord.Color.blue())
-        log_embed.add_field(name="👤 Utente", value=interaction.user.mention, inline=False)
-        log_embed.timestamp = discord.utils.utcnow()
-        await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
+
     
     @bot.tree.command(name="vendizaino", description="[MARKET] Vendi uno zaino a un utente")
     @app_commands.describe(utente="L'utente a cui vendere lo zaino")
@@ -645,12 +642,7 @@ def setup_inventory_commands(bot: commands.Bot):
             log_embed.add_field(name="👤 Zaino di", value=utente.mention, inline=True)
             log_embed.timestamp = discord.utils.utcnow()
             await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
-        else:
-            log_embed = discord.Embed(title="🎒 LOG ZAINO APERTO", color=discord.Color.blue())
-            log_embed.add_field(name="👤 Utente", value=interaction.user.mention, inline=False)
-            log_embed.timestamp = discord.utils.utcnow()
-            await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
-
+        
     # CONTINUA NEL PROSSIMO MESSAGGIO CON item-sell, utilizza-item e dai-item
     # PARTE 3 DI commands_inventory.py - ULTIMI COMANDI (item-sell, utilizza-item, dai-item)
 # Aggiungi questi comandi dopo invzaino

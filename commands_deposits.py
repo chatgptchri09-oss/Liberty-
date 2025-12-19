@@ -3,11 +3,9 @@ from discord import app_commands
 from discord.ext import commands
 import aiosqlite
 import asyncio
-import math
 
 DATABASE_NAME = "economy_bot.db"
 LOG_CHANNEL_ID = 1415297578022604850
-ITEMS_PER_PAGE = 10
 
 # Configurazione depositi
 DEPOSITS = {
@@ -669,73 +667,19 @@ class WithdrawModal(discord.ui.Modal, title="Preleva Item"):
             await interaction.response.send_message(f"❌ Errore: {str(e)}", ephemeral=True)
 
 
-class DepositPaginationView(discord.ui.View):
-    """View con paginazione e bottoni per depositare/prelevare"""
-    def __init__(self, bot: commands.Bot, deposit_name: str, items: list, page: int = 0):
+class DepositView(discord.ui.View):
+    """View con bottoni per depositare e prelevare"""
+    def __init__(self, bot: commands.Bot, deposit_name: str):
         super().__init__(timeout=None)
         self.bot = bot
         self.deposit_name = deposit_name
-        self.items = items
-        self.page = page
-        self.max_pages = math.ceil(len(items) / ITEMS_PER_PAGE) if items else 1
-        
-        # Disabilita bottoni di navigazione se necessario
-        if self.page == 0:
-            self.prev_button.disabled = True
-        if self.page >= self.max_pages - 1:
-            self.next_button.disabled = True
     
-    def get_embed(self):
-        """Crea l'embed con gli item della pagina corrente"""
-        emoji = DEPOSITS[self.deposit_name]["emoji"]
-        
-        embed = discord.Embed(
-            title=f"{emoji} Deposito {self.deposit_name}",
-            color=discord.Color.blue()
-        )
-        
-        if self.items:
-            start = self.page * ITEMS_PER_PAGE
-            end = start + ITEMS_PER_PAGE
-            page_items = self.items[start:end]
-            
-            for item_name, quantity in page_items:
-                embed.add_field(name=f"{quantity} {item_name}", value="\u200b", inline=False)
-            
-            embed.set_footer(text=f"Pagina {self.page + 1}/{self.max_pages}")
-        else:
-            embed.description = "Il deposito è vuoto!"
-        
-        return embed
-    
-    @discord.ui.button(label="⬅️ Pagina", style=discord.ButtonStyle.secondary, row=0)
-    async def prev_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        self.page -= 1
-        
-        # Aggiorna stato bottoni
-        self.prev_button.disabled = (self.page == 0)
-        self.next_button.disabled = (self.page >= self.max_pages - 1)
-        
-        embed = self.get_embed()
-        await interaction.response.edit_message(embed=embed, view=self)
-    
-    @discord.ui.button(label="➡️ Pagina", style=discord.ButtonStyle.secondary, row=0)
-    async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        self.page += 1
-        
-        # Aggiorna stato bottoni
-        self.prev_button.disabled = (self.page == 0)
-        self.next_button.disabled = (self.page >= self.max_pages - 1)
-        
-        embed = self.get_embed()
-        await interaction.response.edit_message(embed=embed, view=self)
-    
-    @discord.ui.button(label="📥 Deposita Item", style=discord.ButtonStyle.green, row=1)
+    @discord.ui.button(label="📥 Deposita Item", style=discord.ButtonStyle.green)
     async def deposit_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         modal = DepositModal(self.bot, self.deposit_name)
         await interaction.response.send_modal(modal)
     
-    @discord.ui.button(label="🎒 Preleva Item", style=discord.ButtonStyle.primary, row=1)
+    @discord.ui.button(label="🎒 Preleva Item", style=discord.ButtonStyle.primary)
     async def withdraw_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         modal = WithdrawModal(self.bot, self.deposit_name)
         await interaction.response.send_modal(modal)
@@ -783,8 +727,35 @@ def setup_deposit_commands(bot: commands.Bot):
         
         items = await get_deposit_inventory(deposito)
         
-        view = DepositPaginationView(bot, deposito, items, page=0)
-        embed = view.get_embed()
+        emoji = DEPOSITS[deposito]["emoji"]
+        
+        embed = discord.Embed(
+            title=f"{emoji} Deposito {deposito}",
+            description="Inventario del deposito della fazione:",
+            color=discord.Color.blue()
+        )
+        
+        if items:
+            items_text = ""
+            for item_name, quantity in items:
+                items_text += f"📦 **{item_name}** - Quantità: **{quantity}**\n"
+            embed.add_field(name="Items disponibili:", value=items_text, inline=False)
+        else:
+            embed.description = "Il deposito è vuoto!"
+        
+        embed.add_field(
+            name="📖 Come funziona:",
+            value=(
+                "• **📥 Deposita Item** - Metti item dal tuo zaino nel deposito\n"
+                "• **🎒 Preleva Item** - Prendi item dal deposito al tuo zaino\n\n"
+                "Clicca sui bottoni qui sotto per iniziare!"
+            ),
+            inline=False
+        )
+        
+        embed.set_footer(text=f"Visualizzato da {interaction.user.display_name}")
+        
+        view = DepositView(bot, deposito)
         
         await interaction.followup.send(embed=embed, view=view, ephemeral=True)
     

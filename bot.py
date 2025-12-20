@@ -251,7 +251,7 @@ from commands_properties import setup_property_commands
 from commands_wipepg import setup_wipepg_commands
 from commands_deposits import setup_deposit_commands
 from commands_robbery import setup_robbery_commands
-
+from commands_theft import setup_theft_commands
 
 # ====================
 # SETUP COMANDI 
@@ -274,6 +274,7 @@ setup_property_commands(bot)
 setup_wipepg_commands(bot)
 setup_deposit_commands(bot)
 setup_robbery_commands(bot)
+setup_theft_commands(bot)
 
 
 # ====================

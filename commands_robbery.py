@@ -59,6 +59,13 @@ ROBBERIES = {
 }
 
 
+def create_progress_bar(percentage: int, total_blocks: int = 20) -> str:
+    """Crea una barra di progresso visuale"""
+    filled = int((percentage / 100) * total_blocks)
+    empty = total_blocks - filled
+    return "█" * filled + "░" * empty
+
+
 def setup_robbery_commands(bot: commands.Bot):
     
     async def robbery_autocomplete(
@@ -98,7 +105,7 @@ def setup_robbery_commands(bot: commands.Bot):
         timestamp = now.strftime("%d/%m/%y, %H:%M")
         
         start_embed = discord.Embed(
-            title=f"🚨 Rapina {tipo} - Avviata",
+            title=f"<a:sirena:1431792628332101723> Rapina {tipo} - Avviata",
             color=robbery_data["color"]
         )
         start_embed.add_field(
@@ -124,7 +131,12 @@ def setup_robbery_commands(bot: commands.Bot):
         # Invia primo embed con tag polizia
         await interaction.followup.send(content=police_mention, embed=start_embed)
         
-        # SECONDO EMBED - Scassinamento in corso
+        # SECONDO EMBED - Scassinamento in corso con barra animata
+        lockpick_time_seconds = robbery_data['lockpick_time'] * 60
+        update_interval = 10  # Aggiorna ogni 10 secondi
+        total_updates = lockpick_time_seconds // update_interval
+        
+        # Crea embed iniziale con 0%
         lockpick_embed = discord.Embed(
             title="🔧 Scassinamento in corso...",
             color=discord.Color.yellow()
@@ -135,11 +147,10 @@ def setup_robbery_commands(bot: commands.Bot):
             inline=False
         )
         
-        # Barra di caricamento
-        progress_bar = "█" * 20
+        progress_bar = create_progress_bar(0)
         lockpick_embed.add_field(
             name=f"{robbery_data['emoji']} Progress",
-            value=f"{progress_bar} **100%**",
+            value=f"{progress_bar} **0%**",
             inline=False
         )
         
@@ -148,14 +159,67 @@ def setup_robbery_commands(bot: commands.Bot):
         lockpick_embed.set_footer(text=timestamp2)
         
         # Invia secondo embed
-        await interaction.channel.send(embed=lockpick_embed)
+        lockpick_message = await interaction.channel.send(embed=lockpick_embed)
         
-        # Aspetta il tempo di scassinamento (in secondi)
-        await asyncio.sleep(robbery_data['lockpick_time'] * 60)
+        # Anima la barra di progresso
+        for update_count in range(1, total_updates + 1):
+            await asyncio.sleep(update_interval)
+            
+            # Calcola percentuale
+            percentage = int((update_count / total_updates) * 100)
+            
+            # Aggiorna embed
+            lockpick_embed = discord.Embed(
+                title="🔧 Scassinamento in corso...",
+                color=discord.Color.yellow()
+            )
+            lockpick_embed.add_field(
+                name="Durata stimata:",
+                value=f"**{robbery_data['lockpick_time']} min**",
+                inline=False
+            )
+            
+            progress_bar = create_progress_bar(percentage)
+            lockpick_embed.add_field(
+                name=f"{robbery_data['emoji']} Progress",
+                value=f"{progress_bar} **{percentage}%**",
+                inline=False
+            )
+            
+            lockpick_embed.set_footer(text=timestamp2)
+            
+            try:
+                await lockpick_message.edit(embed=lockpick_embed)
+            except:
+                break
+        
+        # Assicurati che arrivi a 100%
+        lockpick_embed = discord.Embed(
+            title="🔧 Scassinamento in corso...",
+            color=discord.Color.yellow()
+        )
+        lockpick_embed.add_field(
+            name="Durata stimata:",
+            value=f"**{robbery_data['lockpick_time']} min**",
+            inline=False
+        )
+        
+        progress_bar = create_progress_bar(100)
+        lockpick_embed.add_field(
+            name=f"{robbery_data['emoji']} Progress",
+            value=f"{progress_bar} **100%**",
+            inline=False
+        )
+        lockpick_embed.set_footer(text=timestamp2)
+        
+        try:
+            await lockpick_message.edit(embed=lockpick_embed)
+        except:
+            pass
         
         # TERZO EMBED - Rapina Completata
         complete_embed = discord.Embed(
-            title="✅ Rapina completata",
+            title="<a:conferma:1451983464764014733> Rapina completata",
             color=discord.Color.green()
         )
         complete_embed.add_field(

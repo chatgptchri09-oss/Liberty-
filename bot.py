@@ -250,6 +250,7 @@ from commands_criminal_record import setup_criminal_record_commands
 from commands_properties import setup_property_commands
 from commands_wipepg import setup_wipepg_commands
 from commands_deposits import setup_deposit_commands
+from commands_robbery import setup_robbery_commands
 
 
 # ====================
@@ -272,6 +273,7 @@ setup_criminal_record_commands(bot)
 setup_property_commands(bot)
 setup_wipepg_commands(bot)
 setup_deposit_commands(bot)
+setup_robbery_commands(bot)
 
 
 # ====================

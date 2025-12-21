@@ -23,7 +23,7 @@ ROBBERIES = {
     "Negozio Vestiti": {
         "emoji": "👕",
         "robbers": "3/4",
-        "hostages": "0",
+        "hostages": "1",
         "cops": "5/6",
         "helmets": "No",
         "gap": "No",
@@ -35,7 +35,7 @@ ROBBERIES = {
     "Armeria": {
         "emoji": "🔫",
         "robbers": "3/4",
-        "hostages": "0",
+        "hostages": "2",
         "cops": "5/6",
         "helmets": "No",
         "gap": "No",

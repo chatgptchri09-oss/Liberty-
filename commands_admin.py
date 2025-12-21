@@ -96,104 +96,40 @@ class BackgroundModal(discord.ui.Modal, title="Background Personaggio"):
         self.bot = bot
 
     async def on_submit(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
-        
-        # Crea embed con le informazioni
-        embed = discord.Embed(
-            title="📝 Nuovo Background Inviato",
-            color=discord.Color.blue()
-        )
-        
-        embed.add_field(name="👤 Utente Discord", value=interaction.user.mention, inline=False)
-        embed.add_field(name="🎮 ID PSN", value=self.id_psn.value, inline=True)
-        embed.add_field(name="📛 Nome IC", value=self.nome_ic.value, inline=True)
-        embed.add_field(name="📛 Cognome IC", value=self.cognome_ic.value, inline=True)
-        embed.add_field(name="🎂 Età IC", value=self.eta_ic.value, inline=True)
-        embed.add_field(name="📖 Storia del Personaggio", value=self.storia_pg.value, inline=False)
-        embed.set_footer(text=f"ID Utente: {interaction.user.id}")
-        embed.timestamp = discord.utils.utcnow()
-        
-        # Invia nel canale background con tag staff e whitelister
-        background_channel = self.bot.get_channel(BACKGROUND_CHANNEL_ID)
-        if background_channel:
-            await background_channel.send(
-                content=f"<@&{STAFF_ROLE_ID}> <@&{WHITELISTER_ROLE_ID}>",
-                embed=embed
-            )
-            await interaction.followup.send("✅ Background inviato con successo! Attendi la valutazione.", ephemeral=True)
-        else:
-            await interaction.followup.send("❌ Errore: canale background non trovato!", ephemeral=True)
-
-# ====================
-# MODAL PER BACKGROUND POSITIVO
-# ====================
-
-class BackgroundPositivoModal(discord.ui.Modal, title="Background Positivo"):
-    
-    def __init__(self, bot, cittadino: discord.Member):
-        super().__init__()
-        self.bot = bot
-        self.cittadino = cittadino
-
-    async def on_submit(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
-        
-        # Crea embed verde
-        embed = discord.Embed(
-            title="<a:megafono:1431932605984542720> 𝐁𝐚𝐜𝐤𝐠𝐫𝐨𝐮𝐧𝐝 𝐀𝐩𝐩𝐫𝐨𝐯𝐚𝐭𝐨 <a:conferma:1451983464764014733>",
-            description=f"Il background di {self.cittadino.mention} è stato approvato!",
-            color=discord.Color.green()
-        )
-        embed.add_field(name="Valutato da", value=interaction.user.mention, inline=True)
-        embed.set_footer(text="Preparati per la Whitelist Orale")
-        embed.set_image(url="https://i.postimg.cc/DZcwCQK0/IMG-4390.png")
-        embed.timestamp = discord.utils.utcnow()
-        
-        await interaction.channel.send(content=self.cittadino.mention, embed=embed)
-        
-        # Rimuovi tutti i ruoli
         try:
-            roles_to_remove = [role for role in self.cittadino.roles if role.name != "@everyone"]
-            if roles_to_remove:
-                await self.cittadino.remove_roles(*roles_to_remove, reason=f"Background approvato - valutato da {interaction.user.name}")
+            await interaction.response.defer(ephemeral=True)
+            
+            # Crea embed con le informazioni
+            embed = discord.Embed(
+                title="📝 Nuovo Background Inviato",
+                color=discord.Color.blue()
+            )
+            
+            embed.add_field(name="👤 Utente Discord", value=interaction.user.mention, inline=False)
+            embed.add_field(name="🎮 ID PSN", value=self.id_psn.value, inline=True)
+            embed.add_field(name="📛 Nome IC", value=self.nome_ic.value, inline=True)
+            embed.add_field(name="📛 Cognome IC", value=self.cognome_ic.value, inline=True)
+            embed.add_field(name="🎂 Età IC", value=self.eta_ic.value, inline=True)
+            embed.add_field(name="📖 Storia del Personaggio", value=self.storia_pg.value, inline=False)
+            embed.set_footer(text=f"ID Utente: {interaction.user.id}")
+            embed.timestamp = discord.utils.utcnow()
+            
+            # Invia nel canale background con tag staff e whitelister
+            background_channel = self.bot.get_channel(BACKGROUND_CHANNEL_ID)
+            if background_channel:
+                await background_channel.send(
+                    content=f"<@&{STAFF_ROLE_ID}> <@&{WHITELISTER_ROLE_ID}>",
+                    embed=embed
+                )
+                await interaction.followup.send("✅ Background inviato con successo! Attendi la valutazione.", ephemeral=True)
+            else:
+                await interaction.followup.send("❌ Errore: canale background non trovato!", ephemeral=True)
         except Exception as e:
-            print(f"Errore rimozione ruoli: {e}")
-        
-        # Aggiungi ruolo background approvato
-        approved_role = interaction.guild.get_role(BACKGROUND_APPROVED_ROLE_ID)
-        if approved_role:
+            print(f"Errore in BackgroundModal: {e}")
             try:
-                await self.cittadino.add_roles(approved_role, reason=f"Background approvato - valutato da {interaction.user.name}")
-            except Exception as e:
-                print(f"Errore aggiunta ruolo: {e}")
-        
-        # Invia DM all'utente
-        try:
-            dm_embed = discord.Embed(
-                title="<a:megafono:1431932605984542720> Background Approvato! <a:conferma:1451983464764014733>",
-                description=f"Congratulazioni! Il tuo background è stato approvato da {interaction.user.mention}.",
-                color=discord.Color.green()
-            )
-            dm_embed.add_field(
-                name="Prossimo Step",
-                value="Preparati per la **Whitelist Orale**. Verrai contattato a breve!",
-                inline=False
-            )
-            await self.cittadino.send(embed=dm_embed)
-        except:
-            pass
-        
-        await interaction.followup.send(f"✅ Background approvato per {self.cittadino.mention}! Ruolo aggiornato.", ephemeral=True)
-        
-        # LOG
-        log_embed = discord.Embed(
-            title="✅ LOG BACKGROUND APPROVATO",
-            color=discord.Color.green()
-        )
-        log_embed.add_field(name="Valutatore", value=interaction.user.mention, inline=True)
-        log_embed.add_field(name="Cittadino", value=self.cittadino.mention, inline=True)
-        log_embed.timestamp = discord.utils.utcnow()
-        await log_command(self.bot, LOG_CHANNEL_ID, embed=log_embed)
+                await interaction.followup.send(f"❌ Errore: {e}", ephemeral=True)
+            except:
+                pass
 
 # ====================
 # MODAL PER BACKGROUND RIFIUTATO
@@ -214,52 +150,58 @@ class BackgroundRifiutatoModal(discord.ui.Modal, title="Background Rifiutato"):
         self.cittadino = cittadino
 
     async def on_submit(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
-        
-        motivo = self.motivo_input.value
-        
-        # Crea embed rosso
-        embed = discord.Embed(
-            title="<a:megafono:1431932605984542720> 𝐁𝐚𝐜𝐤𝐠𝐫𝐨𝐮𝐧𝐝 𝐑𝐢𝐟𝐢𝐮𝐭𝐚𝐭𝐨 <a:annulla:1431940396635652146>",
-            description=f"Il background di {self.cittadino.mention} è stato rifiutato.",
-            color=discord.Color.red()
-        )
-        embed.add_field(name="Valutato da", value=interaction.user.mention, inline=True)
-        embed.add_field(name="Motivo", value=motivo, inline=False)
-        embed.set_image(url="https://i.postimg.cc/X7jQDn95/2BB43855-B9BD-4D5B-B755-0902034D9B45.png")
-        embed.timestamp = discord.utils.utcnow()
-        
-        await interaction.channel.send(content=self.cittadino.mention, embed=embed)
-        
-        # Invia DM all'utente
         try:
-            dm_embed = discord.Embed(
+            await interaction.response.defer(ephemeral=True)
+            
+            motivo = self.motivo_input.value
+            
+            # Crea embed rosso
+            embed = discord.Embed(
                 title="❌ Background Rifiutato",
-                description=f"Il tuo background è stato rifiutato da {interaction.user.mention}.",
+                description=f"Il background di {self.cittadino.mention} è stato rifiutato.",
                 color=discord.Color.red()
             )
-            dm_embed.add_field(name="Motivo", value=motivo, inline=False)
-            dm_embed.add_field(
-                name="Cosa fare ora",
-                value="Rivedi il tuo background seguendo le indicazioni e invialo nuovamente.",
-                inline=False
+            embed.add_field(name="Valutato da", value=interaction.user.mention, inline=True)
+            embed.add_field(name="Motivo", value=motivo, inline=False)
+            embed.timestamp = discord.utils.utcnow()
+            
+            await interaction.channel.send(content=self.cittadino.mention, embed=embed)
+            
+            # Invia DM all'utente
+            try:
+                dm_embed = discord.Embed(
+                    title="❌ Background Rifiutato",
+                    description=f"Il tuo background è stato rifiutato da {interaction.user.mention}.",
+                    color=discord.Color.red()
+                )
+                dm_embed.add_field(name="Motivo", value=motivo, inline=False)
+                dm_embed.add_field(
+                    name="Cosa fare ora",
+                    value="Rivedi il tuo background seguendo le indicazioni e invialo nuovamente.",
+                    inline=False
+                )
+                await self.cittadino.send(embed=dm_embed)
+            except:
+                pass
+            
+            await interaction.followup.send(f"❌ Background rifiutato per {self.cittadino.mention}!", ephemeral=True)
+            
+            # LOG
+            log_embed = discord.Embed(
+                title="❌ LOG BACKGROUND RIFIUTATO",
+                color=discord.Color.red()
             )
-            await self.cittadino.send(embed=dm_embed)
-        except:
-            pass
-        
-        await interaction.followup.send(f"❌ Background rifiutato per {self.cittadino.mention}!", ephemeral=True)
-        
-        # LOG
-        log_embed = discord.Embed(
-            title="❌ LOG BACKGROUND RIFIUTATO",
-            color=discord.Color.red()
-        )
-        log_embed.add_field(name="Valutatore", value=interaction.user.mention, inline=True)
-        log_embed.add_field(name="Cittadino", value=self.cittadino.mention, inline=True)
-        log_embed.add_field(name="Motivo", value=motivo[:200], inline=False)
-        log_embed.timestamp = discord.utils.utcnow()
-        await log_command(self.bot, LOG_CHANNEL_ID, embed=log_embed)
+            log_embed.add_field(name="Valutatore", value=interaction.user.mention, inline=True)
+            log_embed.add_field(name="Cittadino", value=self.cittadino.mention, inline=True)
+            log_embed.add_field(name="Motivo", value=motivo[:200], inline=False)
+            log_embed.timestamp = discord.utils.utcnow()
+            await log_command(self.bot, LOG_CHANNEL_ID, embed=log_embed)
+        except Exception as e:
+            print(f"Errore in BackgroundRifiutatoModal: {e}")
+            try:
+                await interaction.followup.send(f"❌ Errore: {e}", ephemeral=True)
+            except:
+                pass
 
 # ====================
 # MODAL PER WHITELIST PASSATA
@@ -280,67 +222,74 @@ class WhitelistPassataModal(discord.ui.Modal, title="Whitelist Passata"):
         self.cittadino = cittadino
 
     async def on_submit(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
-        
-        errori = self.errori_input.value
-        
-        # Crea embed verde
-        embed = discord.Embed(
-            title="<a:megafono:1431932605984542720> 𝐄𝐬𝐢𝐭𝐨 𝐰𝐡𝐢𝐭𝐞𝐥𝐢𝐬𝐭 <a:conferma:1451983464764014733>",
-            color=discord.Color.green()
-        )
-        
-        embed.add_field(name="𝗖𝗶𝘁𝘁𝗮𝗱𝗶𝗻𝗼<a:casomaiconflecia:1434244328448069642>", value=self.cittadino.mention, inline=True)
-        embed.add_field(name="𝗘𝘀𝗶𝘁𝗼<a:casomaiconflecia:1434244328448069642>", value="Whitelist Passata", inline=True)
-        embed.add_field(name="𝗘𝗿𝗿𝗼𝗿𝗶<a:casomaiconflecia:1434244328448069642>", value=errori, inline=True)
-        embed.add_field(name="𝗩𝗮𝗹𝘂𝘁𝗮𝘁𝗼 𝗱𝗮<a:casomaiconflecia:1434244328448069642>", value=interaction.user.mention, inline=True)
-        
-        embed.set_image(url="https://i.postimg.cc/L5jj6kFR/IMG-4265.jpg")
-        
-        await interaction.channel.send(content=self.cittadino.mention, embed=embed)
-        
         try:
-            roles_to_remove = [role for role in self.cittadino.roles if role.name != "@everyone"]
-            if roles_to_remove:
-                await self.cittadino.remove_roles(*roles_to_remove, reason=f"Pulizia ruoli per whitelist passata - valutata da {interaction.user.name}")
-        except Exception as e:
-            print(f"Errore rimozione ruoli: {e}")
-        
-        roles_to_add = []
-        for role_id in WL_ROLES:
-            role = interaction.guild.get_role(role_id)
-            if role:
-                roles_to_add.append(role)
-        
-        if roles_to_add:
-            try:
-                await self.cittadino.add_roles(*roles_to_add, reason=f"Whitelist passata - valutata da {interaction.user.name}")
-            except Exception as e:
-                print(f"Errore aggiunta ruoli: {e}")
-        
-        try:
-            dm_embed = discord.Embed(
-                title="✅ Whitelist Passata!",
-                description=f"Congratulazioni! Hai superato la whitelist valutata da {interaction.user.mention}.",
+            await interaction.response.defer(ephemeral=True)
+            
+            errori = self.errori_input.value
+            
+            # Crea embed verde
+            embed = discord.Embed(
+                title="<a:megafono:1431932605984542720> 𝐄𝐬𝐢𝐭𝐨 𝐰𝐡𝐢𝐭𝐞𝐥𝐢𝐬𝐭 <a:si:1433573748891582566>",
                 color=discord.Color.green()
             )
-            dm_embed.add_field(name="Errori riscontrati", value=errori, inline=False)
-            await self.cittadino.send(embed=dm_embed)
-        except:
-            pass
-        
-        await interaction.followup.send(f"✅ Whitelist passata inviata per {self.cittadino.mention}! Ruoli aggiornati.", ephemeral=True)
-        
-        # LOG CON EMBED
-        log_embed = discord.Embed(
-            title="✅ LOG WHITELIST PASSATA",
-            color=discord.Color.green()
-        )
-        log_embed.add_field(name="Valutatore", value=interaction.user.mention, inline=True)
-        log_embed.add_field(name="Cittadino", value=self.cittadino.mention, inline=True)
-        log_embed.add_field(name="Azione", value="Ruoli resettati e aggiornati", inline=False)
-        log_embed.timestamp = discord.utils.utcnow()
-        await log_command(self.bot, LOG_CHANNEL_ID, embed=log_embed)
+            
+            embed.add_field(name="𝗖𝗶𝘁𝘁𝗮𝗱𝗶𝗻𝗼<a:casomaiconflecia:1434244328448069642>", value=self.cittadino.mention, inline=True)
+            embed.add_field(name="𝗘𝘀𝗶𝘁𝗼<a:casomaiconflecia:1434244328448069642>", value="Whitelist Passata", inline=True)
+            embed.add_field(name="𝗘𝗿𝗿𝗼𝗿𝗶<a:casomaiconflecia:1434244328448069642>", value=errori, inline=True)
+            embed.add_field(name="𝗩𝗮𝗹𝘂𝘁𝗮𝘁𝗼 𝗱𝗮<a:casomaiconflecia:1434244328448069642>", value=interaction.user.mention, inline=True)
+            
+            embed.set_image(url="https://i.postimg.cc/L5jj6kFR/IMG-4265.jpg")
+            
+            await interaction.channel.send(content=self.cittadino.mention, embed=embed)
+            
+            try:
+                roles_to_remove = [role for role in self.cittadino.roles if role.name != "@everyone"]
+                if roles_to_remove:
+                    await self.cittadino.remove_roles(*roles_to_remove, reason=f"Pulizia ruoli per whitelist passata - valutata da {interaction.user.name}")
+            except Exception as e:
+                print(f"Errore rimozione ruoli: {e}")
+            
+            roles_to_add = []
+            for role_id in WL_ROLES:
+                role = interaction.guild.get_role(role_id)
+                if role:
+                    roles_to_add.append(role)
+            
+            if roles_to_add:
+                try:
+                    await self.cittadino.add_roles(*roles_to_add, reason=f"Whitelist passata - valutata da {interaction.user.name}")
+                except Exception as e:
+                    print(f"Errore aggiunta ruoli: {e}")
+            
+            try:
+                dm_embed = discord.Embed(
+                    title="✅ Whitelist Passata!",
+                    description=f"Congratulazioni! Hai superato la whitelist valutata da {interaction.user.mention}.",
+                    color=discord.Color.green()
+                )
+                dm_embed.add_field(name="Errori riscontrati", value=errori, inline=False)
+                await self.cittadino.send(embed=dm_embed)
+            except:
+                pass
+            
+            await interaction.followup.send(f"✅ Whitelist passata inviata per {self.cittadino.mention}! Ruoli aggiornati.", ephemeral=True)
+            
+            # LOG CON EMBED
+            log_embed = discord.Embed(
+                title="✅ LOG WHITELIST PASSATA",
+                color=discord.Color.green()
+            )
+            log_embed.add_field(name="Valutatore", value=interaction.user.mention, inline=True)
+            log_embed.add_field(name="Cittadino", value=self.cittadino.mention, inline=True)
+            log_embed.add_field(name="Azione", value="Ruoli resettati e aggiornati", inline=False)
+            log_embed.timestamp = discord.utils.utcnow()
+            await log_command(self.bot, LOG_CHANNEL_ID, embed=log_embed)
+        except Exception as e:
+            print(f"Errore in WhitelistPassataModal: {e}")
+            try:
+                await interaction.followup.send(f"❌ Errore: {e}", ephemeral=True)
+            except:
+                pass
 
 # ====================
 # MODAL PER WHITELIST RIMANDATA
@@ -369,50 +318,57 @@ class WhitelistRimandataModal(discord.ui.Modal, title="Whitelist Rimandata"):
         self.cittadino = cittadino
 
     async def on_submit(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
-        
-        errori = self.errori_input.value
-        motivo = self.motivo_input.value
-        
-        embed = discord.Embed(
-            title="<a:megafono:1431932605984542720> 𝐄𝐬𝐢𝐭𝐨 𝐰𝐡𝐢𝐭𝐞𝐥𝐢𝐬𝐭 <a:annulla:1431940396635652146>",
-            color=discord.Color.red()
-        )
-        
-        embed.add_field(name="𝗖𝗶𝘁𝘁𝗮𝗱𝗶𝗻𝗼<a:casomaiconflecia:1434244328448069642>", value=self.cittadino.mention, inline=True)
-        embed.add_field(name="𝗘𝘀𝗶𝘁𝗼<a:casomaiconflecia:1434244328448069642>", value="Whitelist Rimandata", inline=True)
-        embed.add_field(name="𝗘𝗿𝗿𝗼𝗿𝗶<a:casomaiconflecia:1434244328448069642>", value=errori, inline=True)
-        embed.add_field(name="𝗠𝗼𝘁𝗶𝘃𝗼<a:casomaiconflecia:1434244328448069642>", value=motivo, inline=True)
-        embed.add_field(name="𝗩𝗮𝗹𝘂𝘁𝗮𝘁𝗼 𝗱𝗮<a:casomaiconflecia:1434244328448069642>", value=interaction.user.mention, inline=True)
-        
-        embed.set_image(url="https://i.postimg.cc/G3vDDjVJ/IMG-4266.jpg")
-        
-        await interaction.channel.send(content=self.cittadino.mention, embed=embed)
-        
         try:
-            dm_embed = discord.Embed(
-                title="❌ Whitelist Rimandata",
-                description=f"La tua whitelist è stata rimandata da {interaction.user.mention}. Ripassa lo studio e riprova!",
+            await interaction.response.defer(ephemeral=True)
+            
+            errori = self.errori_input.value
+            motivo = self.motivo_input.value
+            
+            embed = discord.Embed(
+                title="<a:megafono:1431932605984542720> 𝐄𝐬𝐢𝐭𝐨 𝐰𝐡𝐢𝐭𝐞𝐥𝐢𝐬𝐭 <a:annulla:1431940396635652146>",
                 color=discord.Color.red()
             )
-            dm_embed.add_field(name="Errori riscontrati", value=errori, inline=False)
-            dm_embed.add_field(name="Motivo", value=motivo, inline=False)
-            await self.cittadino.send(embed=dm_embed)
-        except:
-            pass
-        
-        await interaction.followup.send(f"❌ Whitelist rimandata inviata per {self.cittadino.mention}!", ephemeral=True)
-        
-        # LOG CON EMBED
-        log_embed = discord.Embed(
-            title="❌ LOG WHITELIST RIMANDATA",
-            color=discord.Color.red()
-        )
-        log_embed.add_field(name="Valutatore", value=interaction.user.mention, inline=True)
-        log_embed.add_field(name="Cittadino", value=self.cittadino.mention, inline=True)
-        log_embed.add_field(name="Motivo", value=motivo[:100], inline=False)
-        log_embed.timestamp = discord.utils.utcnow()
-        await log_command(self.bot, LOG_CHANNEL_ID, embed=log_embed)
+            
+            embed.add_field(name="𝗖𝗶𝘁𝘁𝗮𝗱𝗶𝗻𝗼<a:casomaiconflecia:1434244328448069642>", value=self.cittadino.mention, inline=True)
+            embed.add_field(name="𝗘𝘀𝗶𝘁𝗼<a:casomaiconflecia:1434244328448069642>", value="Whitelist Rimandata", inline=True)
+            embed.add_field(name="𝗘𝗿𝗿𝗼𝗿𝗶<a:casomaiconflecia:1434244328448069642>", value=errori, inline=True)
+            embed.add_field(name="𝗠𝗼𝘁𝗶𝘃𝗼<a:casomaiconflecia:1434244328448069642>", value=motivo, inline=True)
+            embed.add_field(name="𝗩𝗮𝗹𝘂𝘁𝗮𝘁𝗼 𝗱𝗮<a:casomaiconflecia:1434244328448069642>", value=interaction.user.mention, inline=True)
+            
+            embed.set_image(url="https://i.postimg.cc/G3vDDjVJ/IMG-4266.jpg")
+            
+            await interaction.channel.send(content=self.cittadino.mention, embed=embed)
+            
+            try:
+                dm_embed = discord.Embed(
+                    title="❌ Whitelist Rimandata",
+                    description=f"La tua whitelist è stata rimandata da {interaction.user.mention}. Ripassa lo studio e riprova!",
+                    color=discord.Color.red()
+                )
+                dm_embed.add_field(name="Errori riscontrati", value=errori, inline=False)
+                dm_embed.add_field(name="Motivo", value=motivo, inline=False)
+                await self.cittadino.send(embed=dm_embed)
+            except:
+                pass
+            
+            await interaction.followup.send(f"❌ Whitelist rimandata inviata per {self.cittadino.mention}!", ephemeral=True)
+            
+            # LOG CON EMBED
+            log_embed = discord.Embed(
+                title="❌ LOG WHITELIST RIMANDATA",
+                color=discord.Color.red()
+            )
+            log_embed.add_field(name="Valutatore", value=interaction.user.mention, inline=True)
+            log_embed.add_field(name="Cittadino", value=self.cittadino.mention, inline=True)
+            log_embed.add_field(name="Motivo", value=motivo[:100], inline=False)
+            log_embed.timestamp = discord.utils.utcnow()
+            await log_command(self.bot, LOG_CHANNEL_ID, embed=log_embed)
+        except Exception as e:
+            print(f"Errore in WhitelistRimandataModal: {e}")
+            try:
+                await interaction.followup.send(f"❌ Errore: {e}", ephemeral=True)
+            except:
+                pass
 
 # ====================
 # SETUP DEI COMANDI
@@ -445,16 +401,85 @@ def setup_admin_commands(bot: commands.Bot):
             await interaction.response.send_message("❌ Non puoi valutare un bot!", ephemeral=True)
             return
         
-        if esito.value == "PASSATA":
-            modal = WhitelistPassataModal(bot, cittadino)
-        elif esito.value == "RIMANDATA":
-            modal = WhitelistRimandataModal(bot, cittadino)
-        elif esito.value == "BG_POSITIVO":
-            modal = BackgroundPositivoModal(bot, cittadino)
-        elif esito.value == "BG_RIFIUTATO":
-            modal = BackgroundRifiutatoModal(bot, cittadino)
-        
-        await interaction.response.send_modal(modal)
+        try:
+            if esito.value == "PASSATA":
+                modal = WhitelistPassataModal(bot, cittadino)
+                await interaction.response.send_modal(modal)
+            elif esito.value == "RIMANDATA":
+                modal = WhitelistRimandataModal(bot, cittadino)
+                await interaction.response.send_modal(modal)
+            elif esito.value == "BG_POSITIVO":
+                # Background positivo NON richiede modal, processa direttamente
+                await interaction.response.defer(ephemeral=True)
+                
+                # Crea embed verde
+                embed = discord.Embed(
+                    title="✅ Background Approvato",
+                    description=f"Il background di {cittadino.mention} è stato approvato!",
+                    color=discord.Color.green()
+                )
+                embed.add_field(name="Valutato da", value=interaction.user.mention, inline=True)
+                embed.set_footer(text="Preparati per la Whitelist Orale")
+                embed.timestamp = discord.utils.utcnow()
+                
+                await interaction.channel.send(content=cittadino.mention, embed=embed)
+                
+                # Rimuovi tutti i ruoli
+                try:
+                    roles_to_remove = [role for role in cittadino.roles if role.name != "@everyone"]
+                    if roles_to_remove:
+                        await cittadino.remove_roles(*roles_to_remove, reason=f"Background approvato - valutato da {interaction.user.name}")
+                except Exception as e:
+                    print(f"Errore rimozione ruoli: {e}")
+                
+                # Aggiungi ruolo background approvato
+                approved_role = interaction.guild.get_role(BACKGROUND_APPROVED_ROLE_ID)
+                if approved_role:
+                    try:
+                        await cittadino.add_roles(approved_role, reason=f"Background approvato - valutato da {interaction.user.name}")
+                    except Exception as e:
+                        print(f"Errore aggiunta ruolo: {e}")
+                
+                # Invia DM all'utente
+                try:
+                    dm_embed = discord.Embed(
+                        title="✅ Background Approvato!",
+                        description=f"Congratulazioni! Il tuo background è stato approvato da {interaction.user.mention}.",
+                        color=discord.Color.green()
+                    )
+                    dm_embed.add_field(
+                        name="Prossimo Step",
+                        value="Preparati per la **Whitelist Orale**. Verrai contattato a breve!",
+                        inline=False
+                    )
+                    await cittadino.send(embed=dm_embed)
+                except:
+                    pass
+                
+                await interaction.followup.send(f"✅ Background approvato per {cittadino.mention}! Ruolo aggiornato.", ephemeral=True)
+                
+                # LOG
+                log_embed = discord.Embed(
+                    title="✅ LOG BACKGROUND APPROVATO",
+                    color=discord.Color.green()
+                )
+                log_embed.add_field(name="Valutatore", value=interaction.user.mention, inline=True)
+                log_embed.add_field(name="Cittadino", value=cittadino.mention, inline=True)
+                log_embed.timestamp = discord.utils.utcnow()
+                await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
+                
+            elif esito.value == "BG_RIFIUTATO":
+                modal = BackgroundRifiutatoModal(bot, cittadino)
+                await interaction.response.send_modal(modal)
+        except Exception as e:
+            print(f"Errore in whitelister command: {e}")
+            try:
+                await interaction.response.send_message(f"❌ Errore: {e}", ephemeral=True)
+            except:
+                try:
+                    await interaction.followup.send(f"❌ Errore: {e}", ephemeral=True)
+                except:
+                    pass
     
     @bot.tree.command(name="annuncio", description="[STAFF] Invia un annuncio a tutti i membri del server")
     @app_commands.describe(testo="Il testo dell'annuncio")

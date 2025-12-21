@@ -146,6 +146,7 @@ class BackgroundPositivoModal(discord.ui.Modal, title="Background Positivo"):
         )
         embed.add_field(name="Valutato da", value=interaction.user.mention, inline=True)
         embed.set_footer(text="Preparati per la Whitelist Orale")
+        embed.set_image(url="https://i.postimg.cc/DZcwCQK0/IMG-4390.png")
         embed.timestamp = discord.utils.utcnow()
         
         await interaction.channel.send(content=self.cittadino.mention, embed=embed)
@@ -225,6 +226,7 @@ class BackgroundRifiutatoModal(discord.ui.Modal, title="Background Rifiutato"):
         )
         embed.add_field(name="Valutato da", value=interaction.user.mention, inline=True)
         embed.add_field(name="Motivo", value=motivo, inline=False)
+        embed.set_image(url="https://i.postimg.cc/X7jQDn95/2BB43855-B9BD-4D5B-B755-0902034D9B45.png")
         embed.timestamp = discord.utils.utcnow()
         
         await interaction.channel.send(content=self.cittadino.mention, embed=embed)
@@ -592,4 +594,21 @@ def setup_admin_commands(bot: commands.Bot):
                 dm_status = "DM non inviabile."
 
             await interaction.followup.send(
-                f"✅ Rimossi **${removed_amount:,}** dal conto bancario di {utente.mention}. (Nuovo saldo: ${new
+                f"✅ Rimossi **${removed_amount:,}** dal conto bancario di {utente.mention}. (Nuovo saldo: ${new_bank:,}). ({dm_status})",
+                ephemeral=True
+            )
+            
+            # LOG CON EMBED
+            log_embed = discord.Embed(
+                title="🚫 LOG RIMOZIONE DENARO",
+                color=discord.Color.red()
+            )
+            log_embed.add_field(name="Staff", value=interaction.user.mention, inline=True)
+            log_embed.add_field(name="Utente", value=utente.mention, inline=True)
+            log_embed.add_field(name="Importo", value=f"${removed_amount:,}", inline=True)
+            log_embed.add_field(name="Motivo", value=motivo, inline=False)
+            log_embed.timestamp = discord.utils.utcnow()
+            await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
+
+        except Exception as e:
+            await interaction.followup.send(f"❌ Errore durante la rimozione di denaro: {e}", ephemeral=True)

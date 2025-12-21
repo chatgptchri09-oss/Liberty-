@@ -128,9 +128,6 @@ def setup_theft_commands(bot: commands.Bot):
         police_role = interaction.guild.get_role(POLICE_ROLE_ID)
         police_mention = police_role.mention if police_role else f"<@&{POLICE_ROLE_ID}>"
         
-        # Invia tag polizia
-        await interaction.followup.send(content=police_mention)
-        
         # Per ogni azione, crea un embed
         total_actions = len(theft_data["actions"])
         
@@ -149,7 +146,11 @@ def setup_theft_commands(bot: commands.Bot):
             )
             action_embed.set_footer(text=timestamp)
             
-            await interaction.channel.send(embed=action_embed)
+            # Se è il primo embed, aggiungi il tag polizia
+            if idx == 1:
+                await interaction.followup.send(content=police_mention, embed=action_embed)
+            else:
+                await interaction.channel.send(embed=action_embed)
             
             # Aspetta 1 minuto tra ogni azione
             if idx < total_actions:

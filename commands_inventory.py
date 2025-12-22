@@ -131,7 +131,7 @@ class BackpackPaginationView(discord.ui.View):
         self.target_user = target_user
         self.requester = requester
         self.current_page = 0
-        self.items_per_page = 5
+        self.items_per_page = 10
         self.total_pages = math.ceil(len(items) / self.items_per_page) if items else 1
         
         self.update_buttons()
@@ -142,7 +142,7 @@ class BackpackPaginationView(discord.ui.View):
     
     def get_embed(self):
         embed = discord.Embed(
-            title=f"🎒 Zaino",
+            title=f"🎒 Zaino di {self.target_user.display_name}",
             color=discord.Color.blue()
         )
         
@@ -151,16 +151,16 @@ class BackpackPaginationView(discord.ui.View):
         page_items = self.items[start_idx:end_idx]
         
         if page_items:
+            # Crea lista formattata con quantità e nome sulla stessa riga
+            items_text = ""
             for item_name, quantity in page_items:
-                embed.add_field(
-                    name=f"{item_name}",
-                    value=f"Quantità: **{quantity}**",
-                    inline=False
-                )
+                items_text += f"**{quantity}** {item_name}\n"
+            
+            embed.description = items_text
         else:
             embed.description = "Lo zaino è vuoto!"
         
-        embed.set_footer(text=f"👤 Pagina {self.current_page + 1} di {self.total_pages} | Richiesto da {self.requester.display_name}")
+        embed.set_footer(text=f"Pagina {self.current_page + 1} di {self.total_pages} | Richiesto da {self.requester.display_name}")
         
         return embed
     
@@ -323,9 +323,6 @@ def setup_inventory_commands(bot: commands.Bot):
             view=view,
             ephemeral=True
         )
-
-    # CONTINUA... (per limiti di caratteri suddivido in due parti)
-    # PARTE 2 DI commands_inventory.py - Aggiungi questi comandi dopo give-item
 
     @bot.tree.command(name="take-item", description="[STAFF] Rimuovi un item dall'inventario di un utente.")
     @app_commands.describe(
@@ -537,8 +534,6 @@ def setup_inventory_commands(bot: commands.Bot):
         embed = view.get_embed()
         
         await interaction.response.send_message(embed=embed, view=view)
-        
-
     
     @bot.tree.command(name="vendizaino", description="[MARKET] Vendi uno zaino a un utente")
     @app_commands.describe(utente="L'utente a cui vendere lo zaino")

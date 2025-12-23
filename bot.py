@@ -240,7 +240,6 @@ from commands_wallet import setup_wallet_commands
 from commands_inventory import setup_inventory_commands
 from commands_rp import setup_rp_commands
 from commands_vehicle import setup_vehicle_commands
-from commands_salary import setup_salary_commands 
 from commands_bonifico import setup_bonifico_commands
 from commands_admin import setup_admin_commands
 from commands_bando import setup_bando_commands
@@ -263,7 +262,6 @@ setup_wallet_commands(bot)
 setup_inventory_commands(bot)
 setup_rp_commands(bot)
 setup_vehicle_commands(bot)
-setup_salary_commands(bot) 
 setup_bonifico_commands(bot)
 setup_admin_commands(bot)
 setup_bando_commands(bot)

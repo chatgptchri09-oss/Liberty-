@@ -53,31 +53,42 @@ def setup_rp_commands(bot: commands.Bot):
         log_embed.timestamp = discord.utils.utcnow()
         await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
 
-        @bot.tree.command(name="inizio-turno", description="Inizia un turno lavorativo")
-    @app_commands.describe(lavoro="Il ruolo del lavoro", stipendio="lo stipendio orario")
-        
+    @bot.tree.command(name="inizio-turno", description="Inizia un turno lavorativo")
+    @app_commands.describe(
+        lavoro="Il ruolo del lavoro",
+        stipendio="Stipendio orario (es. 3800)"
+    )
     async def inizio_turno(interaction: discord.Interaction, lavoro: discord.Role, stipendio: int):
-        # 1. Diciamo a Discord di "attendere" per evitare l'errore "Interazione non riuscita"
-        await interaction.response.defer(ephemeral=True)
-        
-        member = interaction.user
-
-        # Controllo Ruolo
-        if lavoro not in member.roles:
-            await interaction.followup.send(
-                f"❌ Non puoi iniziare un turno come {lavoro.mention} perché non hai quel ruolo!"
-            )
-            return
-        
-        # Controllo Stipendio
-        if stipendio <= 0:
-            await interaction.followup.send(
-                "❌ Lo stipendio orario deve essere maggiore di 0!"
-            )
-            return
-
         try:
+            member = interaction.user
+
+            if lavoro not in member.roles:
+                await interaction.response.send_message(
+                    f"❌ Non puoi iniziare un turno come {lavoro.mention} perché non hai quel ruolo!",
+                    ephemeral=True
+                )
+                return
+            
+            if stipendio <= 0:
+                await interaction.response.send_message(
+                    "❌ Lo stipendio orario deve essere maggiore di 0!",
+                    ephemeral=True
+                )
+                return
+
             async with aiosqlite.connect(DATABASE_NAME) as db:
+                # Crea la tabella se non esiste con la colonna hourly_salary
+                await db.execute("""
+                    CREATE TABLE IF NOT EXISTS work_shifts (
+                        user_id TEXT,
+                        role_id TEXT,
+                        start_time TEXT,
+                        hourly_salary INTEGER DEFAULT 0,
+                        PRIMARY KEY (user_id, role_id)
+                    )
+                """)
+                await db.commit()
+                
                 async with db.execute(
                     "SELECT * FROM work_shifts WHERE user_id = ? AND role_id = ?",
                     (str(interaction.user.id), str(lavoro.id))
@@ -85,8 +96,9 @@ def setup_rp_commands(bot: commands.Bot):
                     existing_shift = await cursor.fetchone()
 
                 if existing_shift:
-                    await interaction.followup.send(
-                        f"❌ Hai già un turno attivo per {lavoro.mention}!"
+                    await interaction.response.send_message(
+                        f"❌ Hai già un turno attivo per {lavoro.mention}!",
+                        ephemeral=True
                     )
                     return
 
@@ -96,7 +108,6 @@ def setup_rp_commands(bot: commands.Bot):
                 )
                 await db.commit()
 
-            # --- IL TUO EMBED ORIGINALE ---
             embed = discord.Embed(
                 title="<a:Online:1431599470897922069> 𝐓𝐮𝐫𝐧𝐨 𝐥𝐚𝐯𝐨𝐫𝐚𝐭𝐢𝐯𝐨 <a:broom:1431606606763921408>",
                 description=f"{interaction.user.mention} ha **INIZIATO** il proprio turno di {lavoro.mention}",
@@ -104,90 +115,107 @@ def setup_rp_commands(bot: commands.Bot):
             )
             embed.add_field(name="💰 Stipendio Orario", value=f"${stipendio:,}", inline=False)
 
-            # Invio l'embed nel canale per tutti
-            await interaction.channel.send(embed=embed)
-            # Confermo all'utente che è andata bene
-            await interaction.followup.send("✅ Turno iniziato correttamente!")
-
+            await interaction.response.send_message(embed=embed)
         except Exception as e:
-            print(f"ERRORE SQL: {e}")
-            await interaction.followup.send(f"❌ Errore durante l'accesso al database. Verifica che la tabella 'work_shifts' esista.")
-
+            print(f"Errore in inizio-turno: {e}")
+            try:
+                await interaction.response.send_message(f"❌ Errore: {e}", ephemeral=True)
+            except:
+                await interaction.followup.send(f"❌ Errore: {e}", ephemeral=True)
 
     @bot.tree.command(name="fine-turno", description="Termina un turno lavorativo")
     @app_commands.describe(lavoro="Il ruolo del lavoro da terminare")
     async def fine_turno(interaction: discord.Interaction, lavoro: discord.Role):
-        async with aiosqlite.connect(DATABASE_NAME) as db:
-            async with db.execute(
-                "SELECT start_time, hourly_salary FROM work_shifts WHERE user_id = ? AND role_id = ?",
-                (str(interaction.user.id), str(lavoro.id))
-            ) as cursor:
-                shift = await cursor.fetchone()
+        try:
+            async with aiosqlite.connect(DATABASE_NAME) as db:
+                # Assicurati che la tabella esista
+                await db.execute("""
+                    CREATE TABLE IF NOT EXISTS work_shifts (
+                        user_id TEXT,
+                        role_id TEXT,
+                        start_time TEXT,
+                        hourly_salary INTEGER DEFAULT 0,
+                        PRIMARY KEY (user_id, role_id)
+                    )
+                """)
+                await db.commit()
+                
+                async with db.execute(
+                    "SELECT start_time, hourly_salary FROM work_shifts WHERE user_id = ? AND role_id = ?",
+                    (str(interaction.user.id), str(lavoro.id))
+                ) as cursor:
+                    shift = await cursor.fetchone()
 
-            if not shift:
-                await interaction.response.send_message(
-                    f"❌ Non hai un turno attivo per {lavoro.mention}!",
-                    ephemeral=True
+                if not shift:
+                    await interaction.response.send_message(
+                        f"❌ Non hai un turno attivo per {lavoro.mention}!",
+                        ephemeral=True
+                    )
+                    return
+
+                start_time = datetime.fromisoformat(shift[0])
+                hourly_salary = shift[1] if shift[1] else 0
+                end_time = datetime.now()
+                duration = end_time - start_time
+
+                total_seconds = duration.total_seconds()
+                hours = int(total_seconds // 3600)
+                minutes = int((total_seconds % 3600) // 60)
+                
+                # Calcola ore arrotondate: se minuti >= 31, arrotonda per eccesso
+                if minutes >= 31:
+                    rounded_hours = hours + 1
+                else:
+                    rounded_hours = hours
+                
+                # Calcola stipendio totale
+                total_salary = rounded_hours * hourly_salary
+
+                await db.execute(
+                    "DELETE FROM work_shifts WHERE user_id = ? AND role_id = ?",
+                    (str(interaction.user.id), str(lavoro.id))
                 )
-                return
+                await db.commit()
 
-            start_time = datetime.fromisoformat(shift[0])
-            hourly_salary = shift[1]
-            end_time = datetime.now()
-            duration = end_time - start_time
-
-            total_seconds = duration.total_seconds()
-            hours = int(total_seconds // 3600)
-            minutes = int((total_seconds % 3600) // 60)
-            
-            # Calcola ore arrotondate: se minuti >= 31, arrotonda per eccesso
-            if minutes >= 31:
-                rounded_hours = hours + 1
-            else:
-                rounded_hours = hours
-            
-            # Calcola stipendio totale
-            total_salary = rounded_hours * hourly_salary
-
-            await db.execute(
-                "DELETE FROM work_shifts WHERE user_id = ? AND role_id = ?",
-                (str(interaction.user.id), str(lavoro.id))
+            # Embed nel canale corrente
+            embed = discord.Embed(
+                title=" <a:offline:1431606235354107914> 𝐓𝐮𝐫𝐧𝐨 𝐥𝐚𝐯𝐨𝐫𝐚𝐭𝐢𝐯𝐨 <a:cigarette:1431607423256494161>",
+                description=(
+                    f"{interaction.user.mention} ha **TERMINATO** il proprio turno di {lavoro.mention}\n\n"
+                    f"**Tempo Lavorativo:** {hours}h e {minutes}min\n"
+                    f"**Ore Arrotondate:** {rounded_hours}h\n"
+                    f"**Stipendio Guadagnato:** ${total_salary:,}"
+                ),
+                color=discord.Color.red()
             )
-            await db.commit()
 
-        # Embed nel canale corrente
-        embed = discord.Embed(
-            title=" <a:offline:1431606235354107914> 𝐓𝐮𝐫𝐧𝐨 𝐥𝐚𝐯𝐨𝐫𝐚𝐭𝐢𝐯𝐨 <a:cigarette:1431607423256494161>",
-            description=(
-                f"{interaction.user.mention} ha **TERMINATO** il proprio turno di {lavoro.mention}\n\n"
-                f"**Tempo Lavorativo:** {hours}h e {minutes}min\n"
-                f"**Ore Arrotondate:** {rounded_hours}h\n"
-                f"**Stipendio Guadagnato:** ${total_salary:,}"
-            ),
-            color=discord.Color.red()
-        )
-
-        await interaction.response.send_message(embed=embed)
-        
-        # Embed nel canale stipendi per lo staff
-        salary_channel = bot.get_channel(SALARY_CHANNEL_ID)
-        if salary_channel:
-            salary_embed = discord.Embed(
-                title="💰 Richiesta Pagamento Stipendio",
-                color=discord.Color.gold()
-            )
-            salary_embed.add_field(name="👤 Dipendente", value=interaction.user.mention, inline=False)
-            salary_embed.add_field(name="💼 Lavoro", value=lavoro.mention, inline=False)
-            salary_embed.add_field(name="⏱️ Ore Lavorate", value=f"{rounded_hours}h", inline=True)
-            salary_embed.add_field(name="💵 Stipendio Orario", value=f"${hourly_salary:,}", inline=True)
-            salary_embed.add_field(name="💰 Totale da Pagare", value=f"**${total_salary:,}**", inline=False)
-            salary_embed.set_footer(text=f"ID Utente: {interaction.user.id}")
-            salary_embed.timestamp = discord.utils.utcnow()
+            await interaction.response.send_message(embed=embed)
             
-            await salary_channel.send(
-                content=f"<@&{STAFF_ROLE_ID}>\n{lavoro.mention} paga lo stipendio",
-                embed=salary_embed
-            )
+            # Embed nel canale stipendi per lo staff
+            salary_channel = bot.get_channel(SALARY_CHANNEL_ID)
+            if salary_channel:
+                salary_embed = discord.Embed(
+                    title="💰 Richiesta Pagamento Stipendio",
+                    color=discord.Color.gold()
+                )
+                salary_embed.add_field(name="👤 Dipendente", value=interaction.user.mention, inline=False)
+                salary_embed.add_field(name="💼 Lavoro", value=lavoro.mention, inline=False)
+                salary_embed.add_field(name="⏱️ Ore Lavorate", value=f"{rounded_hours}h", inline=True)
+                salary_embed.add_field(name="💵 Stipendio Orario", value=f"${hourly_salary:,}", inline=True)
+                salary_embed.add_field(name="💰 Totale da Pagare", value=f"**${total_salary:,}**", inline=False)
+                salary_embed.set_footer(text=f"ID Utente: {interaction.user.id}")
+                salary_embed.timestamp = discord.utils.utcnow()
+                
+                await salary_channel.send(
+                    content=f"<@&{STAFF_ROLE_ID}>\n{lavoro.mention} paga lo stipendio",
+                    embed=salary_embed
+                )
+        except Exception as e:
+            print(f"Errore in fine-turno: {e}")
+            try:
+                await interaction.response.send_message(f"❌ Errore: {e}", ephemeral=True)
+            except:
+                await interaction.followup.send(f"❌ Errore: {e}", ephemeral=True)
 
     @bot.tree.command(name="paga-stipendio", description="[STAFF] Paga lo stipendio a un dipendente")
     @app_commands.describe(

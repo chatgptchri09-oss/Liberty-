@@ -54,10 +54,8 @@ def setup_rp_commands(bot: commands.Bot):
         await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
 
         @bot.tree.command(name="inizio-turno", description="Inizia un turno lavorativo")
-    @app_commands.describe(
-        lavoro="Il ruolo del lavoro",
-        stipendio="Stipendio orario (es. 3800)"
-    )
+    @app_commands.describe(lavoro="Il ruolo del lavoro", stipendio="lo stipendio orario")
+        
     async def inizio_turno(interaction: discord.Interaction, lavoro: discord.Role, stipendio: int):
         # 1. Diciamo a Discord di "attendere" per evitare l'errore "Interazione non riuscita"
         await interaction.response.defer(ephemeral=True)

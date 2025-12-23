@@ -179,14 +179,14 @@ async def init_db():
             )
         """)
         
-        # TABELLA TURNI LAVORO
+        # TABELLA TURNI LAVORO - CORRETTA
         await db.execute("""
             CREATE TABLE IF NOT EXISTS work_shifts (
                 user_id TEXT,
                 role_id TEXT,
                 start_time TEXT,
+                hourly_salary INTEGER DEFAULT 0,
                 PRIMARY KEY (user_id, role_id)
-                ALTER TABLE work_shifts ADD COLUMN hourly_salary INTEGER DEFAULT 0;
             )
         """)
         

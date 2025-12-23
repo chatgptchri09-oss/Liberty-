@@ -53,56 +53,68 @@ def setup_rp_commands(bot: commands.Bot):
         log_embed.timestamp = discord.utils.utcnow()
         await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
 
-    @bot.tree.command(name="inizio-turno", description="Inizia un turno lavorativo")
+        @bot.tree.command(name="inizio-turno", description="Inizia un turno lavorativo")
     @app_commands.describe(
         lavoro="Il ruolo del lavoro",
         stipendio="Stipendio orario (es. 3800)"
     )
     async def inizio_turno(interaction: discord.Interaction, lavoro: discord.Role, stipendio: int):
+        # 1. Diciamo a Discord di "attendere" per evitare l'errore "Interazione non riuscita"
+        await interaction.response.defer(ephemeral=True)
+        
         member = interaction.user
 
+        # Controllo Ruolo
         if lavoro not in member.roles:
-            await interaction.response.send_message(
-                f"❌ Non puoi iniziare un turno come {lavoro.mention} perché non hai quel ruolo!",
-                ephemeral=True
+            await interaction.followup.send(
+                f"❌ Non puoi iniziare un turno come {lavoro.mention} perché non hai quel ruolo!"
             )
             return
         
+        # Controllo Stipendio
         if stipendio <= 0:
-            await interaction.response.send_message(
-                "❌ Lo stipendio orario deve essere maggiore di 0!",
-                ephemeral=True
+            await interaction.followup.send(
+                "❌ Lo stipendio orario deve essere maggiore di 0!"
             )
             return
 
-        async with aiosqlite.connect(DATABASE_NAME) as db:
-            async with db.execute(
-                "SELECT * FROM work_shifts WHERE user_id = ? AND role_id = ?",
-                (str(interaction.user.id), str(lavoro.id))
-            ) as cursor:
-                existing_shift = await cursor.fetchone()
+        try:
+            async with aiosqlite.connect(DATABASE_NAME) as db:
+                async with db.execute(
+                    "SELECT * FROM work_shifts WHERE user_id = ? AND role_id = ?",
+                    (str(interaction.user.id), str(lavoro.id))
+                ) as cursor:
+                    existing_shift = await cursor.fetchone()
 
-            if existing_shift:
-                await interaction.response.send_message(
-                    f"❌ Hai già un turno attivo per {lavoro.mention}!",
-                    ephemeral=True
+                if existing_shift:
+                    await interaction.followup.send(
+                        f"❌ Hai già un turno attivo per {lavoro.mention}!"
+                    )
+                    return
+
+                await db.execute(
+                    "INSERT INTO work_shifts (user_id, role_id, start_time, hourly_salary) VALUES (?, ?, ?, ?)",
+                    (str(interaction.user.id), str(lavoro.id), datetime.now().isoformat(), stipendio)
                 )
-                return
+                await db.commit()
 
-            await db.execute(
-                "INSERT INTO work_shifts (user_id, role_id, start_time, hourly_salary) VALUES (?, ?, ?, ?)",
-                (str(interaction.user.id), str(lavoro.id), datetime.now().isoformat(), stipendio)
+            # --- IL TUO EMBED ORIGINALE ---
+            embed = discord.Embed(
+                title="<a:Online:1431599470897922069> 𝐓𝐮𝐫𝐧𝐨 𝐥𝐚𝐯𝐨𝐫𝐚𝐭𝐢𝐯𝐨 <a:broom:1431606606763921408>",
+                description=f"{interaction.user.mention} ha **INIZIATO** il proprio turno di {lavoro.mention}",
+                color=discord.Color.green()
             )
-            await db.commit()
+            embed.add_field(name="💰 Stipendio Orario", value=f"${stipendio:,}", inline=False)
 
-        embed = discord.Embed(
-            title="<a:Online:1431599470897922069> 𝐓𝐮𝐫𝐧𝐨 𝐥𝐚𝐯𝐨𝐫𝐚𝐭𝐢𝐯𝐨 <a:broom:1431606606763921408>",
-            description=f"{interaction.user.mention} ha **INIZIATO** il proprio turno di {lavoro.mention}",
-            color=discord.Color.green()
-        )
-        embed.add_field(name="💰 Stipendio Orario", value=f"${stipendio:,}", inline=False)
+            # Invio l'embed nel canale per tutti
+            await interaction.channel.send(embed=embed)
+            # Confermo all'utente che è andata bene
+            await interaction.followup.send("✅ Turno iniziato correttamente!")
 
-        await interaction.response.send_message(embed=embed)
+        except Exception as e:
+            print(f"ERRORE SQL: {e}")
+            await interaction.followup.send(f"❌ Errore durante l'accesso al database. Verifica che la tabella 'work_shifts' esista.")
+
 
     @bot.tree.command(name="fine-turno", description="Termina un turno lavorativo")
     @app_commands.describe(lavoro="Il ruolo del lavoro da terminare")

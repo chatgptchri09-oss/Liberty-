@@ -46,11 +46,11 @@ def setup_rp_commands(bot: commands.Bot):
                 stipendio = int(self.stipendio_input.value.replace(',', '').replace(',', ''))
 
     @bot.tree.command(name="paga-stipendio", description="[STAFF] Paga lo stipendio a un dipendente")
-    @app_commands.describe(
-        utente="L'utente a cui pagare lo stipendio",
-        lavoro="Il lavoro svolto",
-        stipendio="L'importo da pagare"
-    )
+@app_commands.describe(
+    utente="L'utente a cui pagare lo stipendio",
+    lavoro="Il lavoro svolto",
+    stipendio="L'importo da pagare"
+)
     async def paga_stipendio(interaction: discord.Interaction, utente: discord.Member, lavoro: discord.Role, stipendio: int):
         if not has_role(interaction, STAFF_ROLE_ID):
             await interaction.response.send_message("❌ Solo lo staff può usare questo comando!", ephemeral=True)

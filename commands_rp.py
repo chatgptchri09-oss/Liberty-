@@ -105,15 +105,7 @@ def setup_rp_commands(bot: commands.Bot):
 
         await interaction.response.send_message(embed=embed)
         
-        log_embed = discord.Embed(
-            title="⛓️ LOG AMMANETTAMENTO",
-            color=discord.Color.dark_red()
-        )
-        log_embed.add_field(name="👮 Agente", value=interaction.user.mention, inline=True)
-        log_embed.add_field(name="👤 Ammanettato", value=utente.mention, inline=True)
-        log_embed.timestamp = discord.utils.utcnow()
-        await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
-
+        
     
     @bot.tree.command(name="inizio-turno", description="Inizia un turno lavorativo")
     @app_commands.describe(lavoro="Il ruolo del lavoro")
@@ -298,7 +290,7 @@ def setup_rp_commands(bot: commands.Bot):
         embed = discord.Embed(
             title="<a:Hacked:1431683990443786240> 𝝰𝛈𝞂𝛈𝖏𝒎𝞂 <a:Skullhack:1431684263056638154>",
             description=messaggio,
-            color=discord.Color.dark_gray()
+            color=discord.Color(0x71368A)
         )
 
         await interaction.response.send_message("✅ Messaggio anonimo inviato!", ephemeral=True)

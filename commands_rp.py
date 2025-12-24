@@ -74,7 +74,7 @@ def setup_rp_commands(bot: commands.Bot):
                     description=f"{interaction.user.mention} ha **INIZIATO** il proprio turno di {self.lavoro.mention}",
                     color=discord.Color.green()
                 )
-                embed.add_field(name="💰 Stipendio Orario", value=f"${stipendio:,}", inline=False)
+                
 
                 await interaction.response.send_message(embed=embed)
                 
@@ -114,6 +114,7 @@ def setup_rp_commands(bot: commands.Bot):
         log_embed.timestamp = discord.utils.utcnow()
         await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
 
+    
     @bot.tree.command(name="inizio-turno", description="Inizia un turno lavorativo")
     @app_commands.describe(lavoro="Il ruolo del lavoro")
     async def inizio_turno(interaction: discord.Interaction, lavoro: discord.Role):
@@ -188,7 +189,6 @@ def setup_rp_commands(bot: commands.Bot):
                 description=(
                     f"{interaction.user.mention} ha **TERMINATO** il proprio turno di {lavoro.mention}\n\n"
                     f"**Tempo Lavorativo:** {hours}h e {minutes}min\n"
-                    f"**Ore Arrotondate:** {rounded_hours}h\n"
                     f"**Stipendio Guadagnato:** ${total_salary:,}"
                 ),
                 color=discord.Color.red()

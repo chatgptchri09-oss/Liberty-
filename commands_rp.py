@@ -29,6 +29,312 @@ async def log_command(bot, channel_id: int, message: str = None, embed: discord.
 
 def setup_rp_commands(bot: commands.Bot):
 
+    class InizioTurnoModal(discord.ui.Modal, title="Inizio Turno Lavorativo"):
+        stipendio_input = discord.ui.TextInput(
+            label="Stipendio Orario",
+            placeholder="Inserisci lo stipendio orario (es. 3800)",
+            required=True,
+            max_length=10
+        )
+        
+        def __init__(self, lavoro: discord.Role):
+            super().__init__()
+            self.lavoro = lavoro
+        
+        async def on_submit(self, interaction: discord.Interaction):
+            try:
+                stipendio = int(self.stipendio_input.value.replace(',', '').replace('
+
+    @bot.tree.command(name="paga-stipendio", description="[STAFF] Paga lo stipendio a un dipendente")
+    @app_commands.describe(
+        utente="L'utente a cui pagare lo stipendio",
+        lavoro="Il lavoro svolto",
+        stipendio="L'importo da pagare"
+    )
+    async def paga_stipendio(interaction: discord.Interaction, utente: discord.Member, lavoro: discord.Role, stipendio: int):
+        if not has_role(interaction, STAFF_ROLE_ID):
+            await interaction.response.send_message("❌ Solo lo staff può usare questo comando!", ephemeral=True)
+            return
+        
+        if stipendio <= 0:
+            await interaction.response.send_message("❌ Lo stipendio deve essere maggiore di 0!", ephemeral=True)
+            return
+        
+        if utente.bot:
+            await interaction.response.send_message("❌ Non puoi pagare uno stipendio a un bot!", ephemeral=True)
+            return
+
+        await interaction.response.defer(ephemeral=True)
+
+        user_id = str(utente.id)
+        
+        # Aggiungi soldi al database
+        async with aiosqlite.connect(DATABASE_NAME) as db:
+            async with db.execute("SELECT bank FROM users WHERE user_id = ?", (user_id,)) as cursor:
+                user_data = await cursor.fetchone()
+
+            if user_data:
+                new_bank = user_data[0] + stipendio
+                await db.execute("UPDATE users SET bank = ? WHERE user_id = ?", (new_bank, user_id))
+            else:
+                await db.execute(
+                    "INSERT INTO users (user_id, cash, bank) VALUES (?, ?, ?)",
+                    (user_id, 0, 20000 + stipendio)
+                )
+            await db.commit()
+        
+        # Invia DM all'utente
+        try:
+            dm_embed = discord.Embed(
+                title="💰 Stipendio Ricevuto!",
+                description=f"Hai ricevuto il tuo stipendio da {interaction.user.mention}",
+                color=discord.Color.green()
+            )
+            dm_embed.add_field(name="💼 Lavoro", value=lavoro.mention, inline=False)
+            dm_embed.add_field(name="💵 Importo", value=f"**${stipendio:,}**", inline=False)
+            dm_embed.add_field(name="👮 Pagato da", value=interaction.user.mention, inline=False)
+            dm_embed.set_footer(text="Controlla il tuo saldo con /bancomat")
+            await utente.send(embed=dm_embed)
+            dm_status = "DM inviato."
+        except:
+            dm_status = "DM non inviabile."
+
+        await interaction.followup.send(
+            f"✅ Stipendio di **${stipendio:,}** pagato a {utente.mention} per {lavoro.mention}! ({dm_status})",
+            ephemeral=True
+        )
+        
+        # LOG
+        log_embed = discord.Embed(
+            title="💰 LOG STIPENDIO PAGATO",
+            color=discord.Color.green()
+        )
+        log_embed.add_field(name="👮 Pagato da", value=interaction.user.mention, inline=True)
+        log_embed.add_field(name="👤 Dipendente", value=utente.mention, inline=True)
+        log_embed.add_field(name="💼 Lavoro", value=lavoro.mention, inline=False)
+        log_embed.add_field(name="💵 Importo", value=f"${stipendio:,}", inline=False)
+        log_embed.timestamp = discord.utils.utcnow()
+        await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
+
+    @bot.tree.command(name="anonimo", description="Invia un messaggio anonimo")
+    @app_commands.describe(messaggio="Il messaggio da inviare anonimamente")
+    async def anonimo(interaction: discord.Interaction, messaggio: str):
+        embed = discord.Embed(
+            title="<a:Hacked:1431683990443786240> 𝝰𝛈𝞂𝛈𝖏𝒎𝞂 <a:Skullhack:1431684263056638154>",
+            description=messaggio,
+            color=discord.Color.dark_gray()
+        )
+
+        await interaction.response.send_message("✅ Messaggio anonimo inviato!", ephemeral=True)
+        await interaction.channel.send(embed=embed)
+        
+        log_embed = discord.Embed(
+            title="💀 LOG MESSAGGIO ANONIMO",
+            color=discord.Color.dark_gray()
+        )
+        log_embed.add_field(name="👤 Scritto da", value=interaction.user.mention, inline=False)
+        log_embed.add_field(name="📝 Messaggio", value=messaggio[:1024], inline=False)
+        log_embed.add_field(name="📍 Canale", value=interaction.channel.mention, inline=False)
+        log_embed.timestamp = discord.utils.utcnow()
+        await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
+    
+    @bot.tree.command(name="nascondo", description="Nascondi un oggetto in una posizione specifica")
+    @app_commands.describe(
+        oggetto="L'oggetto da nascondere",
+        posizione="La posizione dove nasconderlo",
+        foto="Foto del luogo nel quale si nasconde l'oggetto"
+    )
+    async def nascondo(
+        interaction: discord.Interaction,
+        oggetto: str,
+        posizione: str,
+        foto: discord.Attachment
+    ):
+        if not foto.content_type or not foto.content_type.startswith("image/"):
+            await interaction.response.send_message("❌ Devi allegare un'immagine valida!", ephemeral=True)
+            return
+
+        embed = discord.Embed(
+            title="🔍 Oggetto Nascosto",
+            color=discord.Color.blue()
+        )
+        embed.add_field(name="📦 Oggetto", value=oggetto, inline=False)
+        embed.add_field(name="📍 Posizione", value=posizione, inline=False)
+        embed.set_image(url=foto.url)
+
+        await interaction.response.send_message(embed=embed)
+        
+        log_embed = discord.Embed(
+            title="🔍 LOG OGGETTO NASCOSTO",
+            color=discord.Color.blue()
+        )
+        log_embed.add_field(name="👤 Nascosto da", value=interaction.user.mention, inline=False)
+        log_embed.add_field(name="📦 Oggetto", value=oggetto, inline=True)
+        log_embed.add_field(name="📍 Posizione", value=posizione, inline=True)
+        log_embed.set_thumbnail(url=foto.url)
+        log_embed.timestamp = discord.utils.utcnow()
+        await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
+
+    @bot.tree.command(name="me", description="Esegui un'azione RP visibile a tutti.")
+    @app_commands.describe(azione="L'azione che vuoi eseguire")
+    async def me(interaction: discord.Interaction, azione: str):
+        
+        embed = discord.Embed(
+            title="<a:Ciak:1431629051545653369> 𝐀𝐳𝐢𝐨𝐧𝐞 <a:Progress:1431681998250049686> ",
+            description=f"{interaction.user.mention}: *{azione}*",
+            color=discord.Color.from_rgb(44, 47, 51)
+        )
+
+        await interaction.response.send_message("✅ Azione RP inviata!", ephemeral=True)
+        await interaction.channel.send(embed=embed)
+    
+    @bot.tree.command(name="revoca-patente", description="[LFD] Rimuovi la licenza di guida a un utente.")
+    @app_commands.describe(utente="L'utente a cui revocare la patente")
+    async def revoca_patente(interaction: discord.Interaction, utente: discord.Member):
+        user_id = str(utente.id)
+        
+        if not has_role(interaction, LFD_ROLE_ID):
+            await interaction.response.send_message("❌ Solo i LFD possono usare questo comando!", ephemeral=True)
+            return
+            
+        await interaction.response.defer(ephemeral=True, thinking=True)
+
+        rows_deleted = 0
+        
+        try:
+            async with aiosqlite.connect(DATABASE_NAME) as db:
+                cursor = await db.execute(
+                    "DELETE FROM licenses WHERE user_id = ?",
+                    (user_id,)
+                )
+                rows_deleted = cursor.rowcount
+                await db.commit()
+                
+            if rows_deleted == 0:
+                await interaction.followup.send(
+                    f"❌ {utente.mention} non possiede **alcuna licenza (licenses)** nel database da revocare.", 
+                    ephemeral=True
+                )
+                return
+
+            try:
+                embed_dm = discord.Embed(
+                    title="🚨 Patente Revocata",
+                    description=f"La tua patente di guida e altre licenze generiche sono state revocate da {interaction.user.mention} (LFD).",
+                    color=discord.Color.red()
+                )
+                embed_dm.add_field(name="Numero di licenze rimosse", value=f"**{rows_deleted}**")
+                embed_dm.set_footer(text="Contatta un membro LFD per chiarimenti.")
+                await utente.send(embed=embed_dm)
+                dm_status = "Notifica DM inviata."
+            except:
+                dm_status = "Notifica DM non inviabile (DM bloccati)."
+
+            await interaction.followup.send(
+                f"✅ **{rows_deleted}** licenza/e rimosse a {utente.mention} con successo. ({dm_status})", 
+                ephemeral=True
+            )
+
+            log_embed = discord.Embed(
+                title="🚫 LOG REVOCA PATENTE",
+                color=discord.Color.red()
+            )
+            log_embed.add_field(name="👮 Revocata da", value=interaction.user.mention, inline=True)
+            log_embed.add_field(name="👤 Utente", value=utente.mention, inline=True)
+            log_embed.add_field(name="📊 Licenze Rimosse", value=f"**{rows_deleted}**", inline=False)
+            log_embed.timestamp = discord.utils.utcnow()
+            await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
+
+        except Exception as e:
+            print(f"ERRORE CRITICO DURANTE REVOCA-PATENTE: {e}")
+            await interaction.followup.send(
+                f"❌ Si è verificato un errore critico nel database durante la revoca.",
+                ephemeral=True
+            )
+
+    @bot.tree.command(name="cura", description="Cura un cittadino per una ferita specifica.")
+    @app_commands.describe(
+        cittadino="La persona da curare",
+        tramite="Il metodo di cura utilizzato",
+        ferita="La ferita che stai curando (es. 'gamba rotta')"
+    )
+    @app_commands.choices(tramite=[
+        app_commands.Choice(name="Medikit", value="Medikit"),
+        app_commands.Choice(name="Ospedale", value="Ospedale"),
+        app_commands.Choice(name="Ambulanza", value="Ambulanza"),
+    ])
+    async def cura(interaction: discord.Interaction, cittadino: discord.Member, tramite: app_commands.Choice[str], ferita: str):
+        
+        descrizione = (
+            f"{interaction.user.mention} ha curato **__{ferita}__** "
+            f"a {cittadino.mention} tramite **{tramite.name}**"
+        )
+        
+        embed = discord.Embed(
+            title="<a:Ambulanza:1431690856280232058> 𝐂𝐮𝐫𝐚 <a:Cuore:1431691069703065640>",
+            description=descrizione,
+            color=discord.Color.from_rgb(0xE9, 0x1E, 0x63)
+        )
+
+        await interaction.response.send_message("✅ Azione Cura inviata!", ephemeral=True)
+        await interaction.channel.send(embed=embed)
+        
+        log_embed = discord.Embed(
+            title="🩹 LOG CURA",
+            color=discord.Color.from_rgb(0xE9, 0x1E, 0x63)
+        )
+        log_embed.add_field(name="👨‍⚕️ Medico", value=interaction.user.mention, inline=True)
+        log_embed.add_field(name="👤 Paziente", value=cittadino.mention, inline=True)
+        log_embed.add_field(name="🩺 Ferita", value=ferita, inline=False)
+        log_embed.add_field(name="🚑 Metodo", value=tramite.name, inline=False)
+        log_embed.timestamp = discord.utils.utcnow()
+        await log_command(bot, LOG_CHANNEL_ID, embed=log_embed), '').strip())
+                
+                if stipendio <= 0:
+                    await interaction.response.send_message("❌ Lo stipendio deve essere maggiore di 0!", ephemeral=True)
+                    return
+                
+                async with aiosqlite.connect(DATABASE_NAME) as db:
+                    async with db.execute(
+                        "SELECT * FROM work_shifts WHERE user_id = ? AND role_id = ?",
+                        (str(interaction.user.id), str(self.lavoro.id))
+                    ) as cursor:
+                        existing_shift = await cursor.fetchone()
+
+                    if existing_shift:
+                        await interaction.response.send_message(
+                            f"❌ Hai già un turno attivo per {self.lavoro.mention}!",
+                            ephemeral=True
+                        )
+                        return
+
+                    await db.execute(
+                        "INSERT INTO work_shifts (user_id, role_id, start_time) VALUES (?, ?, ?)",
+                        (str(interaction.user.id), str(self.lavoro.id), datetime.now().isoformat())
+                    )
+                    await db.commit()
+
+                embed = discord.Embed(
+                    title="<a:Online:1431599470897922069> 𝐓𝐮𝐫𝐧𝐨 𝐥𝐚𝐯𝐨𝐫𝐚𝐭𝐢𝐯𝐨 <a:broom:1431606606763921408>",
+                    description=f"{interaction.user.mention} ha **INIZIATO** il proprio turno di {self.lavoro.mention}",
+                    color=discord.Color.green()
+                )
+                embed.add_field(name="💰 Stipendio Orario", value=f"${stipendio:,}", inline=False)
+
+                await interaction.response.send_message(embed=embed)
+                
+                # Salva lo stipendio nella descrizione del turno o in memoria
+                # Creiamo un dizionario temporaneo per salvare gli stipendi
+                if not hasattr(bot, 'shift_salaries'):
+                    bot.shift_salaries = {}
+                bot.shift_salaries[f"{interaction.user.id}_{self.lavoro.id}"] = stipendio
+                
+            except ValueError:
+                await interaction.response.send_message("❌ Stipendio non valido! Inserisci solo numeri.", ephemeral=True)
+            except Exception as e:
+                print(f"Errore in InizioTurnoModal: {e}")
+                await interaction.response.send_message(f"❌ Errore: {e}", ephemeral=True)
+
     @bot.tree.command(name="ammanetto", description="[LFD] Ammanetta un utente")
     @app_commands.describe(utente="L'utente da ammanettare")
     async def ammanetto(interaction: discord.Interaction, utente: discord.Member):
@@ -54,94 +360,27 @@ def setup_rp_commands(bot: commands.Bot):
         await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
 
     @bot.tree.command(name="inizio-turno", description="Inizia un turno lavorativo")
-    @app_commands.describe(
-        lavoro="Il ruolo del lavoro",
-        stipendio="Stipendio orario (es. 3800)"
-    )
-    async def inizio_turno(interaction: discord.Interaction, lavoro: discord.Role, stipendio: int):
-        try:
-            member = interaction.user
+    @app_commands.describe(lavoro="Il ruolo del lavoro")
+    async def inizio_turno(interaction: discord.Interaction, lavoro: discord.Role):
+        member = interaction.user
 
-            if lavoro not in member.roles:
-                await interaction.response.send_message(
-                    f"❌ Non puoi iniziare un turno come {lavoro.mention} perché non hai quel ruolo!",
-                    ephemeral=True
-                )
-                return
-            
-            if stipendio <= 0:
-                await interaction.response.send_message(
-                    "❌ Lo stipendio orario deve essere maggiore di 0!",
-                    ephemeral=True
-                )
-                return
-
-            async with aiosqlite.connect(DATABASE_NAME) as db:
-                # Crea la tabella se non esiste con la colonna hourly_salary
-                await db.execute("""
-                    CREATE TABLE IF NOT EXISTS work_shifts (
-                        user_id TEXT,
-                        role_id TEXT,
-                        start_time TEXT,
-                        hourly_salary INTEGER DEFAULT 0,
-                        PRIMARY KEY (user_id, role_id)
-                    )
-                """)
-                await db.commit()
-                
-                async with db.execute(
-                    "SELECT * FROM work_shifts WHERE user_id = ? AND role_id = ?",
-                    (str(interaction.user.id), str(lavoro.id))
-                ) as cursor:
-                    existing_shift = await cursor.fetchone()
-
-                if existing_shift:
-                    await interaction.response.send_message(
-                        f"❌ Hai già un turno attivo per {lavoro.mention}!",
-                        ephemeral=True
-                    )
-                    return
-
-                await db.execute(
-                    "INSERT INTO work_shifts (user_id, role_id, start_time, hourly_salary) VALUES (?, ?, ?, ?)",
-                    (str(interaction.user.id), str(lavoro.id), datetime.now().isoformat(), stipendio)
-                )
-                await db.commit()
-
-            embed = discord.Embed(
-                title="<a:Online:1431599470897922069> 𝐓𝐮𝐫𝐧𝐨 𝐥𝐚𝐯𝐨𝐫𝐚𝐭𝐢𝐯𝐨 <a:broom:1431606606763921408>",
-                description=f"{interaction.user.mention} ha **INIZIATO** il proprio turno di {lavoro.mention}",
-                color=discord.Color.green()
+        if lavoro not in member.roles:
+            await interaction.response.send_message(
+                f"❌ Non puoi iniziare un turno come {lavoro.mention} perché non hai quel ruolo!",
+                ephemeral=True
             )
-            embed.add_field(name="💰 Stipendio Orario", value=f"${stipendio:,}", inline=False)
-
-            await interaction.response.send_message(embed=embed)
-        except Exception as e:
-            print(f"Errore in inizio-turno: {e}")
-            try:
-                await interaction.response.send_message(f"❌ Errore: {e}", ephemeral=True)
-            except:
-                await interaction.followup.send(f"❌ Errore: {e}", ephemeral=True)
+            return
+        
+        modal = InizioTurnoModal(lavoro)
+        await interaction.response.send_modal(modal)
 
     @bot.tree.command(name="fine-turno", description="Termina un turno lavorativo")
     @app_commands.describe(lavoro="Il ruolo del lavoro da terminare")
     async def fine_turno(interaction: discord.Interaction, lavoro: discord.Role):
         try:
             async with aiosqlite.connect(DATABASE_NAME) as db:
-                # Assicurati che la tabella esista
-                await db.execute("""
-                    CREATE TABLE IF NOT EXISTS work_shifts (
-                        user_id TEXT,
-                        role_id TEXT,
-                        start_time TEXT,
-                        hourly_salary INTEGER DEFAULT 0,
-                        PRIMARY KEY (user_id, role_id)
-                    )
-                """)
-                await db.commit()
-                
                 async with db.execute(
-                    "SELECT start_time, hourly_salary FROM work_shifts WHERE user_id = ? AND role_id = ?",
+                    "SELECT start_time FROM work_shifts WHERE user_id = ? AND role_id = ?",
                     (str(interaction.user.id), str(lavoro.id))
                 ) as cursor:
                     shift = await cursor.fetchone()
@@ -154,7 +393,14 @@ def setup_rp_commands(bot: commands.Bot):
                     return
 
                 start_time = datetime.fromisoformat(shift[0])
-                hourly_salary = shift[1] if shift[1] else 0
+                
+                # Recupera lo stipendio dal dizionario temporaneo
+                if not hasattr(bot, 'shift_salaries'):
+                    bot.shift_salaries = {}
+                
+                shift_key = f"{interaction.user.id}_{lavoro.id}"
+                hourly_salary = bot.shift_salaries.get(shift_key, 0)
+                
                 end_time = datetime.now()
                 duration = end_time - start_time
 
@@ -176,6 +422,10 @@ def setup_rp_commands(bot: commands.Bot):
                     (str(interaction.user.id), str(lavoro.id))
                 )
                 await db.commit()
+                
+                # Rimuovi dal dizionario temporaneo
+                if shift_key in bot.shift_salaries:
+                    del bot.shift_salaries[shift_key]
 
             # Embed nel canale corrente
             embed = discord.Embed(

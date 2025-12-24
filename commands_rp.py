@@ -212,7 +212,7 @@ def setup_rp_commands(bot: commands.Bot):
                 salary_embed.timestamp = discord.utils.utcnow()
                 
                 await salary_channel.send(
-                    content=f"<@&{STAFF_ROLE_ID}>\n{lavoro.mention} paga lo stipendio",
+                    content=f"<@&{STAFF_ROLE_ID}> paga lo stipendio",
                     embed=salary_embed
                 )
         except Exception as e:
@@ -267,7 +267,6 @@ def setup_rp_commands(bot: commands.Bot):
                 description=f"Hai ricevuto il tuo stipendio da {interaction.user.mention}",
                 color=discord.Color.green()
             )
-            dm_embed.add_field(name="💼 Lavoro", value=lavoro.mention, inline=False)
             dm_embed.add_field(name="💵 Importo", value=f"**${stipendio:,}**", inline=False)
             dm_embed.add_field(name="👮 Pagato da", value=interaction.user.mention, inline=False)
             dm_embed.set_footer(text="Controlla il tuo saldo con /bancomat")

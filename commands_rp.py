@@ -43,7 +43,7 @@ def setup_rp_commands(bot: commands.Bot):
         
         async def on_submit(self, interaction: discord.Interaction):
             try:
-                stipendio = int(self.stipendio_input.value.replace(',', '').replace('
+                stipendio = int(self.stipendio_input.value.replace(',', '').replace(',', ''))
 
     @bot.tree.command(name="paga-stipendio", description="[STAFF] Paga lo stipendio a un dipendente")
     @app_commands.describe(

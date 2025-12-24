@@ -288,7 +288,7 @@ def setup_rp_commands(bot: commands.Bot):
         log_embed.add_field(name="🩺 Ferita", value=ferita, inline=False)
         log_embed.add_field(name="🚑 Metodo", value=tramite.name, inline=False)
         log_embed.timestamp = discord.utils.utcnow()
-        await log_command(bot, LOG_CHANNEL_ID, embed=log_embed), '').strip())
+        await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
                 
                 if stipendio <= 0:
                     await interaction.response.send_message("❌ Lo stipendio deve essere maggiore di 0!", ephemeral=True)

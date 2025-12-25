@@ -7,6 +7,10 @@ DATABASE_NAME = "economy_bot.db"
 LOG_CHANNEL_ID = 1415297578022604850
 GIORNALISTA_ROLE_ID = 1431390528725061794
 
+# INSERISCI QUI I TUOI LINK PER LE IMMAGINI
+SCOOP_IMAGE_URL = "https://i.postimg.cc/HWyrRyNF/Intro-Weazel-News1.gif"  # <-- Metti qui il link dell'immagine principale
+SCOOP_THUMBNAIL_URL = "https://i.postimg.cc/wTDsymck/IMG-4453.gif"  # <-- Metti qui il link della thumbnail
+
 def has_role(interaction: discord.Interaction, role_id: int) -> bool:
     if not isinstance(interaction.user, discord.Member):
         return False
@@ -23,7 +27,7 @@ async def log_command(bot, channel_id: int, message: str = None, embed: discord.
     except:
         pass
 
-def setup_scoop_commands(bot: commands.Bot):
+def setup_scoop_command(bot: commands.Bot):
     
     @bot.tree.command(name="scoop", description="[GIORNALISTA] Pubblica uno scoop giornalistico")
     @app_commands.describe(
@@ -31,9 +35,7 @@ def setup_scoop_commands(bot: commands.Bot):
         descrizione="La descrizione dettagliata dello scoop",
         fascia="La fascia di importanza dello scoop",
         giornalista="Il nome del giornalista",
-        foto="Foto allegata allo scoop (facoltativa)",
-        immagine_link="Link dell'immagine principale (facoltativo)",
-        thumbnail_link="Link della thumbnail (facoltativo)"
+        foto="Foto allegata allo scoop (facoltativa)"
     )
     @app_commands.choices(fascia=[
         app_commands.Choice(name="Fascia Alta", value="alta"),
@@ -46,9 +48,7 @@ def setup_scoop_commands(bot: commands.Bot):
         descrizione: str,
         fascia: app_commands.Choice[str],
         giornalista: str,
-        foto: discord.Attachment = None,
-        immagine_link: str = None,
-        thumbnail_link: str = None
+        foto: discord.Attachment = None
     ):
         # Verifica che l'utente abbia il ruolo giornalista
         if not has_role(interaction, GIORNALISTA_ROLE_ID):
@@ -100,19 +100,19 @@ def setup_scoop_commands(bot: commands.Bot):
         )
         
         embed.add_field(
-            name="**👤 Giornalista**",
+            name="👤 Giornalista",
             value=f"**{giornalista}**",
             inline=False
         )
         
         embed.add_field(
-            name="**📝 Descrizione**",
+            name="📝 Descrizione",
             value=descrizione,
             inline=False
         )
         
         embed.add_field(
-            name="**📊 Fascia**",
+            name="📊 Fascia",
             value=f"**{fascia_nome}**",
             inline=True
         )
@@ -124,12 +124,12 @@ def setup_scoop_commands(bot: commands.Bot):
             guadagno_text += f"\n└ Bonus Foto: +${bonus_foto:,}"
         
         embed.add_field(
-            name="**💰 Guadagno Ricevuto**",
+            name="💰 Guadagno Ricevuto",
             value=guadagno_text,
             inline=True
         )
         
-        # Aggiungi la foto - priorità: foto allegata > link immagine > nessuna
+        # Aggiungi la foto - priorità: foto allegata dall'utente > immagine predefinita
         if foto:
             if foto.content_type and foto.content_type.startswith("image/"):
                 embed.set_image(url=foto.url)
@@ -138,13 +138,12 @@ def setup_scoop_commands(bot: commands.Bot):
                     "⚠️ L'allegato non è un'immagine valida, continuo senza foto.",
                     ephemeral=True
                 )
-        elif immagine_link:
-            # Se non c'è foto allegata, usa il link fornito
-            embed.set_image(url="https://i.postimg.cc/fLQN0GRy/Intro-Weazel-News1.gif")
+        else:
+            # Se l'utente non allega foto, usa l'immagine predefinita
+            embed.set_image(url=SCOOP_IMAGE_URL)
         
-        # Aggiungi thumbnail dal link se fornito
-        if thumbnail_link:
-            embed.set_thumbnail(url="https://i.postimg.cc/rFVqj2Cs/IMG-4453.gif")
+        # Aggiungi sempre la thumbnail predefinita
+        embed.set_thumbnail(url=SCOOP_THUMBNAIL_URL)
         
         embed.set_footer(text=f"Pubblicato da {interaction.user.display_name}")
         embed.timestamp = discord.utils.utcnow()
@@ -160,7 +159,7 @@ def setup_scoop_commands(bot: commands.Bot):
                 color=discord.Color.green()
             )
             dm_embed.add_field(
-                name="**💰 Guadagno**",
+                name="💰 Guadagno",
                 value=f"Hai guadagnato **${guadagno_totale:,}**!",
                 inline=False
             )

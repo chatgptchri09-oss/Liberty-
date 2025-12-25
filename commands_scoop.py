@@ -119,7 +119,6 @@ def setup_scoop_commands(bot: commands.Bot):
         
         # Dettagli del guadagno
         guadagno_text = f"**${guadagno_totale:,}**\n"
-        guadagno_text += f"└ Parole: {parole} × ${guadagno_base // parole if parole > 0 else 0} = ${guadagno_base:,}"
         if bonus_foto:
             guadagno_text += f"\n└ Bonus Foto: +${bonus_foto:,}"
         
@@ -149,7 +148,7 @@ def setup_scoop_commands(bot: commands.Bot):
         embed.timestamp = discord.utils.utcnow()
         
         # Invia il messaggio con @everyone
-        await interaction.followup.send(content="@everyone", embed=embed)
+        await interaction.followup.send(content="<@&1414752091607535727>", embed=embed)
         
         # Invia DM al giornalista
         try:

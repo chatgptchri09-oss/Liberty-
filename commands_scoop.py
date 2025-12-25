@@ -95,7 +95,7 @@ def setup_scoop_commands(bot: commands.Bot):
         
         # Crea l'embed dello scoop
         embed = discord.Embed(
-            title=f"<a:annuncio:1449799366218088508> Nuovo Scoop: {titolo}",
+            title=f" Nuovo Scoop: {titolo}",
             color=0xff0000
         )
         

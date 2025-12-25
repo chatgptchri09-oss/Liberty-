@@ -148,7 +148,7 @@ def setup_scoop_commands(bot: commands.Bot):
         embed.timestamp = discord.utils.utcnow()
         
         # Invia il messaggio con @everyone
-        await interaction.followup.send(content="<@&1414752091607535727>", embed=embed)
+        await interaction.channel.send(content="@everyone", embed=embed)
         
         # Invia DM al giornalista
         try:

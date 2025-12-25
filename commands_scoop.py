@@ -27,7 +27,7 @@ async def log_command(bot, channel_id: int, message: str = None, embed: discord.
     except:
         pass
 
-def setup_scoop_command(bot: commands.Bot):
+def setup_scoop_commands(bot: commands.Bot):
     
     @bot.tree.command(name="scoop", description="[GIORNALISTA] Pubblica uno scoop giornalistico")
     @app_commands.describe(

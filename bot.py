@@ -107,7 +107,7 @@ def create_bancomat_embed(user: dict, user_mention: str) -> discord.Embed:
     """Crea l'embed del bancomat."""
     embed = discord.Embed(
         # Utilizzo dei caratteri Unicode Math Sans Bold per il titolo 
-        title="<a:Bancomat:1431618497489666198> 𝐁𝐀𝐍𝐂𝐎𝐌𝐀𝐓",
+        title="<a:Bancomat:1431618497489666198> 𝐁𝐀𝐍𝐂𝐎𝐌𝐀𝐓 <a:cartadicreditoMacerto:1454052506962235560>",
         color=discord.Color.blue()
     )
     # Nomi dei campi in Math Sans Bold

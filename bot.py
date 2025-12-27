@@ -35,6 +35,7 @@ AGENZIA_ROLE_ID = 1424381004944244828
 IMPORT_EXPORT_ROLE_ID = 1424004700608401428
 STATO_ROLE_ID = 1424005156558606466
 PEGASUS_ROLE_ID = 1415262517407645828
+CHIAVE_ROLE_ID = 1414735564632231988
 
 LOG_CHANNEL_ID = 1415297578022604850
 DATABASE_NAME = "economy_bot.db" 
@@ -299,8 +300,8 @@ async def bancomat(interaction: discord.Interaction):
 
 @bot.tree.command(name="sync", description="[STAFF] Sincronizza i comandi")
 async def sync(interaction: discord.Interaction):
-    if not has_role(interaction, STAFF_ROLE_ID):
-        await interaction.response.send_message("❌ Solo lo staff può usare questo comando!", ephemeral=True)
+    if not has_role(interaction, CHIAVE_ROLE_ID):
+        await interaction.response.send_message("❌ Solo i due creatori del server possono usare questo comando!", ephemeral=True)
         return
     
     await interaction.response.defer(ephemeral=True)

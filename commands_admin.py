@@ -157,12 +157,13 @@ class BackgroundRifiutatoModal(discord.ui.Modal, title="Background Rifiutato"):
             
             # Crea embed rosso
             embed = discord.Embed(
-                title="❌ Background Rifiutato",
+                title="<a:megafono:1431932605984542720> 𝐄𝐬𝐢𝐭𝐨 𝐁𝐚𝐜𝐤𝐠𝐫𝐨𝐮𝐧𝐝 <a:annulla:1431940396635652146>",
                 description=f"Il background di {self.cittadino.mention} è stato rifiutato.",
                 color=discord.Color.red()
             )
             embed.add_field(name="Valutato da", value=interaction.user.mention, inline=True)
             embed.add_field(name="Motivo", value=motivo, inline=False)
+            embed.set_image(url="https://i.postimg.cc/hPHXNnFp/2BB43855-B9BD-4D5B-B755-0902034D9B45.png")
             embed.timestamp = discord.utils.utcnow()
             
             await interaction.channel.send(content=self.cittadino.mention, embed=embed)
@@ -191,7 +192,7 @@ class BackgroundRifiutatoModal(discord.ui.Modal, title="Background Rifiutato"):
                 title="❌ LOG BACKGROUND RIFIUTATO",
                 color=discord.Color.red()
             )
-            log_embed.add_field(name="Valutatore", value=interaction.user.mention, inline=True)
+            log_embed.add_field(name="Staff/Whitelister", value=interaction.user.mention, inline=True)
             log_embed.add_field(name="Cittadino", value=self.cittadino.mention, inline=True)
             log_embed.add_field(name="Motivo", value=motivo[:200], inline=False)
             log_embed.timestamp = discord.utils.utcnow()
@@ -229,7 +230,7 @@ class WhitelistPassataModal(discord.ui.Modal, title="Whitelist Passata"):
             
             # Crea embed verde
             embed = discord.Embed(
-                title="<a:megafono:1431932605984542720> 𝐄𝐬𝐢𝐭𝐨 𝐰𝐡𝐢𝐭𝐞𝐥𝐢𝐬𝐭 <a:si:1433573748891582566>",
+                title="<a:megafono:1431932605984542720> 𝐄𝐬𝐢𝐭𝐨 𝐰𝐡𝐢𝐭𝐞𝐥𝐢𝐬𝐭 <a:conferma:1451983464764014733>",
                 color=discord.Color.green()
             )
             
@@ -414,11 +415,12 @@ def setup_admin_commands(bot: commands.Bot):
                 
                 # Crea embed verde
                 embed = discord.Embed(
-                    title="✅ Background Approvato",
+                    title="<a:megafono:1431932605984542720> 𝐄𝐬𝐢𝐭𝐨 𝐁𝐚𝐜𝐤𝐠𝐫𝐨𝐮𝐧𝐝 <a:conferma:1451983464764014733>",
                     description=f"Il background di {cittadino.mention} è stato approvato!",
                     color=discord.Color.green()
                 )
                 embed.add_field(name="Valutato da", value=interaction.user.mention, inline=True)
+                embed.set_image(url="https://i.postimg.cc/JndgKPyX/IMG-4390.png")
                 embed.set_footer(text="Preparati per la Whitelist Orale")
                 embed.timestamp = discord.utils.utcnow()
                 

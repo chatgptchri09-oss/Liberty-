@@ -161,8 +161,8 @@ class BackgroundRifiutatoModal(discord.ui.Modal, title="Background Rifiutato"):
                 description=f"Il background di {self.cittadino.mention} è stato rifiutato.",
                 color=discord.Color.red()
             )
-            embed.add_field(name="Valutato da", value=interaction.user.mention, inline=True)
-            embed.add_field(name="Motivo", value=motivo, inline=False)
+            embed.add_field(name="Valutato da <a:casomaiconflecia:1434244328448069642>", value=interaction.user.mention, inline=True)
+            embed.add_field(name="Motivo <a:casomaiconflecia:1434244328448069642>", value=motivo, inline=False)
             embed.set_image(url="https://i.postimg.cc/hPHXNnFp/2BB43855-B9BD-4D5B-B755-0902034D9B45.png")
             embed.timestamp = discord.utils.utcnow()
             
@@ -419,7 +419,7 @@ def setup_admin_commands(bot: commands.Bot):
                     description=f"Il background di {cittadino.mention} è stato approvato!",
                     color=discord.Color.green()
                 )
-                embed.add_field(name="Valutato da", value=interaction.user.mention, inline=True)
+                embed.add_field(name="Valutato da <a:casomaiconflecia:1434244328448069642>", value=interaction.user.mention, inline=True)
                 embed.set_image(url="https://i.postimg.cc/JndgKPyX/IMG-4390.png")
                 embed.set_footer(text="Preparati per la Whitelist Orale")
                 embed.timestamp = discord.utils.utcnow()

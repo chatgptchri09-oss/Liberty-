@@ -196,11 +196,11 @@ def setup_wallet_commands(bot: commands.Bot):
     @bot.tree.command(name="portafoglio", description="Visualizza il tuo portafoglio")
     async def portafoglio(interaction: discord.Interaction):
         embed = discord.Embed(
-            title="<:Portafoglio:1431695497034203256> 𝐏𝐎𝐑𝐓𝐀𝐅𝐎𝐆𝐋𝐈𝐎",
+            title="<a:portafoglio:1454794842302316594> 𝐏𝐎𝐑𝐓𝐀𝐅𝐎𝐆𝐋𝐈𝐎",
             description="Seleziona il documento che vuoi visualizzare dal menu a tendina qui sotto",
             color=discord.Color.gold()
         )
-        embed.set_thumbnail(url="https://cdn.discordapp.com/attachments/1425847773424652288/1432317062394548234/IMG_3719.gif?ex=69009cb6&is=68ff4b36&hm=5a1189d300bc123aade318943003a628a35bf964db9cca90c1556709dbe09bab&")
+        embed.set_thumbnail(url="https://i.postimg.cc/tCSrLbHx/IMG-4544.gif")
 
         view = discord.ui.View()
         view.add_item(WalletSelect(bot, str(interaction.user.id)))

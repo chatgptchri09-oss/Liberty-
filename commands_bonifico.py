@@ -24,9 +24,10 @@ def setup_bonifico_commands(bot: commands.Bot):
     @bot.tree.command(name="bonifico", description="Invia denaro tramite bonifico bancario")
     @app_commands.describe(
         utente="L'utente a cui inviare il denaro",
-        importo="La cifra da trasferire dal tuo conto bancario"
+        importo="La cifra da trasferire dal tuo conto bancario",
+        motivo="Il motivo del bonifico"
     )
-    async def bonifico(interaction: discord.Interaction, utente: discord.Member, importo: int):
+    async def bonifico(interaction: discord.Interaction, utente: discord.Member, importo: int, motivo: str):
         
         sender_id = str(interaction.user.id)
         receiver_id = str(utente.id)
@@ -74,10 +75,16 @@ def setup_bonifico_commands(bot: commands.Bot):
                     description=f"Hai ricevuto un bonifico di **${importo:,}** in banca da {interaction.user.mention}.",
                     color=discord.Color.green()
                 )
+                embed_dm.add_field(name="Motivo", value=f"_{motivo}_", inline=False)
                 embed_dm.set_footer(text=f"Il tuo nuovo saldo bancario è: ${new_receiver_bank:,}")
                 await utente.send(embed=embed_dm)
             except:
                 pass 
+            
+            # Messaggio pubblico nel canale
+            await interaction.channel.send(
+                f"✅ Hai inviato **${importo:,}** a {utente.mention} per: _{motivo}_"
+            )
                 
             await interaction.followup.send(
                 f"<a:spunta:1431937738256552036> Bonifico completato! Hai inviato **${importo:,}** a {utente.mention}.\n"
@@ -93,6 +100,7 @@ def setup_bonifico_commands(bot: commands.Bot):
             log_embed.add_field(name="Mittente", value=interaction.user.mention, inline=True)
             log_embed.add_field(name="Destinatario", value=utente.mention, inline=True)
             log_embed.add_field(name="Importo", value=f"${importo:,}", inline=True)
+            log_embed.add_field(name="Motivo", value=motivo[:1024], inline=False)
             log_embed.add_field(name="Nuovo saldo mittente", value=f"${new_sender_bank:,}", inline=True)
             log_embed.add_field(name="Nuovo saldo destinatario", value=f"${new_receiver_bank:,}", inline=True)
             log_embed.timestamp = discord.utils.utcnow()

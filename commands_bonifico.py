@@ -81,12 +81,16 @@ def setup_bonifico_commands(bot: commands.Bot):
             except:
                 pass 
             
-            # Messaggio pubblico nel canale
-            await interaction.followup.send(
-                f"✅ Hai inviato **${importo:,}** a {utente.mention} per: _{motivo}_"
+            # Messaggio pubblico nel canale visibile a tutti (esattamente come nella foto)
+            await interaction.channel.send(
+                f"✅ Hai inviato **${importo:,}** a {utente.mention} per: *{motivo}*"
             )
-                
             
+            # Conferma privata al mittente
+            await interaction.followup.send(
+                f"<a:spunta:1431937738256552036> Bonifico completato! Il tuo nuovo saldo bancario è: **${new_sender_bank:,}**",
+                ephemeral=True
+            )
 
             # LOG CON EMBED
             log_embed = discord.Embed(

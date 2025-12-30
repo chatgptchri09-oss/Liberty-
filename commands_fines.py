@@ -277,19 +277,20 @@ def setup_fine_commands(bot: commands.Bot):
         
         rand = random.random()
         
-        if rand < 0.07:
+        # Nuove probabilità: 10% jackpot, 30% vincita normale, 60% perdita
+        if rand < 0.10:  # 10% di probabilità (1 su 10)
             symbol = random.choice(SLOT_SYMBOLS)
             symbols = [symbol, symbol, symbol]
             winnings = int(puntata * 2.2)
             result_type = "jackpot"
-        elif rand < 0.30:
+        elif rand < 0.40:  # 30% di probabilità (3 su 10)
             symbol = random.choice(SLOT_SYMBOLS)
             other = random.choice([s for s in SLOT_SYMBOLS if s != symbol])
             symbols = [symbol, symbol, other]
             random.shuffle(symbols)
             winnings = int(puntata * 1.4)
             result_type = "win"
-        else:
+        else:  # 60% di probabilità (6 su 10)
             symbols = random.choices(SLOT_SYMBOLS, k=3)
             while symbols[0] == symbols[1] or symbols[1] == symbols[2] or symbols[0] == symbols[2]:
                 symbols = random.choices(SLOT_SYMBOLS, k=3)
@@ -385,5 +386,3 @@ def setup_fine_commands(bot: commands.Bot):
         final_embed.set_footer(text="Liberty RP - Slot Machine")
         final_embed.set_thumbnail(url="https://i.postimg.cc/Qt136VrF/IMG-4279.gif")
         await message.edit(embed=final_embed)
-        
-    

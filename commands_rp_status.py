@@ -54,7 +54,7 @@ def setup_rpoff_commands(bot: commands.Bot):
             title="<a:offline:1431606235354107914> ROLEPLAY OFF",
             description=(
                 "<a:offline:1431606235354107914> La sessione di **roleplay è terminata**!\n\n"
-                "📌 • Ricorda di eseguire il comando `/turno` per ricevere lo stipendio della giornata lavorativa.\n\n"
+                "📌 • Ricorda di eseguire il comando `/fine-turno` per ricevere lo stipendio della giornata lavorativa.\n\n"
                 "🙏 Grazie per aver giocato con noi su **Liberty RP**!"
             ),
             color=discord.Color.red()
@@ -79,7 +79,7 @@ def setup_rpoff_commands(bot: commands.Bot):
         await channel.send("<@&1414752091607535727> TI ASPETTIAMO NELLA PROSSIMA SESSIONE!")
         
         await asyncio.sleep(1)
-        await channel.send("<@&1414752091607535727> NON PERDETEVI IL TURNO! TERMINA IL TUO CON `/turno`")
+        await channel.send("<@&1414752091607535727> NON PERDETEVI IL TURNO! TERMINA IL TUO CON `/fine-turno`")
         
 
     @bot.tree.command(name="rpon", description="[STAFF] Avvia la sessione di roleplay")
@@ -101,7 +101,7 @@ def setup_rpoff_commands(bot: commands.Bot):
                 "💃🕺 **DIAMO IL VIA ALLE DANZE!**\n\n"
                 "💊 Unisciti alla nostra crew:\n"
                 "[Social Club Liberty RP](https://socialclub.rockstargames.com/crew/liberty_full_rp_ps4/hierarchy)\n\n"
-                "<a:Online:1431599470897922069> ⏱️ *Avvia il tuo turno con* `/turno`"
+                "<a:Online:1431599470897922069> ⏱️ *Avvia il tuo turno con* `/inizio-turno`"
             ),
             color=discord.Color.green()
         )
@@ -134,4 +134,4 @@ def setup_rpoff_commands(bot: commands.Bot):
         
         # Terzo messaggio: non perdetevi la sessione
         await asyncio.sleep(1)
-        await channel.send(f"<@&{CITIZEN_ROLE_ID}> NON PERDETEVI LA SESSIONE! INIZIA IL TUO TURNO CON `/turno`")
+        await channel.send(f"<@&{CITIZEN_ROLE_ID}> NON PERDETEVI LA SESSIONE! INIZIA IL TUO TURNO CON `/inizio-turno`")

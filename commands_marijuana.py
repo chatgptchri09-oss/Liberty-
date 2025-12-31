@@ -164,15 +164,7 @@ class CollectButton(discord.ui.Button):
         await interaction.response.edit_message(embed=success_embed, view=self.view)
         
         # LOG
-        log_embed = discord.Embed(
-            title="🌿 LOG RACCOLTA MARIJUANA",
-            color=0x2ecc71
-        )
-        log_embed.add_field(name="👤 Utente", value=interaction.user.mention, inline=True)
-        log_embed.add_field(name="📊 Raccolte oggi", value=f"{new_total}/{DAILY_LIMIT}", inline=True)
-        log_embed.timestamp = discord.utils.utcnow()
-        await log_command(self.view.bot, LOG_CHANNEL_ID, embed=log_embed)
-
+        
 class CollectView(discord.ui.View):
     def __init__(self, bot):
         super().__init__(timeout=300)  # 5 minuti di timeout

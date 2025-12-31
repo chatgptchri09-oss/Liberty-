@@ -230,6 +230,7 @@ async def on_ready():
     
     # Inizializza il database
     await database.init_db()
+    await setup_marijuana_database()
 
 # ====================
 # IMPORTAZIONE COMANDI (Assicurati che questi file esistano)
@@ -254,9 +255,6 @@ from commands_robbery import setup_robbery_commands
 from commands_theft import setup_theft_commands
 from commands_scoop import setup_scoop_commands
 from commands_marijuana import setup_marijuana_commands, setup_marijuana_database
-
-# All'avvio del bot:
-await setup_marijuana_database()  # Inizializza il database
 
 # ====================
 # SETUP COMANDI 

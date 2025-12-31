@@ -173,7 +173,7 @@ class CollectView(discord.ui.View):
 
 def setup_marijuana_commands(bot: commands.Bot):
     
-    @bot.tree.command(name="raccolta", description="Raccogli marijuana")
+    @bot.tree.command(name="raccogli-marijuana", description="Raccogli marijuana")
     async def raccolta(interaction: discord.Interaction):
         # Controlla se l'utente ha il ruolo
         if not has_role(interaction, MARIJUANA_ROLE_ID):

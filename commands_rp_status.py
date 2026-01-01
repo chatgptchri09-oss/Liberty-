@@ -128,10 +128,49 @@ def setup_rpoff_commands(bot: commands.Bot):
             "https://socialclub.rockstargames.com/crew/liberty_full_rp_ps4/hierarchy"
         )
         
-        # Immagine Social Club (sostituisci con il tuo URL se diverso)
-        await asyncio.sleep(0.5)
-        await channel.send("https://media.discordapp.net/attachments/1234567890/socialclub-banner.png")
+        
         
         # Terzo messaggio: non perdetevi la sessione
         await asyncio.sleep(1)
         await channel.send(f"<@&{CITIZEN_ROLE_ID}> NON PERDETEVI LA SESSIONE! INIZIA IL TUO TURNO CON `/inizio-turno`")
+
+    @bot.tree.command(name="sondaggiorp", description="[STAFF] Crea un sondaggio per la disponibilità al roleplay")
+    @app_commands.describe(orario="L'orario della sessione di roleplay (es. 21:30)")
+    async def sondaggiorp(interaction: discord.Interaction, orario: str):
+        # Controllo permessi
+        if not has_role(interaction, AUTHORIZED_ROLE_ID):
+            await interaction.response.send_message(
+                "❌ Non hai i permessi per utilizzare questo comando!",
+                ephemeral=True
+            )
+            return
+        
+        # Creazione embed del sondaggio
+        embed = discord.Embed(
+            title=f"🎭 Roleplay attivo alle ore {orario}?",
+            description=(
+                "Rispondi con una delle seguenti reazioni:\n\n"
+                "✅ Sì\n"
+                "Pronto per il roleplay!\n\n"
+                "❌ No\n"
+                "Non disponibile.\n\n"
+                "⏳ Forse più tardi\n"
+                "Potrei unirmi più tardi.\n\n"
+                f"Reagisci con l'emoji corrispondente per indicare la tua disponibilità. | Oggi alle {orario}"
+            ),
+            color=discord.Color.green()
+        )
+        embed.set_footer(text="Liberty RP - Sondaggio Disponibilità")
+        embed.timestamp = discord.utils.utcnow()
+        
+        # Invia l'embed con la menzione del ruolo
+        await interaction.response.send_message(f"<@&{CITIZEN_ROLE_ID}>", embed=embed)
+        
+        # Recupera il messaggio inviato per aggiungere le reazioni
+        message = await interaction.original_response()
+        
+        # Aggiungi le reazioni automaticamente
+        await message.add_reaction("✅")
+        await message.add_reaction("❌")
+        await message.add_reaction("⏳")
+    

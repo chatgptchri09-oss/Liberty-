@@ -164,7 +164,7 @@ def setup_rpoff_commands(bot: commands.Bot):
         embed.timestamp = discord.utils.utcnow()
         
         # Invia l'embed con la menzione del ruolo
-        await interaction.channel.send(content="<@&1414752091607535727>", embed=embed)
+        await interaction.channel.send(content="<@&1414752091607535727>")
         
         
         # Recupera il messaggio inviato per aggiungere le reazioni

@@ -134,7 +134,7 @@ def setup_rpoff_commands(bot: commands.Bot):
         await asyncio.sleep(1)
         await channel.send(f"<@&{CITIZEN_ROLE_ID}> NON PERDETEVI LA SESSIONE! INIZIA IL TUO TURNO CON `/inizio-turno`")
 
-    @bot.tree.command(name="sondaggiorp", description="[STAFF] Crea un sondaggio per la disponibilità al roleplay")
+    @bot.tree.command(name="sondaggiorp", description=" Crea un sondaggio per la disponibilità al roleplay")
     @app_commands.describe(orario="L'orario della sessione di roleplay (es. 21:30)")
     async def sondaggiorp(interaction: discord.Interaction, orario: str):
         # Controllo permessi
@@ -163,8 +163,8 @@ def setup_rpoff_commands(bot: commands.Bot):
         embed.set_footer(text="Reagisci con l'emoji corrispondente per indicare la tua disponibilità.")
         embed.timestamp = discord.utils.utcnow()
         
-        # Invia l'embed DIRETTAMENTE come risposta al comando (così si vede chi lo usa)
-        await interaction.response.send_message(content="<@&1414752091607535727>", embed=embed)
+        
+        
         
         # Recupera il messaggio per aggiungere le reazioni
         message = await interaction.original_response()

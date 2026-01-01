@@ -163,11 +163,11 @@ def setup_rpoff_commands(bot: commands.Bot):
         embed.set_footer(text="Reagisci con l'emoji corrispondente per indicare la tua disponibilità.")
         embed.timestamp = discord.utils.utcnow()
         
-        # Invia conferma ephemeral
-        await interaction.response.send_message("✅ Sondaggio creato!", ephemeral=True)
+        # Invia l'embed DIRETTAMENTE come risposta al comando (così si vede chi lo usa)
+        await interaction.response.send_message(content="<@&1414752091607535727>", embed=embed)
         
-        # Invia l'embed con la menzione del ruolo nel canale
-        message = await interaction.channel.send(content="<@&1414752091607535727>", embed=embed)
+        # Recupera il messaggio per aggiungere le reazioni
+        message = await interaction.original_response()
         
         # Aggiungi le reazioni automaticamente
         await message.add_reaction("✅")

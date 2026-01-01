@@ -150,17 +150,17 @@ def setup_rpoff_commands(bot: commands.Bot):
             title=f"🎭 Roleplay attivo alle ore {orario}?",
             description=(
                 "Rispondi con una delle seguenti reazioni:\n\n"
-                "✅ Sì\n"
+                "✅ **Sì**\n"
                 "Pronto per il roleplay!\n\n"
-                "❌ No\n"
+                "❌ **No**\n"
                 "Non disponibile.\n\n"
-                "⏳ Forse più tardi\n"
+                "⏳ **Forse più tardi**\n"
                 "Potrei unirmi più tardi.\n\n"
-                f"Reagisci con l'emoji corrispondente per indicare la tua disponibilità. | Oggi alle {orario}"
+                
             ),
             color=discord.Color.green()
         )
-        embed.set_footer(text="Liberty RP - Sondaggio Disponibilità")
+        embed.set_footer(text="Reagisci con l'emoji corrispondente per indicare la tua disponibilità.")
         embed.timestamp = discord.utils.utcnow()
         
         # Invia l'embed con la menzione del ruolo

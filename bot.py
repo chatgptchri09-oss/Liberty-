@@ -382,25 +382,73 @@ async def handle(request):
 async def start_webserver():
     app = web.Application()
     app.router.add_get("/", handle)
+    app.router.add_get("/health", handle)  # Health check per Render
     runner = web.AppRunner(app)
     await runner.setup() 
 
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.environ.get("PORT", 10000))
     site = web.TCPSite(runner, "0.0.0.0", port)
     await site.start()
     print(f"🌐 Server web avviato su porta {port}")
 
 
 # ====================
-# ENTRY POINT PRINCIPALE
+# ENTRY POINT PRINCIPALE CON RETRY LOGIC
 # ====================
 async def main():
+    max_retries = 5
+    retry_delay = 10  # Secondi iniziali
+    
     # Inizia il web server in background
     await start_webserver()
     
-    # Avvia il bot
     TOKEN = os.getenv("DISCORD_TOKEN")
-    await bot.start(TOKEN)
+    
+    for attempt in range(max_retries):
+        try:
+            print(f"🔄 Tentativo di connessione {attempt + 1}/{max_retries}...")
+            async with bot:
+                await bot.start(TOKEN)
+                
+        except discord.HTTPException as e:
+            if e.status == 429:  # Rate limited
+                wait_time = retry_delay * (2 ** attempt)  # Backoff esponenziale
+                print(f"⚠️ Rate limited! Discord ha limitato le connessioni.")
+                print(f"⏳ Attendo {wait_time} secondi prima di riprovare...")
+                await asyncio.sleep(wait_time)
+            else:
+                print(f"❌ Errore HTTP ({e.status}): {e}")
+                if attempt < max_retries - 1:
+                    wait_time = retry_delay * (2 ** attempt)
+                    print(f"⏳ Riprovo tra {wait_time} secondi...")
+                    await asyncio.sleep(wait_time)
+                else:
+                    print(f"❌ Numero massimo di tentativi raggiunto.")
+                    break
+                    
+        except discord.LoginFailure:
+            print("❌ Token non valido! Controlla il tuo DISCORD_TOKEN.")
+            break
+            
+        except discord.ConnectionClosed:
+            print("⚠️ Connessione chiusa da Discord.")
+            if attempt < max_retries - 1:
+                wait_time = retry_delay * (2 ** attempt)
+                print(f"⏳ Riprovo tra {wait_time} secondi...")
+                await asyncio.sleep(wait_time)
+            else:
+                print(f"❌ Numero massimo di tentativi raggiunto.")
+                break
+                
+        except Exception as e:
+            print(f"❌ Errore critico: {e}")
+            if attempt < max_retries - 1:
+                wait_time = retry_delay * (2 ** attempt)
+                print(f"⏳ Riprovo tra {wait_time} secondi...")
+                await asyncio.sleep(wait_time)
+            else:
+                print(f"❌ Numero massimo di tentativi raggiunto.")
+                break
 
 
 if __name__ == "__main__":
@@ -410,6 +458,6 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("Bot spento manualmente.")
+        print("🛑 Bot spento manualmente.")
     except Exception as e:
-        print(f"Errore critico in main: {e}")
+        print(f"❌ Errore fatale: {e}")

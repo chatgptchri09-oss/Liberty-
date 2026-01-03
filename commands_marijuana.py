@@ -9,6 +9,7 @@ DATABASE_NAME = "economy_bot.db"
 LOG_CHANNEL_ID = 1415297578022604850
 MARIJUANA_ROLE_ID = 1431629412339548320
 COCAINA_ROLE_ID = 1431628821634744474
+SMANTELLATORE_ROLE_ID = 1456965485382991902
 
 # Limite giornaliero di raccolta
 DAILY_LIMIT = 300
@@ -386,6 +387,67 @@ def setup_marijuana_commands(bot: commands.Bot):
         
         await interaction.response.send_message(embed=embed, view=view)
 
+    @bot.tree.command(name="smantellaauto", description="Smantella un veicolo")
+    @app_commands.describe(utente="L'utente che sta smantellando il veicolo")
+    async def smantellaauto(interaction: discord.Interaction, utente: discord.Member):
+        # Controlla se l'utente ha il ruolo smantellatore
+        if not has_role(interaction, SMANTELLATORE_ROLE_ID):
+            await interaction.response.send_message(
+                "❌ Devi avere il ruolo per smantellare le auto che ti darà il cartello!",
+                ephemeral=True
+            )
+            return
+        
+        # Invia conferma ephemeral
+        await interaction.response.send_message("⏳ Smantellamento avviato, attendi 15 secondi...", ephemeral=True)
+        
+        # Primo embed: Smantellamento in corso
+        embed_in_progress = discord.Embed(
+            title="🔧 Smantellamento in corso...",
+            description=f"**{interaction.user.name}** Sta smantellando un veicolo... 🔧",
+            color=discord.Color.orange()
+        )
+        embed_in_progress.add_field(
+            name="⏳ Tempo rimanente",
+            value="Attendi **15 secondi** per completare l'operazione.",
+            inline=False
+        )
+        embed_in_progress.set_footer(text=f"Oggi alle {datetime.now().strftime('%H:%M')}")
+        
+        message = await interaction.channel.send(embed=embed_in_progress)
+        
+        # Aspetta 15 secondi
+        await asyncio.sleep(15)
+        
+        # Secondo embed: Smantellamento completato
+        embed_completed = discord.Embed(
+            title="✅ Smantellamento completato!",
+            description=f"{utente.mention} ha terminato lo smantellamento del veicolo 🚗💥",
+            color=discord.Color.green()
+        )
+        embed_completed.add_field(
+            name="📦 Hai ottenuto i seguenti componenti: usa il comando `/itemsell` per prendere:",
+            value=(
+                "• 🔩 **2x Paraurti**\n"
+                "• ⚙️ **4x Cerchioni**\n"
+                "• 🎶 **1x Autoradio**"
+            ),
+            inline=False
+        )
+        embed_completed.add_field(
+            name="💰 Valore totale",
+            value="Puoi rivendere questi pezzi al cartello",
+            inline=False
+        )
+        embed_completed.set_footer(text=f"Oggi alle {datetime.now().strftime('%H:%M')}")
+        
+        await message.edit(embed=embed_completed)
+        
+        # Aggiungi gli item all'inventario dell'utente
+        
+        await add_item_to_inventory(str(utente.id), "🎵 | Autoradio")
+        
+        
 # Funzione da chiamare all'avvio del bot per inizializzare il database
 async def setup_marijuana_database():
     await init_marijuana_db()

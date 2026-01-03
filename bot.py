@@ -382,25 +382,36 @@ async def handle(request):
 async def start_webserver():
     app = web.Application()
     app.router.add_get("/", handle)
+    app.router.add_get("/health", handle)
     runner = web.AppRunner(app)
     await runner.setup() 
 
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.environ.get("PORT", 10000))
     site = web.TCPSite(runner, "0.0.0.0", port)
     await site.start()
     print(f"🌐 Server web avviato su porta {port}")
 
 
 # ====================
-# ENTRY POINT PRINCIPALE
+# ENTRY POINT PRINCIPALE - SEMPLIFICATO
 # ====================
 async def main():
     # Inizia il web server in background
     await start_webserver()
     
-    # Avvia il bot
     TOKEN = os.getenv("DISCORD_TOKEN")
-    await bot.start(TOKEN)
+    
+    try:
+        # Connessione semplice senza retry loop
+        async with bot:
+            await bot.start(TOKEN)
+    except discord.HTTPException as e:
+        if e.status == 429:
+            print(f"⚠️ Rate limited da Discord. Aspetta 10-15 minuti prima di riavviare.")
+        else:
+            print(f"❌ Errore HTTP: {e}")
+    except Exception as e:
+        print(f"❌ Errore: {e}")
 
 
 if __name__ == "__main__":
@@ -410,6 +421,6 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("Bot spento manualmente.")
+        print("🛑 Bot spento manualmente.")
     except Exception as e:
-        print(f"Errore critico in main: {e}")
+        print(f"❌ Errore fatale: {e}")

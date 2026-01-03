@@ -382,53 +382,25 @@ async def handle(request):
 async def start_webserver():
     app = web.Application()
     app.router.add_get("/", handle)
-    app.router.add_get("/health", handle)
     runner = web.AppRunner(app)
     await runner.setup() 
 
-    port = int(os.environ.get("PORT", 10000))
+    port = int(os.environ.get("PORT", 5000))
     site = web.TCPSite(runner, "0.0.0.0", port)
     await site.start()
     print(f"🌐 Server web avviato su porta {port}")
 
 
 # ====================
-# ENTRY POINT PRINCIPALE - VERSIONE DEFINITIVA
+# ENTRY POINT PRINCIPALE
 # ====================
 async def main():
     # Inizia il web server in background
     await start_webserver()
     
+    # Avvia il bot
     TOKEN = os.getenv("DISCORD_TOKEN")
-    
-    # Piccolo delay iniziale per evitare rate limit immediato dopo restart
-    await asyncio.sleep(3)
-    
-    try:
-        print("🔄 Connessione a Discord in corso...")
-        async with bot:
-            await bot.start(TOKEN)
-    except discord.HTTPException as e:
-        if e.status == 429:
-            print(f"⚠️ Rate limited da Discord.")
-            print(f"🌐 Webserver attivo. Aspetta 30-60 minuti e redeploy manualmente.")
-            # IMPORTANTE: Mantieni il processo vivo per evitare restart automatici
-            while True:
-                await asyncio.sleep(3600)  # Loop infinito per tenere il processo attivo
-        else:
-            print(f"❌ Errore HTTP ({e.status}): {e}")
-            print(f"🌐 Webserver rimane attivo.")
-            while True:
-                await asyncio.sleep(3600)
-    except discord.LoginFailure:
-        print(f"❌ Token non valido! Controlla DISCORD_TOKEN.")
-        while True:
-            await asyncio.sleep(3600)
-    except Exception as e:
-        print(f"❌ Errore: {e}")
-        print(f"🌐 Webserver rimane attivo.")
-        while True:
-            await asyncio.sleep(3600)
+    await bot.start(TOKEN)
 
 
 if __name__ == "__main__":
@@ -438,6 +410,6 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("🛑 Bot spento manualmente.")
+        print("Bot spento manualmente.")
     except Exception as e:
-        print(f"❌ Errore fatale: {e}")
+        print(f"Errore critico in main: {e}")

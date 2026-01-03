@@ -393,7 +393,7 @@ async def start_webserver():
 
 
 # ====================
-# ENTRY POINT PRINCIPALE - SEMPLIFICATO
+# ENTRY POINT PRINCIPALE - VERSIONE DEFINITIVA
 # ====================
 async def main():
     # Inizia il web server in background
@@ -401,17 +401,34 @@ async def main():
     
     TOKEN = os.getenv("DISCORD_TOKEN")
     
+    # Piccolo delay iniziale per evitare rate limit immediato dopo restart
+    await asyncio.sleep(3)
+    
     try:
-        # Connessione semplice senza retry loop
+        print("🔄 Connessione a Discord in corso...")
         async with bot:
             await bot.start(TOKEN)
     except discord.HTTPException as e:
         if e.status == 429:
-            print(f"⚠️ Rate limited da Discord. Aspetta 10-15 minuti prima di riavviare.")
+            print(f"⚠️ Rate limited da Discord.")
+            print(f"🌐 Webserver attivo. Aspetta 30-60 minuti e redeploy manualmente.")
+            # IMPORTANTE: Mantieni il processo vivo per evitare restart automatici
+            while True:
+                await asyncio.sleep(3600)  # Loop infinito per tenere il processo attivo
         else:
-            print(f"❌ Errore HTTP: {e}")
+            print(f"❌ Errore HTTP ({e.status}): {e}")
+            print(f"🌐 Webserver rimane attivo.")
+            while True:
+                await asyncio.sleep(3600)
+    except discord.LoginFailure:
+        print(f"❌ Token non valido! Controlla DISCORD_TOKEN.")
+        while True:
+            await asyncio.sleep(3600)
     except Exception as e:
         print(f"❌ Errore: {e}")
+        print(f"🌐 Webserver rimane attivo.")
+        while True:
+            await asyncio.sleep(3600)
 
 
 if __name__ == "__main__":

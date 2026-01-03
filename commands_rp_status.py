@@ -82,7 +82,7 @@ def setup_rpoff_commands(bot: commands.Bot):
         await channel.send("<@&1414752091607535727> NON PERDETEVI IL TURNO! TERMINA IL TUO CON `/fine-turno`")
         
 
-    @bot.tree.command(name="rpon", description="[STAFF] Avvia la sessione di roleplay")
+    @bot.tree.command(name="rpon", description="Avvia la sessione di roleplay")
     @app_commands.describe(idps4="L'ID PS4 dell'utente che avvia la sessione")
     async def rpon(interaction: discord.Interaction, idps4: str):
         # Controllo permessi
@@ -134,7 +134,7 @@ def setup_rpoff_commands(bot: commands.Bot):
         await asyncio.sleep(1)
         await channel.send(f"<@&{CITIZEN_ROLE_ID}> NON PERDETEVI LA SESSIONE! INIZIA IL TUO TURNO CON `/inizio-turno`")
 
-    @bot.tree.command(name="sondaggiorp", description="[STAFF] Crea un sondaggio per la disponibilità al roleplay")
+    @bot.tree.command(name="sondaggiorp", description="Crea un sondaggio per la disponibilità al roleplay")
     @app_commands.describe(orario="L'orario della sessione di roleplay (es. 21:30)")
     async def sondaggiorp(interaction: discord.Interaction, orario: str):
         # Controllo permessi

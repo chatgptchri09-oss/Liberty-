@@ -658,13 +658,3 @@ if __name__ == "__main__":
         print(f"❌ Errore fatale: {e}")
         import traceback
         traceback.print_exc()
-```
-
-**Deploy questo e nei log vedrai ESATTAMENTE dove si blocca! 🔍**
-
-Vedrai una serie di messaggi tipo:
-```
-✅ Import base completati
-✅ Bot inizializzato
-📦 Import commands_invoice...
-❌ ERRORE in commands_invoice: ModuleNotFoundError...

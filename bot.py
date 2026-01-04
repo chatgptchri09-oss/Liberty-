@@ -8,8 +8,12 @@ from aiohttp import web
 import asyncio
 import aiosqlite 
 from discord.ui import Modal, TextInput, View, Button 
+import sys
 
-print("✅ Import base completati")
+# FORZA IL FLUSH DEI LOG SUBITO
+sys.stdout.reconfigure(line_buffering=True)
+
+print("✅ Import base completati", flush=True)
 
 # ====================
 # CONFIGURAZIONE INIZIALE
@@ -22,7 +26,7 @@ intents.guilds = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-print("✅ Bot inizializzato")
+print("✅ Bot inizializzato", flush=True)
 
 # ====================
 # COSTANTI
@@ -82,7 +86,7 @@ ALL_COMPANY_ROLES = {
 
 PORTAFOGLIO_IMAGE_URL = "https://i.imgur.com/placeholder.gif"
 
-print("✅ Costanti definite")
+print("✅ Costanti definite", flush=True)
 
 # ====================
 # FUNZIONI DI SUPPORTO
@@ -104,7 +108,7 @@ async def log_command(channel_id: int, message: str = None, embed: discord.Embed
     except:
         pass
 
-print("✅ Funzioni di supporto definite")
+print("✅ Funzioni di supporto definite", flush=True)
 
 # ====================
 # CLASSI UI PER /BANCOMAT
@@ -213,7 +217,7 @@ class BancomatView(View):
         modal = MoneyTransferModal(action='deposita')
         await interaction.response.send_modal(modal)
 
-print("✅ Classi UI definite")
+print("✅ Classi UI definite", flush=True)
 
 # ====================
 # EVENT HANDLERS
@@ -221,285 +225,290 @@ print("✅ Classi UI definite")
 
 @bot.event
 async def on_ready():
-    print(f"✅ Logged in as {bot.user}")
+    print(f"✅ Logged in as {bot.user}", flush=True)
+    print(f"✅ Bot ID: {bot.user.id}", flush=True)
+    print(f"✅ Bot online su {len(bot.guilds)} server", flush=True)
     await database.init_db()
-    await setup_marijuana_database()
+    try:
+        await setup_marijuana_database()
+    except:
+        print("⚠️ Setup marijuana database fallito (potrebbero mancare i moduli)", flush=True)
 
-print("✅ Event handlers registrati")
+print("✅ Event handlers registrati", flush=True)
 
 # ====================
 # IMPORTAZIONE COMANDI - CON ERROR HANDLING
 # ====================
 
 try:
-    print("📦 Import commands_invoice...")
+    print("📦 Import commands_invoice...", flush=True)
     from commands_invoice import setup_invoice_commands
-    print("✅ commands_invoice OK")
+    print("✅ commands_invoice OK", flush=True)
 except Exception as e:
-    print(f"❌ ERRORE in commands_invoice: {e}")
+    print(f"❌ ERRORE in commands_invoice: {e}", flush=True)
 
 try:
-    print("📦 Import commands_fines...")
+    print("📦 Import commands_fines...", flush=True)
     from commands_fines import setup_fine_commands
-    print("✅ commands_fines OK")
+    print("✅ commands_fines OK", flush=True)
 except Exception as e:
-    print(f"❌ ERRORE in commands_fines: {e}")
+    print(f"❌ ERRORE in commands_fines: {e}", flush=True)
 
 try:
-    print("📦 Import commands_documents...")
+    print("📦 Import commands_documents...", flush=True)
     from commands_documents import setup_document_commands
-    print("✅ commands_documents OK")
+    print("✅ commands_documents OK", flush=True)
 except Exception as e:
-    print(f"❌ ERRORE in commands_documents: {e}")
+    print(f"❌ ERRORE in commands_documents: {e}", flush=True)
 
 try:
-    print("📦 Import commands_wallet...")
+    print("📦 Import commands_wallet...", flush=True)
     from commands_wallet import setup_wallet_commands
-    print("✅ commands_wallet OK")
+    print("✅ commands_wallet OK", flush=True)
 except Exception as e:
-    print(f"❌ ERRORE in commands_wallet: {e}")
+    print(f"❌ ERRORE in commands_wallet: {e}", flush=True)
 
 try:
-    print("📦 Import commands_inventory...")
+    print("📦 Import commands_inventory...", flush=True)
     from commands_inventory import setup_inventory_commands
-    print("✅ commands_inventory OK")
+    print("✅ commands_inventory OK", flush=True)
 except Exception as e:
-    print(f"❌ ERRORE in commands_inventory: {e}")
+    print(f"❌ ERRORE in commands_inventory: {e}", flush=True)
 
 try:
-    print("📦 Import commands_rp...")
+    print("📦 Import commands_rp...", flush=True)
     from commands_rp import setup_rp_commands
-    print("✅ commands_rp OK")
+    print("✅ commands_rp OK", flush=True)
 except Exception as e:
-    print(f"❌ ERRORE in commands_rp: {e}")
+    print(f"❌ ERRORE in commands_rp: {e}", flush=True)
 
 try:
-    print("📦 Import commands_vehicle...")
+    print("📦 Import commands_vehicle...", flush=True)
     from commands_vehicle import setup_vehicle_commands
-    print("✅ commands_vehicle OK")
+    print("✅ commands_vehicle OK", flush=True)
 except Exception as e:
-    print(f"❌ ERRORE in commands_vehicle: {e}")
+    print(f"❌ ERRORE in commands_vehicle: {e}", flush=True)
 
 try:
-    print("📦 Import commands_bonifico...")
+    print("📦 Import commands_bonifico...", flush=True)
     from commands_bonifico import setup_bonifico_commands
-    print("✅ commands_bonifico OK")
+    print("✅ commands_bonifico OK", flush=True)
 except Exception as e:
-    print(f"❌ ERRORE in commands_bonifico: {e}")
+    print(f"❌ ERRORE in commands_bonifico: {e}", flush=True)
 
 try:
-    print("📦 Import commands_admin...")
+    print("📦 Import commands_admin...", flush=True)
     from commands_admin import setup_admin_commands
-    print("✅ commands_admin OK")
+    print("✅ commands_admin OK", flush=True)
 except Exception as e:
-    print(f"❌ ERRORE in commands_admin: {e}")
+    print(f"❌ ERRORE in commands_admin: {e}", flush=True)
 
 try:
-    print("📦 Import commands_bando...")
+    print("📦 Import commands_bando...", flush=True)
     from commands_bando import setup_bando_commands
-    print("✅ commands_bando OK")
+    print("✅ commands_bando OK", flush=True)
 except Exception as e:
-    print(f"❌ ERRORE in commands_bando: {e}")
+    print(f"❌ ERRORE in commands_bando: {e}", flush=True)
 
 try:
-    print("📦 Import commands_rp_status...")
+    print("📦 Import commands_rp_status...", flush=True)
     from commands_rp_status import setup_rpoff_commands
-    print("✅ commands_rp_status OK")
+    print("✅ commands_rp_status OK", flush=True)
 except Exception as e:
-    print(f"❌ ERRORE in commands_rp_status: {e}")
+    print(f"❌ ERRORE in commands_rp_status: {e}", flush=True)
 
 try:
-    print("📦 Import commands_arrests...")
+    print("📦 Import commands_arrests...", flush=True)
     from commands_arrests import setup_arrest_commands
-    print("✅ commands_arrests OK")
+    print("✅ commands_arrests OK", flush=True)
 except Exception as e:
-    print(f"❌ ERRORE in commands_arrests: {e}")
+    print(f"❌ ERRORE in commands_arrests: {e}", flush=True)
 
 try:
-    print("📦 Import commands_criminal_record...")
+    print("📦 Import commands_criminal_record...", flush=True)
     from commands_criminal_record import setup_criminal_record_commands
-    print("✅ commands_criminal_record OK")
+    print("✅ commands_criminal_record OK", flush=True)
 except Exception as e:
-    print(f"❌ ERRORE in commands_criminal_record: {e}")
+    print(f"❌ ERRORE in commands_criminal_record: {e}", flush=True)
 
 try:
-    print("📦 Import commands_properties...")
+    print("📦 Import commands_properties...", flush=True)
     from commands_properties import setup_property_commands
-    print("✅ commands_properties OK")
+    print("✅ commands_properties OK", flush=True)
 except Exception as e:
-    print(f"❌ ERRORE in commands_properties: {e}")
+    print(f"❌ ERRORE in commands_properties: {e}", flush=True)
 
 try:
-    print("📦 Import commands_wipepg...")
+    print("📦 Import commands_wipepg...", flush=True)
     from commands_wipepg import setup_wipepg_commands
-    print("✅ commands_wipepg OK")
+    print("✅ commands_wipepg OK", flush=True)
 except Exception as e:
-    print(f"❌ ERRORE in commands_wipepg: {e}")
+    print(f"❌ ERRORE in commands_wipepg: {e}", flush=True)
 
 try:
-    print("📦 Import commands_deposits...")
+    print("📦 Import commands_deposits...", flush=True)
     from commands_deposits import setup_deposit_commands
-    print("✅ commands_deposits OK")
+    print("✅ commands_deposits OK", flush=True)
 except Exception as e:
-    print(f"❌ ERRORE in commands_deposits: {e}")
+    print(f"❌ ERRORE in commands_deposits: {e}", flush=True)
 
 try:
-    print("📦 Import commands_robbery...")
+    print("📦 Import commands_robbery...", flush=True)
     from commands_robbery import setup_robbery_commands
-    print("✅ commands_robbery OK")
+    print("✅ commands_robbery OK", flush=True)
 except Exception as e:
-    print(f"❌ ERRORE in commands_robbery: {e}")
+    print(f"❌ ERRORE in commands_robbery: {e}", flush=True)
 
 try:
-    print("📦 Import commands_theft...")
+    print("📦 Import commands_theft...", flush=True)
     from commands_theft import setup_theft_commands
-    print("✅ commands_theft OK")
+    print("✅ commands_theft OK", flush=True)
 except Exception as e:
-    print(f"❌ ERRORE in commands_theft: {e}")
+    print(f"❌ ERRORE in commands_theft: {e}", flush=True)
 
 try:
-    print("📦 Import commands_scoop...")
+    print("📦 Import commands_scoop...", flush=True)
     from commands_scoop import setup_scoop_commands
-    print("✅ commands_scoop OK")
+    print("✅ commands_scoop OK", flush=True)
 except Exception as e:
-    print(f"❌ ERRORE in commands_scoop: {e}")
+    print(f"❌ ERRORE in commands_scoop: {e}", flush=True)
 
 try:
-    print("📦 Import commands_marijuana...")
+    print("📦 Import commands_marijuana...", flush=True)
     from commands_marijuana import setup_marijuana_commands, setup_marijuana_database
-    print("✅ commands_marijuana OK")
+    print("✅ commands_marijuana OK", flush=True)
 except Exception as e:
-    print(f"❌ ERRORE in commands_marijuana: {e}")
+    print(f"❌ ERRORE in commands_marijuana: {e}", flush=True)
 
-print("✅ Tutti gli import completati!")
+print("✅ Tutti gli import completati!", flush=True)
 
 # ====================
 # SETUP COMANDI
 # ====================
 
-print("🔧 Setup comandi in corso...")
+print("🔧 Setup comandi in corso...", flush=True)
 
 try:
     setup_invoice_commands(bot)
-    print("✅ setup_invoice_commands")
+    print("✅ setup_invoice_commands", flush=True)
 except Exception as e:
-    print(f"❌ setup_invoice_commands: {e}")
+    print(f"❌ setup_invoice_commands: {e}", flush=True)
 
 try:
     setup_fine_commands(bot)
-    print("✅ setup_fine_commands")
+    print("✅ setup_fine_commands", flush=True)
 except Exception as e:
-    print(f"❌ setup_fine_commands: {e}")
+    print(f"❌ setup_fine_commands: {e}", flush=True)
 
 try:
     setup_document_commands(bot)
-    print("✅ setup_document_commands")
+    print("✅ setup_document_commands", flush=True)
 except Exception as e:
-    print(f"❌ setup_document_commands: {e}")
+    print(f"❌ setup_document_commands: {e}", flush=True)
 
 try:
     setup_wallet_commands(bot)
-    print("✅ setup_wallet_commands")
+    print("✅ setup_wallet_commands", flush=True)
 except Exception as e:
-    print(f"❌ setup_wallet_commands: {e}")
+    print(f"❌ setup_wallet_commands: {e}", flush=True)
 
 try:
     setup_inventory_commands(bot)
-    print("✅ setup_inventory_commands")
+    print("✅ setup_inventory_commands", flush=True)
 except Exception as e:
-    print(f"❌ setup_inventory_commands: {e}")
+    print(f"❌ setup_inventory_commands: {e}", flush=True)
 
 try:
     setup_rp_commands(bot)
-    print("✅ setup_rp_commands")
+    print("✅ setup_rp_commands", flush=True)
 except Exception as e:
-    print(f"❌ setup_rp_commands: {e}")
+    print(f"❌ setup_rp_commands: {e}", flush=True)
 
 try:
     setup_vehicle_commands(bot)
-    print("✅ setup_vehicle_commands")
+    print("✅ setup_vehicle_commands", flush=True)
 except Exception as e:
-    print(f"❌ setup_vehicle_commands: {e}")
+    print(f"❌ setup_vehicle_commands: {e}", flush=True)
 
 try:
     setup_bonifico_commands(bot)
-    print("✅ setup_bonifico_commands")
+    print("✅ setup_bonifico_commands", flush=True)
 except Exception as e:
-    print(f"❌ setup_bonifico_commands: {e}")
+    print(f"❌ setup_bonifico_commands: {e}", flush=True)
 
 try:
     setup_admin_commands(bot)
-    print("✅ setup_admin_commands")
+    print("✅ setup_admin_commands", flush=True)
 except Exception as e:
-    print(f"❌ setup_admin_commands: {e}")
+    print(f"❌ setup_admin_commands: {e}", flush=True)
 
 try:
     setup_bando_commands(bot)
-    print("✅ setup_bando_commands")
+    print("✅ setup_bando_commands", flush=True)
 except Exception as e:
-    print(f"❌ setup_bando_commands: {e}")
+    print(f"❌ setup_bando_commands: {e}", flush=True)
 
 try:
     setup_rpoff_commands(bot)
-    print("✅ setup_rpoff_commands")
+    print("✅ setup_rpoff_commands", flush=True)
 except Exception as e:
-    print(f"❌ setup_rpoff_commands: {e}")
+    print(f"❌ setup_rpoff_commands: {e}", flush=True)
 
 try:
     setup_arrest_commands(bot)
-    print("✅ setup_arrest_commands")
+    print("✅ setup_arrest_commands", flush=True)
 except Exception as e:
-    print(f"❌ setup_arrest_commands: {e}")
+    print(f"❌ setup_arrest_commands: {e}", flush=True)
 
 try:
     setup_criminal_record_commands(bot)
-    print("✅ setup_criminal_record_commands")
+    print("✅ setup_criminal_record_commands", flush=True)
 except Exception as e:
-    print(f"❌ setup_criminal_record_commands: {e}")
+    print(f"❌ setup_criminal_record_commands: {e}", flush=True)
 
 try:
     setup_property_commands(bot)
-    print("✅ setup_property_commands")
+    print("✅ setup_property_commands", flush=True)
 except Exception as e:
-    print(f"❌ setup_property_commands: {e}")
+    print(f"❌ setup_property_commands: {e}", flush=True)
 
 try:
     setup_wipepg_commands(bot)
-    print("✅ setup_wipepg_commands")
+    print("✅ setup_wipepg_commands", flush=True)
 except Exception as e:
-    print(f"❌ setup_wipepg_commands: {e}")
+    print(f"❌ setup_wipepg_commands: {e}", flush=True)
 
 try:
     setup_deposit_commands(bot)
-    print("✅ setup_deposit_commands")
+    print("✅ setup_deposit_commands", flush=True)
 except Exception as e:
-    print(f"❌ setup_deposit_commands: {e}")
+    print(f"❌ setup_deposit_commands: {e}", flush=True)
 
 try:
     setup_robbery_commands(bot)
-    print("✅ setup_robbery_commands")
+    print("✅ setup_robbery_commands", flush=True)
 except Exception as e:
-    print(f"❌ setup_robbery_commands: {e}")
+    print(f"❌ setup_robbery_commands: {e}", flush=True)
 
 try:
     setup_theft_commands(bot)
-    print("✅ setup_theft_commands")
+    print("✅ setup_theft_commands", flush=True)
 except Exception as e:
-    print(f"❌ setup_theft_commands: {e}")
+    print(f"❌ setup_theft_commands: {e}", flush=True)
 
 try:
     setup_scoop_commands(bot)
-    print("✅ setup_scoop_commands")
+    print("✅ setup_scoop_commands", flush=True)
 except Exception as e:
-    print(f"❌ setup_scoop_commands: {e}")
+    print(f"❌ setup_scoop_commands: {e}", flush=True)
 
 try:
     setup_marijuana_commands(bot)
-    print("✅ setup_marijuana_commands")
+    print("✅ setup_marijuana_commands", flush=True)
 except Exception as e:
-    print(f"❌ setup_marijuana_commands: {e}")
+    print(f"❌ setup_marijuana_commands: {e}", flush=True)
 
-print("✅ Setup comandi completato!")
+print("✅ Setup comandi completato!", flush=True)
 
 # ====================
 # COMANDI APP
@@ -578,10 +587,10 @@ async def controlla_bancomat(interaction: discord.Interaction, utente: discord.M
         await log_command(LOG_CHANNEL_ID, embed=log_embed)
 
     except Exception as e:
-        print(f"Errore in /controlla-bancomat: {e}")
+        print(f"Errore in /controlla-bancomat: {e}", flush=True)
         await interaction.followup.send("❌ Si è verificato un errore nel controllo del bancomat.", ephemeral=True)
 
-print("✅ Comandi app registrati")
+print("✅ Comandi app registrati", flush=True)
 
 # ====================
 # WEBSERVER H24
@@ -600,7 +609,7 @@ async def start_webserver():
     port = int(os.environ.get("PORT", 10000))
     site = web.TCPSite(runner, "0.0.0.0", port)
     await site.start()
-    print(f"🌐 Server web avviato su porta {port}")
+    print(f"🌐 Server web avviato su porta {port}", flush=True)
 
 # ====================
 # ENTRY POINT PRINCIPALE
@@ -608,53 +617,49 @@ async def start_webserver():
 
 async def main():
     try:
+        # Avvia il webserver PRIMA
+        print("🌐 Avvio webserver...", flush=True)
         await start_webserver()
         
         TOKEN = os.getenv("DISCORD_TOKEN")
         
         if not TOKEN:
-            print("❌ ERRORE: DISCORD_TOKEN non trovato!")
-            while True:
-                await asyncio.sleep(3600)
+            print("❌ ERRORE: DISCORD_TOKEN non trovato nelle variabili d'ambiente!", flush=True)
+            print("❌ Controlla su Render → Environment → DISCORD_TOKEN", flush=True)
+            return
         
-        await asyncio.sleep(3)
+        print("🔄 Connessione a Discord in corso...", flush=True)
+        print(f"🔑 Token presente: {TOKEN[:20]}...", flush=True)
         
-        print("🔄 Connessione a Discord in corso...")
-        async with bot:
-            await bot.start(TOKEN)
+        # Avvia il bot
+        await bot.start(TOKEN)
             
-    except discord.HTTPException as e:
-        if e.status == 429:
-            print(f"⚠️ Rate limited da Discord.")
-            print(f"🌐 Webserver attivo. Aspetta 30-60 minuti.")
-            while True:
-                await asyncio.sleep(3600)
-        else:
-            print(f"❌ Errore HTTP ({e.status}): {e}")
-            while True:
-                await asyncio.sleep(3600)
     except discord.LoginFailure:
-        print(f"❌ Token non valido!")
-        while True:
-            await asyncio.sleep(3600)
+        print("❌ ERRORE: Token Discord non valido!", flush=True)
+        print("❌ Vai su https://discord.com/developers/applications", flush=True)
+        print("❌ Resetta il token e aggiornalo su Render", flush=True)
+    except discord.HTTPException as e:
+        print(f"❌ ERRORE HTTP Discord: {e}", flush=True)
+        if e.status == 429:
+            print("⚠️ Rate limited da Discord. Riprova tra 30 minuti.", flush=True)
     except Exception as e:
-        print(f"❌ ERRORE: {e}")
+        print(f"❌ ERRORE FATALE: {e}", flush=True)
         import traceback
         traceback.print_exc()
-        while True:
-            await asyncio.sleep(3600)
 
 
 if __name__ == "__main__":
     from dotenv import load_dotenv
-    load_dotenv() 
+    load_dotenv()
+    
+    print("🚀 Avvio bot Liberty...", flush=True)
+    print(f"🐍 Python version: {sys.version}", flush=True)
     
     try:
-        print("🚀 Avvio bot...")
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("🛑 Bot spento.")
+        print("🛑 Bot spento manualmente.", flush=True)
     except Exception as e:
-        print(f"❌ Errore fatale: {e}")
+        print(f"❌ Errore durante l'avvio: {e}", flush=True)
         import traceback
         traceback.print_exc()

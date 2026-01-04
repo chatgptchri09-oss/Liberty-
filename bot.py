@@ -114,7 +114,7 @@ print("✅ Funzioni di supporto definite", flush=True)
 # CLASSI UI PER /BANCOMAT
 # ====================
 
-def create_bancomat_embed(user: dict, user_mention: str) -> discord.Embed:
+def create_bancomat_embed(user: dict, user_mention: str, discord_user: discord.Member = None) -> discord.Embed:
     """Crea l'embed del bancomat."""
     embed = discord.Embed(
         title="<a:Bancomat:1431618497489666198> 𝐁𝐀𝐍𝐂𝐎𝐌𝐀𝐓 <a:cartadicreditoMacerto:1454052506962235560>",
@@ -124,10 +124,10 @@ def create_bancomat_embed(user: dict, user_mention: str) -> discord.Embed:
     embed.add_field(name="💸 𝐂𝐎𝐍𝐓𝐀𝐍𝐓𝐈", value=f"${user['cash']:,}", inline=False)
     embed.add_field(name="💳 𝐁𝐀𝐍𝐂𝐀", value=f"${user['bank']:,}", inline=False)
     embed.add_field(name="💰 𝐓𝐎𝐓𝐀𝐋𝐄", value=f"${user['cash'] + user['bank']:,}", inline=False)
-
+    
+    # Aggiungi la foto profilo come thumbnail
     if discord_user:
         embed.set_thumbnail(url=discord_user.display_avatar.url)
-
     
     return embed
 
@@ -187,7 +187,7 @@ class MoneyTransferModal(Modal, title="Trasferimento di Denaro"):
         await database.update_balance(user_id, cash=new_cash, bank=new_bank)
 
         updated_user = await database.get_user(user_id)
-        updated_embed = create_bancomat_embed(updated_user, interaction.user.mention)
+        updated_embed = create_bancomat_embed(updated_user, interaction.user.mention, interaction.user)
         
         action_text = "prelevati" if self.action == 'preleva' else "depositati"
         
@@ -525,7 +525,7 @@ async def bancomat(interaction: discord.Interaction):
     user_id = str(interaction.user.id)
     user_mention = interaction.user.mention
     
-    embed = create_bancomat_embed(user, user_mention)
+    embed = create_bancomat_embed(user, user_mention, interaction.user)
     view = BancomatView(user_id)
     
     await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
@@ -558,7 +558,7 @@ async def controlla_bancomat(interaction: discord.Interaction, utente: discord.M
     try:
         user_data = await database.get_user(str(utente.id))
         
-        embed = create_bancomat_embed(user_data, utente.mention)
+        embed = create_bancomat_embed(user_data, utente.mention, utente)
         embed.title = f"🔍 SALDO VISTO: {utente.display_name}"
         embed.color = discord.Color.gold()
         embed.set_footer(text=f"Visualizzato da: {checker_member.display_name}")

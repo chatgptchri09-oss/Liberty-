@@ -443,9 +443,7 @@ def setup_marijuana_commands(bot: commands.Bot):
         
         await message.edit(embed=embed_completed)
         
-        # Aggiungi gli item all'inventario dell'utente
         
-        await add_item_to_inventory(str(utente.id), "🎵 | Autoradio")
         
         
 # Funzione da chiamare all'avvio del bot per inizializzare il database

@@ -124,6 +124,11 @@ def create_bancomat_embed(user: dict, user_mention: str) -> discord.Embed:
     embed.add_field(name="💸 𝐂𝐎𝐍𝐓𝐀𝐍𝐓𝐈", value=f"${user['cash']:,}", inline=False)
     embed.add_field(name="💳 𝐁𝐀𝐍𝐂𝐀", value=f"${user['bank']:,}", inline=False)
     embed.add_field(name="💰 𝐓𝐎𝐓𝐀𝐋𝐄", value=f"${user['cash'] + user['bank']:,}", inline=False)
+
+    if discord_user:
+        embed.set_thumbnail(url=discord_user.display_avatar.url)
+
+    
     return embed
 
 

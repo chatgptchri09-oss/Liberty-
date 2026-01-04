@@ -9,6 +9,8 @@ import asyncio
 import aiosqlite 
 from discord.ui import Modal, TextInput, View, Button 
 
+print("✅ Import base completati")
+
 # ====================
 # CONFIGURAZIONE INIZIALE
 # ====================
@@ -19,6 +21,8 @@ intents.members = True
 intents.guilds = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
+
+print("✅ Bot inizializzato")
 
 # ====================
 # COSTANTI
@@ -78,6 +82,8 @@ ALL_COMPANY_ROLES = {
 
 PORTAFOGLIO_IMAGE_URL = "https://i.imgur.com/placeholder.gif"
 
+print("✅ Costanti definite")
+
 # ====================
 # FUNZIONI DI SUPPORTO
 # ====================
@@ -87,7 +93,6 @@ def has_role(interaction: discord.Interaction, role_id: int) -> bool:
         return False
     return any(role.id == role_id for role in interaction.user.roles)
 
-# Funzione di log che usa la variabile globale 'bot'
 async def log_command(channel_id: int, message: str = None, embed: discord.Embed = None):
     try:
         channel = bot.get_channel(channel_id)
@@ -99,6 +104,7 @@ async def log_command(channel_id: int, message: str = None, embed: discord.Embed
     except:
         pass
 
+print("✅ Funzioni di supporto definite")
 
 # ====================
 # CLASSI UI PER /BANCOMAT
@@ -107,11 +113,9 @@ async def log_command(channel_id: int, message: str = None, embed: discord.Embed
 def create_bancomat_embed(user: dict, user_mention: str) -> discord.Embed:
     """Crea l'embed del bancomat."""
     embed = discord.Embed(
-        # Utilizzo dei caratteri Unicode Math Sans Bold per il titolo 
         title="<a:Bancomat:1431618497489666198> 𝐁𝐀𝐍𝐂𝐎𝐌𝐀𝐓 <a:cartadicreditoMacerto:1454052506962235560>",
         color=discord.Color.blue()
     )
-    # Nomi dei campi in Math Sans Bold
     embed.add_field(name="👤 𝐂𝐋𝐈𝐄𝐍𝐓𝐄", value=user_mention, inline=False)
     embed.add_field(name="💸 𝐂𝐎𝐍𝐓𝐀𝐍𝐓𝐈", value=f"${user['cash']:,}", inline=False)
     embed.add_field(name="💳 𝐁𝐀𝐍𝐂𝐀", value=f"${user['bank']:,}", inline=False)
@@ -124,15 +128,13 @@ class MoneyTransferModal(Modal, title="Trasferimento di Denaro"):
 
     def __init__(self, action: str):
         super().__init__()
-        self.action = action # 'preleva' o 'deposita'
+        self.action = action
         self.title = "💸 Preleva Contanti" if action == 'preleva' else "🏦 Deposita Denaro"
         self.amount_input.label = f"Importo da {action.capitalize()}"
-
 
     async def on_submit(self, interaction: discord.Interaction):
         user_id = str(interaction.user.id)
         
-        # 1. Validazione input
         await interaction.response.defer(ephemeral=True, thinking=True)
         
         try:
@@ -146,7 +148,6 @@ class MoneyTransferModal(Modal, title="Trasferimento di Denaro"):
             await interaction.followup.send("❌ Importo non valido! Inserisci solo numeri interi.", ephemeral=True)
             return
 
-        # 2. Recupera i saldi
         user = await database.get_user(user_id)
         current_cash = user['cash']
         current_bank = user['bank']
@@ -156,7 +157,6 @@ class MoneyTransferModal(Modal, title="Trasferimento di Denaro"):
         
         error_message = None
 
-        # 3. Esegue il trasferimento
         if self.action == 'preleva':
             if amount > current_bank:
                 error_message = f"❌ Non hai abbastanza soldi in banca per prelevare **${amount:,}**! (Disponibile: ${current_bank:,})"
@@ -175,18 +175,14 @@ class MoneyTransferModal(Modal, title="Trasferimento di Denaro"):
             await interaction.followup.send(error_message, ephemeral=True)
             return
 
-        # 4. Aggiorna il database
         await database.update_balance(user_id, cash=new_cash, bank=new_bank)
 
-        # 5. Risposta e aggiornamento embed
-        
-        # Crea il nuovo embed
-        updated_user = await database.get_user(user_id) # Riprendi i dati aggiornati
+        updated_user = await database.get_user(user_id)
         updated_embed = create_bancomat_embed(updated_user, interaction.user.mention)
         
         action_text = "prelevati" if self.action == 'preleva' else "depositati"
         
-        view = BancomatView(user_id) # La view deve essere ricreata per coerenza
+        view = BancomatView(user_id)
         
         await interaction.followup.send(
             content=f"✅ Hai **{action_text}** **${amount:,}** con successo! Ecco il tuo nuovo saldo:",
@@ -194,8 +190,7 @@ class MoneyTransferModal(Modal, title="Trasferimento di Denaro"):
             view=view,
             ephemeral=True
         )
-        
-        
+
 
 class BancomatView(View):
     def __init__(self, user_id: str):
@@ -218,6 +213,7 @@ class BancomatView(View):
         modal = MoneyTransferModal(action='deposita')
         await interaction.response.send_modal(modal)
 
+print("✅ Classi UI definite")
 
 # ====================
 # EVENT HANDLERS
@@ -225,82 +221,300 @@ class BancomatView(View):
 
 @bot.event
 async def on_ready():
-    # Stampa di login
     print(f"✅ Logged in as {bot.user}")
-    
-    # Inizializza il database
     await database.init_db()
     await setup_marijuana_database()
 
-# ====================
-# IMPORTAZIONE COMANDI (Assicurati che questi file esistano)
-# ====================
-from commands_invoice import setup_invoice_commands
-from commands_fines import setup_fine_commands
-from commands_documents import setup_document_commands
-from commands_wallet import setup_wallet_commands
-from commands_inventory import setup_inventory_commands
-from commands_rp import setup_rp_commands
-from commands_vehicle import setup_vehicle_commands
-from commands_bonifico import setup_bonifico_commands
-from commands_admin import setup_admin_commands
-from commands_bando import setup_bando_commands
-from commands_rp_status import setup_rpoff_commands 
-from commands_arrests import setup_arrest_commands
-from commands_criminal_record import setup_criminal_record_commands
-from commands_properties import setup_property_commands
-from commands_wipepg import setup_wipepg_commands
-from commands_deposits import setup_deposit_commands
-from commands_robbery import setup_robbery_commands
-from commands_theft import setup_theft_commands
-from commands_scoop import setup_scoop_commands
-from commands_marijuana import setup_marijuana_commands, setup_marijuana_database
+print("✅ Event handlers registrati")
 
 # ====================
-# SETUP COMANDI 
+# IMPORTAZIONE COMANDI - CON ERROR HANDLING
 # ====================
-setup_invoice_commands(bot)
-setup_fine_commands(bot)
-setup_document_commands(bot)
-setup_wallet_commands(bot)
-setup_inventory_commands(bot)
-setup_rp_commands(bot)
-setup_vehicle_commands(bot)
-setup_bonifico_commands(bot)
-setup_admin_commands(bot)
-setup_bando_commands(bot)
-setup_rpoff_commands(bot)
-setup_arrest_commands(bot)
-setup_criminal_record_commands(bot)
-setup_property_commands(bot)
-setup_wipepg_commands(bot)
-setup_deposit_commands(bot)
-setup_robbery_commands(bot)
-setup_theft_commands(bot)
-setup_scoop_commands(bot)
-setup_marijuana_commands(bot)
 
+try:
+    print("📦 Import commands_invoice...")
+    from commands_invoice import setup_invoice_commands
+    print("✅ commands_invoice OK")
+except Exception as e:
+    print(f"❌ ERRORE in commands_invoice: {e}")
+
+try:
+    print("📦 Import commands_fines...")
+    from commands_fines import setup_fine_commands
+    print("✅ commands_fines OK")
+except Exception as e:
+    print(f"❌ ERRORE in commands_fines: {e}")
+
+try:
+    print("📦 Import commands_documents...")
+    from commands_documents import setup_document_commands
+    print("✅ commands_documents OK")
+except Exception as e:
+    print(f"❌ ERRORE in commands_documents: {e}")
+
+try:
+    print("📦 Import commands_wallet...")
+    from commands_wallet import setup_wallet_commands
+    print("✅ commands_wallet OK")
+except Exception as e:
+    print(f"❌ ERRORE in commands_wallet: {e}")
+
+try:
+    print("📦 Import commands_inventory...")
+    from commands_inventory import setup_inventory_commands
+    print("✅ commands_inventory OK")
+except Exception as e:
+    print(f"❌ ERRORE in commands_inventory: {e}")
+
+try:
+    print("📦 Import commands_rp...")
+    from commands_rp import setup_rp_commands
+    print("✅ commands_rp OK")
+except Exception as e:
+    print(f"❌ ERRORE in commands_rp: {e}")
+
+try:
+    print("📦 Import commands_vehicle...")
+    from commands_vehicle import setup_vehicle_commands
+    print("✅ commands_vehicle OK")
+except Exception as e:
+    print(f"❌ ERRORE in commands_vehicle: {e}")
+
+try:
+    print("📦 Import commands_bonifico...")
+    from commands_bonifico import setup_bonifico_commands
+    print("✅ commands_bonifico OK")
+except Exception as e:
+    print(f"❌ ERRORE in commands_bonifico: {e}")
+
+try:
+    print("📦 Import commands_admin...")
+    from commands_admin import setup_admin_commands
+    print("✅ commands_admin OK")
+except Exception as e:
+    print(f"❌ ERRORE in commands_admin: {e}")
+
+try:
+    print("📦 Import commands_bando...")
+    from commands_bando import setup_bando_commands
+    print("✅ commands_bando OK")
+except Exception as e:
+    print(f"❌ ERRORE in commands_bando: {e}")
+
+try:
+    print("📦 Import commands_rp_status...")
+    from commands_rp_status import setup_rpoff_commands
+    print("✅ commands_rp_status OK")
+except Exception as e:
+    print(f"❌ ERRORE in commands_rp_status: {e}")
+
+try:
+    print("📦 Import commands_arrests...")
+    from commands_arrests import setup_arrest_commands
+    print("✅ commands_arrests OK")
+except Exception as e:
+    print(f"❌ ERRORE in commands_arrests: {e}")
+
+try:
+    print("📦 Import commands_criminal_record...")
+    from commands_criminal_record import setup_criminal_record_commands
+    print("✅ commands_criminal_record OK")
+except Exception as e:
+    print(f"❌ ERRORE in commands_criminal_record: {e}")
+
+try:
+    print("📦 Import commands_properties...")
+    from commands_properties import setup_property_commands
+    print("✅ commands_properties OK")
+except Exception as e:
+    print(f"❌ ERRORE in commands_properties: {e}")
+
+try:
+    print("📦 Import commands_wipepg...")
+    from commands_wipepg import setup_wipepg_commands
+    print("✅ commands_wipepg OK")
+except Exception as e:
+    print(f"❌ ERRORE in commands_wipepg: {e}")
+
+try:
+    print("📦 Import commands_deposits...")
+    from commands_deposits import setup_deposit_commands
+    print("✅ commands_deposits OK")
+except Exception as e:
+    print(f"❌ ERRORE in commands_deposits: {e}")
+
+try:
+    print("📦 Import commands_robbery...")
+    from commands_robbery import setup_robbery_commands
+    print("✅ commands_robbery OK")
+except Exception as e:
+    print(f"❌ ERRORE in commands_robbery: {e}")
+
+try:
+    print("📦 Import commands_theft...")
+    from commands_theft import setup_theft_commands
+    print("✅ commands_theft OK")
+except Exception as e:
+    print(f"❌ ERRORE in commands_theft: {e}")
+
+try:
+    print("📦 Import commands_scoop...")
+    from commands_scoop import setup_scoop_commands
+    print("✅ commands_scoop OK")
+except Exception as e:
+    print(f"❌ ERRORE in commands_scoop: {e}")
+
+try:
+    print("📦 Import commands_marijuana...")
+    from commands_marijuana import setup_marijuana_commands, setup_marijuana_database
+    print("✅ commands_marijuana OK")
+except Exception as e:
+    print(f"❌ ERRORE in commands_marijuana: {e}")
+
+print("✅ Tutti gli import completati!")
 
 # ====================
-# COMANDI APP (MANTENUTI QUI)
+# SETUP COMANDI
+# ====================
+
+print("🔧 Setup comandi in corso...")
+
+try:
+    setup_invoice_commands(bot)
+    print("✅ setup_invoice_commands")
+except Exception as e:
+    print(f"❌ setup_invoice_commands: {e}")
+
+try:
+    setup_fine_commands(bot)
+    print("✅ setup_fine_commands")
+except Exception as e:
+    print(f"❌ setup_fine_commands: {e}")
+
+try:
+    setup_document_commands(bot)
+    print("✅ setup_document_commands")
+except Exception as e:
+    print(f"❌ setup_document_commands: {e}")
+
+try:
+    setup_wallet_commands(bot)
+    print("✅ setup_wallet_commands")
+except Exception as e:
+    print(f"❌ setup_wallet_commands: {e}")
+
+try:
+    setup_inventory_commands(bot)
+    print("✅ setup_inventory_commands")
+except Exception as e:
+    print(f"❌ setup_inventory_commands: {e}")
+
+try:
+    setup_rp_commands(bot)
+    print("✅ setup_rp_commands")
+except Exception as e:
+    print(f"❌ setup_rp_commands: {e}")
+
+try:
+    setup_vehicle_commands(bot)
+    print("✅ setup_vehicle_commands")
+except Exception as e:
+    print(f"❌ setup_vehicle_commands: {e}")
+
+try:
+    setup_bonifico_commands(bot)
+    print("✅ setup_bonifico_commands")
+except Exception as e:
+    print(f"❌ setup_bonifico_commands: {e}")
+
+try:
+    setup_admin_commands(bot)
+    print("✅ setup_admin_commands")
+except Exception as e:
+    print(f"❌ setup_admin_commands: {e}")
+
+try:
+    setup_bando_commands(bot)
+    print("✅ setup_bando_commands")
+except Exception as e:
+    print(f"❌ setup_bando_commands: {e}")
+
+try:
+    setup_rpoff_commands(bot)
+    print("✅ setup_rpoff_commands")
+except Exception as e:
+    print(f"❌ setup_rpoff_commands: {e}")
+
+try:
+    setup_arrest_commands(bot)
+    print("✅ setup_arrest_commands")
+except Exception as e:
+    print(f"❌ setup_arrest_commands: {e}")
+
+try:
+    setup_criminal_record_commands(bot)
+    print("✅ setup_criminal_record_commands")
+except Exception as e:
+    print(f"❌ setup_criminal_record_commands: {e}")
+
+try:
+    setup_property_commands(bot)
+    print("✅ setup_property_commands")
+except Exception as e:
+    print(f"❌ setup_property_commands: {e}")
+
+try:
+    setup_wipepg_commands(bot)
+    print("✅ setup_wipepg_commands")
+except Exception as e:
+    print(f"❌ setup_wipepg_commands: {e}")
+
+try:
+    setup_deposit_commands(bot)
+    print("✅ setup_deposit_commands")
+except Exception as e:
+    print(f"❌ setup_deposit_commands: {e}")
+
+try:
+    setup_robbery_commands(bot)
+    print("✅ setup_robbery_commands")
+except Exception as e:
+    print(f"❌ setup_robbery_commands: {e}")
+
+try:
+    setup_theft_commands(bot)
+    print("✅ setup_theft_commands")
+except Exception as e:
+    print(f"❌ setup_theft_commands: {e}")
+
+try:
+    setup_scoop_commands(bot)
+    print("✅ setup_scoop_commands")
+except Exception as e:
+    print(f"❌ setup_scoop_commands: {e}")
+
+try:
+    setup_marijuana_commands(bot)
+    print("✅ setup_marijuana_commands")
+except Exception as e:
+    print(f"❌ setup_marijuana_commands: {e}")
+
+print("✅ Setup comandi completato!")
+
+# ====================
+# COMANDI APP
 # ====================
 
 @bot.tree.command(name="bancomat", description="Visualizza il saldo del tuo bancomat")
 async def bancomat(interaction: discord.Interaction):
-    # La funzione get_user crea l'utente se non esiste
     user = await database.get_user(str(interaction.user.id))
     user_id = str(interaction.user.id)
     user_mention = interaction.user.mention
     
-    # Creazione dell'embed
     embed = create_bancomat_embed(user, user_mention)
-    
-    # Creazione della View con i bottoni
     view = BancomatView(user_id)
     
     await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
-
-
 
 @bot.tree.command(name="sync", description="[STAFF] Sincronizza i comandi")
 async def sync(interaction: discord.Interaction):
@@ -321,7 +535,6 @@ async def controlla_bancomat(interaction: discord.Interaction, utente: discord.M
         await interaction.response.send_message("❌ Non puoi controllare il bancomat di un bot.", ephemeral=True)
         return
 
-    # Non puoi controllare te stesso, devi usare /bancomat
     if utente.id == checker_member.id:
         await interaction.response.send_message("❌ Usa il comando `/bancomat` per vedere il tuo saldo.", ephemeral=True)
         return
@@ -329,16 +542,13 @@ async def controlla_bancomat(interaction: discord.Interaction, utente: discord.M
     await interaction.response.defer(ephemeral=True, thinking=True)
     
     try:
-        # 2. Recupera i dati dell'utente Controllato
         user_data = await database.get_user(str(utente.id))
         
-        # 3. Creazione dell'embed (usa la funzione esistente)
         embed = create_bancomat_embed(user_data, utente.mention)
-        embed.title = f"🔍 SALDO VISTO: {utente.display_name}" # Titolo aggiornato per RP
+        embed.title = f"🔍 SALDO VISTO: {utente.display_name}"
         embed.color = discord.Color.gold()
         embed.set_footer(text=f"Visualizzato da: {checker_member.display_name}")
         
-        # 4. Invia la notifica DM all'utente controllato
         try:
             notification_embed = discord.Embed(
                 title="🚨 ATTENZIONE ❗",
@@ -350,14 +560,12 @@ async def controlla_bancomat(interaction: discord.Interaction, utente: discord.M
         except:
             dm_status = "Notifica DM non inviabile (DM bloccati)."
 
-        # 5. Risposta a chi ha eseguito il comando
         await interaction.followup.send(
             content=f"✅ Visualizzazione completata. ({dm_status})",
             embed=embed,
-            ephemeral=True # Solo l'esecutore vede l'embed
+            ephemeral=True
         )
         
-        # 6. Log
         log_embed = discord.Embed(
             title="👁️ LOG CONTROLLO BANCOMAT",
             color=discord.Color.gold()
@@ -373,9 +581,12 @@ async def controlla_bancomat(interaction: discord.Interaction, utente: discord.M
         print(f"Errore in /controlla-bancomat: {e}")
         await interaction.followup.send("❌ Si è verificato un errore nel controllo del bancomat.", ephemeral=True)
 
+print("✅ Comandi app registrati")
+
 # ====================
 # WEBSERVER H24
 # ====================
+
 async def handle(request):
     return web.Response(text="✅ Il bot è attivo e funzionante!")
 
@@ -392,21 +603,20 @@ async def start_webserver():
     print(f"🌐 Server web avviato su porta {port}")
 
 # ====================
-# ENTRY POINT PRINCIPALE - CON ERROR HANDLING
+# ENTRY POINT PRINCIPALE
 # ====================
+
 async def main():
     try:
-        # Inizia il web server in background
         await start_webserver()
         
         TOKEN = os.getenv("DISCORD_TOKEN")
         
         if not TOKEN:
-            print("❌ ERRORE: DISCORD_TOKEN non trovato nelle variabili d'ambiente!")
+            print("❌ ERRORE: DISCORD_TOKEN non trovato!")
             while True:
                 await asyncio.sleep(3600)
         
-        # Piccolo delay iniziale
         await asyncio.sleep(3)
         
         print("🔄 Connessione a Discord in corso...")
@@ -424,13 +634,13 @@ async def main():
             while True:
                 await asyncio.sleep(3600)
     except discord.LoginFailure:
-        print(f"❌ Token non valido! Controlla DISCORD_TOKEN.")
+        print(f"❌ Token non valido!")
         while True:
             await asyncio.sleep(3600)
     except Exception as e:
-        print(f"❌ ERRORE CRITICO ALL'AVVIO: {e}")
+        print(f"❌ ERRORE: {e}")
         import traceback
-        traceback.print_exc()  # Stampa lo stack trace completo
+        traceback.print_exc()
         while True:
             await asyncio.sleep(3600)
 
@@ -440,11 +650,21 @@ if __name__ == "__main__":
     load_dotenv() 
     
     try:
-        print("🚀 Avvio bot in corso...")
+        print("🚀 Avvio bot...")
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("🛑 Bot spento manualmente.")
+        print("🛑 Bot spento.")
     except Exception as e:
         print(f"❌ Errore fatale: {e}")
         import traceback
         traceback.print_exc()
+```
+
+**Deploy questo e nei log vedrai ESATTAMENTE dove si blocca! 🔍**
+
+Vedrai una serie di messaggi tipo:
+```
+✅ Import base completati
+✅ Bot inizializzato
+📦 Import commands_invoice...
+❌ ERRORE in commands_invoice: ModuleNotFoundError...

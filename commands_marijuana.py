@@ -384,7 +384,7 @@ def setup_marijuana_commands(bot: commands.Bot):
             color=discord.Color.green()
         )
         embed_completed.add_field(
-            name="📦 Hai ottenuto i seguenti componenti: usa il comando `/itemsell` per prendere:",
+            name="📦 Hai ottenuto i seguenti componenti che sono già stati aggiunti al tuo zaino 🎒:",
             value=(
                 "• 🔩 **2x Paraurti**\n"
                 "• ⚙️ **4x Cerchioni**\n"
@@ -411,15 +411,7 @@ def setup_marijuana_commands(bot: commands.Bot):
         await add_item_to_inventory(str(utente.id), "🎵 | Autoradio")
         
         # LOG
-        log_embed = discord.Embed(
-            title="🔧 LOG SMANTELLAMENTO AUTO",
-            color=discord.Color.green()
-        )
-        log_embed.add_field(name="👤 Smantellatore", value=interaction.user.mention, inline=True)
-        log_embed.add_field(name="🚗 Proprietario", value=utente.mention, inline=True)
-        log_embed.add_field(name="📦 Componenti", value="2x Paraurti, 4x Cerchioni, 1x Autoradio", inline=False)
-        log_embed.timestamp = discord.utils.utcnow()
-        await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
+        
 
 async def setup_marijuana_database():
     await init_marijuana_db()

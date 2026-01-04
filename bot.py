@@ -392,31 +392,35 @@ async def start_webserver():
     print(f"🌐 Server web avviato su porta {port}")
 
 # ====================
-# ENTRY POINT PRINCIPALE - VERSIONE DEFINITIVA
+# ENTRY POINT PRINCIPALE - CON ERROR HANDLING
 # ====================
 async def main():
-    # Inizia il web server in background
-    await start_webserver()
-    
-    TOKEN = os.getenv("DISCORD_TOKEN")
-    
-    # Piccolo delay iniziale per evitare rate limit immediato dopo restart
-    await asyncio.sleep(3)
-    
     try:
+        # Inizia il web server in background
+        await start_webserver()
+        
+        TOKEN = os.getenv("DISCORD_TOKEN")
+        
+        if not TOKEN:
+            print("❌ ERRORE: DISCORD_TOKEN non trovato nelle variabili d'ambiente!")
+            while True:
+                await asyncio.sleep(3600)
+        
+        # Piccolo delay iniziale
+        await asyncio.sleep(3)
+        
         print("🔄 Connessione a Discord in corso...")
         async with bot:
             await bot.start(TOKEN)
+            
     except discord.HTTPException as e:
         if e.status == 429:
             print(f"⚠️ Rate limited da Discord.")
-            print(f"🌐 Webserver attivo. Aspetta 30-60 minuti e redeploy manualmente.")
-            # IMPORTANTE: Mantieni il processo vivo per evitare restart automatici
+            print(f"🌐 Webserver attivo. Aspetta 30-60 minuti.")
             while True:
-                await asyncio.sleep(3600)  # Loop infinito per tenere il processo attivo
+                await asyncio.sleep(3600)
         else:
             print(f"❌ Errore HTTP ({e.status}): {e}")
-            print(f"🌐 Webserver rimane attivo.")
             while True:
                 await asyncio.sleep(3600)
     except discord.LoginFailure:
@@ -424,8 +428,9 @@ async def main():
         while True:
             await asyncio.sleep(3600)
     except Exception as e:
-        print(f"❌ Errore: {e}")
-        print(f"🌐 Webserver rimane attivo.")
+        print(f"❌ ERRORE CRITICO ALL'AVVIO: {e}")
+        import traceback
+        traceback.print_exc()  # Stampa lo stack trace completo
         while True:
             await asyncio.sleep(3600)
 
@@ -435,8 +440,11 @@ if __name__ == "__main__":
     load_dotenv() 
     
     try:
+        print("🚀 Avvio bot in corso...")
         asyncio.run(main())
     except KeyboardInterrupt:
         print("🛑 Bot spento manualmente.")
     except Exception as e:
         print(f"❌ Errore fatale: {e}")
+        import traceback
+        traceback.print_exc()

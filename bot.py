@@ -114,7 +114,7 @@ print("✅ Funzioni di supporto definite", flush=True)
 # CLASSI UI PER /BANCOMAT
 # ====================
 
-def create_bancomat_embed(user: dict, user_mention: str) -> discord.Embed:
+def create_bancomat_embed(user: dict, user_mention: str, discord_user: discord.Member = None) -> discord.Embed:
     """Crea l'embed del bancomat."""
     embed = discord.Embed(
         title="<a:Bancomat:1431618497489666198> 𝐁𝐀𝐍𝐂𝐎𝐌𝐀𝐓 <a:cartadicreditoMacerto:1454052506962235560>",
@@ -124,6 +124,11 @@ def create_bancomat_embed(user: dict, user_mention: str) -> discord.Embed:
     embed.add_field(name="💸 𝐂𝐎𝐍𝐓𝐀𝐍𝐓𝐈", value=f"${user['cash']:,}", inline=False)
     embed.add_field(name="💳 𝐁𝐀𝐍𝐂𝐀", value=f"${user['bank']:,}", inline=False)
     embed.add_field(name="💰 𝐓𝐎𝐓𝐀𝐋𝐄", value=f"${user['cash'] + user['bank']:,}", inline=False)
+    
+    # Aggiungi la foto profilo come thumbnail
+    if discord_user:
+        embed.set_thumbnail(url=discord_user.display_avatar.url)
+    
     return embed
 
 
@@ -182,7 +187,7 @@ class MoneyTransferModal(Modal, title="Trasferimento di Denaro"):
         await database.update_balance(user_id, cash=new_cash, bank=new_bank)
 
         updated_user = await database.get_user(user_id)
-        updated_embed = create_bancomat_embed(updated_user, interaction.user.mention)
+        updated_embed = create_bancomat_embed(updated_user, interaction.user.mention, interaction.user)
         
         action_text = "prelevati" if self.action == 'preleva' else "depositati"
         
@@ -520,7 +525,7 @@ async def bancomat(interaction: discord.Interaction):
     user_id = str(interaction.user.id)
     user_mention = interaction.user.mention
     
-    embed = create_bancomat_embed(user, user_mention)
+    embed = create_bancomat_embed(user, user_mention, interaction.user)
     view = BancomatView(user_id)
     
     await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
@@ -553,7 +558,7 @@ async def controlla_bancomat(interaction: discord.Interaction, utente: discord.M
     try:
         user_data = await database.get_user(str(utente.id))
         
-        embed = create_bancomat_embed(user_data, utente.mention)
+        embed = create_bancomat_embed(user_data, utente.mention, utente)
         embed.title = f"🔍 SALDO VISTO: {utente.display_name}"
         embed.color = discord.Color.gold()
         embed.set_footer(text=f"Visualizzato da: {checker_member.display_name}")
@@ -589,6 +594,174 @@ async def controlla_bancomat(interaction: discord.Interaction, utente: discord.M
     except Exception as e:
         print(f"Errore in /controlla-bancomat: {e}", flush=True)
         await interaction.followup.send("❌ Si è verificato un errore nel controllo del bancomat.", ephemeral=True)
+
+# ====================
+# SISTEMA LISTA COMANDI CON SELECT MENU
+# ====================
+
+class CommandCategorySelect(discord.ui.Select):
+    def __init__(self):
+        options = [
+            discord.SelectOption(
+                label="🗽 Comandi Staff",
+                description="Mostra i comandi utilizzabili solamente dagli staff",
+                value="staff"
+            ),
+            discord.SelectOption(
+                label="👮‍♂️ Comandi Polizia",
+                description="Mostra i comandi utilizzabili solamente dai poliziotti",
+                value="polizia"
+            ),
+            discord.SelectOption(
+                label="💸 Comandi Economia",
+                description="Mostra i comandi dell'economia",
+                value="economia"
+            ),
+            discord.SelectOption(
+                label="🐬 Comandi Roleplay",
+                description="Mostra i comandi del Roleplay",
+                value="roleplay"
+            )
+        ]
+        super().__init__(placeholder="Seleziona una categoria di comandi...", options=options)
+
+    async def callback(self, interaction: discord.Interaction):
+        category = self.values[0]
+        
+        if category == "staff":
+            embed = discord.Embed(
+                title="🗽 𝑪𝑶𝑴𝑨𝑵𝑫𝑰 𝑺𝑻𝑨𝑭𝑭",
+                description="Ecco tutti i comandi utilizzabili dagli staff:",
+                color=discord.Color.red()
+            )
+            commands_list = [
+                "`/crea-item` - Crea un nuovo item nel sistema",
+                "`/annuncio` - Invia un annuncio pubblico nel server",
+                "`/bando` - Crea un nuovo bando per assunzioni",
+                "`/add-money` - Aggiungi denaro a un utente",
+                "`/esito-bando` - Comunica l'esito di un bando",
+                "`/paga-stipendio` - Paga lo stipendio a un utente",
+                "`/eliminaitem` - Elimina un item dal sistema",
+                "`/give-item` - Dai un item a un utente",
+                "`/remove-money` - Rimuovi denaro da un utente",
+                "`/rimuovi-documento` - Rimuovi un documento a un utente",
+                "`/wipe-pg` - Resetta completamente il personaggio di un utente",
+                "`/rpon` - Attiva la modalità Roleplay per un utente",
+                "`/rpoff` - Disattiva la modalità Roleplay per un utente",
+                "`/sondaggiorp` - Crea un sondaggio roleplay",
+                "`/rimuovizaino` - Svuota lo zaino di un utente",
+                "`/take-item` - Rimuovi un item da un utente",
+                "`/rimuovicertificatomedico` - Rimuovi il certificato medico a un utente",
+                "`/whitelister` - Dai l'esito di una whitelist o di un background PG"
+            ]
+            embed.description += "\n\n" + "\n".join(commands_list)
+            
+        elif category == "polizia":
+            embed = discord.Embed(
+                title="👮‍♂️ 𝑪𝑶𝑴𝑨𝑵𝑫𝑰 𝑷𝑶𝑳𝑰𝒁𝑰𝑨",
+                description="Ecco tutti i comandi utilizzabili dai poliziotti:",
+                color=discord.Color.blue()
+            )
+            commands_list = [
+                "`/documento` - Controlla i documenti di un cittadino",
+                "`/ammanetto` - Ammanetta un sospetto",
+                "`/multa` - Emetti una multa a un cittadino",
+                "`/rimuovicertificatobalistico` - Rimuovi il certificato balistico",
+                "`/sequestraveicolo` - Sequestra un veicolo",
+                "`/controllatarga` - Controlla la targa di un veicolo",
+                "`/controllomulta` - Verifica le multe di un cittadino",
+                "`/daiportodarmi` - Rilascia il porto d'armi",
+                "`/dissequestraveicolo` - Dissequestra un veicolo",
+                "`/revoca-patente` - Revoca la patente di guida",
+                "`/rimuovilibretto` - Rimuovi il libretto di un veicolo",
+                "`/modulo-arresto` - Compila un modulo di arresto",
+                "`/cercapersona` - Cerca una persona nel database",
+                "`/puliziafedinapenale` - Pulisci la fedina penale di un cittadino"
+            ]
+            embed.description += "\n\n" + "\n".join(commands_list)
+            
+        elif category == "economia":
+            embed = discord.Embed(
+                title="💸 𝑪𝑶𝑴𝑨𝑵𝑫𝑰 𝑬𝑪𝑶𝑵𝑶𝑴𝑰𝑨",
+                description="Ecco tutti i comandi dell'economia:",
+                color=discord.Color.green()
+            )
+            commands_list = [
+                "`/bancomat` - Visualizza il tuo saldo e gestisci il tuo conto",
+                "`/bonifico` - Invia denaro a un altro utente",
+                "`/controlla-bancomat` - Visualizza il saldo di un altro utente",
+                "`/fattura` - Emetti una fattura per un servizio",
+                "`/pagafattura` - Paga una fattura ricevuta",
+                "`/pagamulta` - Paga una multa ricevuta",
+                "`/portafoglio` - Visualizza il tuo portafoglio con tutti i tuoi beni"
+            ]
+            embed.description += "\n\n" + "\n".join(commands_list)
+            
+        elif category == "roleplay":
+            embed = discord.Embed(
+                title="🐬 𝑪𝑶𝑴𝑨𝑵𝑫𝑰 𝑹𝑶𝑳𝑬𝑷𝑳𝑨𝒀",
+                description="Ecco tutti i comandi del Roleplay:",
+                color=discord.Color.purple()
+            )
+            commands_list = [
+                "`/anonimo` - Invia un messaggio anonimo",
+                "`/assicurazione` - Gestisci l'assicurazione del tuo veicolo",
+                "`/cura` - Cura un cittadino (medici)",
+                "`/dai-item` - Dai un item a un altro giocatore",
+                "`/daicertificato` - Rilascia un certificato",
+                "`/daicertificatomedico` - Rilascia un certificato medico",
+                "`/dailibretto` - Rilascia il libretto di un veicolo",
+                "`/daipatente` - Rilascia la patente di guida",
+                "`/daiproprieta` - Trasferisci una proprietà",
+                "`/depositi` - Visualizza i tuoi depositi",
+                "`/inizio-turno` - Inizia il tuo turno di lavoro",
+                "`/fine-turno` - Termina il tuo turno di lavoro",
+                "`/furto` - Commetti un furto (azione illegale)",
+                "`/rapina` - Commetti una rapina (azione illegale)",
+                "`/invzaino` - Visualizza il contenuto del tuo zaino",
+                "`/item-sell` - Compra uno o più item dal negozio",
+                "`/itemshop` - Visualizza il negozio degli item",
+                "`/me` - Esegui un'azione roleplay",
+                "`/mettidep` - Metti degli item nel deposito",
+                "`/miafedinapenale` - Visualizza la tua fedina penale",
+                "`/mie-proprieta` - Visualizza le tue proprietà",
+                "`/modificaveicolo` - Modifica il tuo veicolo",
+                "`/nascondo` - Nascondi un oggetto",
+                "`/raccolta-cocaina` - Raccogli cocaina (azione illegale)",
+                "`/raccolta-marijuana` - Raccogli marijuana (azione illegale)",
+                "`/scoop` - Pubblica uno scoop giornalistico",
+                "`/slotmachine` - Gioca alla slot machine",
+                "`/smantellaauto` - Smantella un'auto rubata (azione illegale)",
+                "`/utilizza-item` - Utilizza un item dal tuo inventario",
+                "`/vendizaino` - Vendi il contenuto del tuo zaino"
+            ]
+            embed.description += "\n\n" + "\n".join(commands_list)
+        
+        embed.set_footer(text="Usa il menu a tendina per cambiare categoria")
+        
+        # Mantieni il menu a tendina nella risposta
+        view = CommandCategoryView()
+        await interaction.response.edit_message(embed=embed, view=view)
+
+
+class CommandCategoryView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+        self.add_item(CommandCategorySelect())
+
+
+@bot.tree.command(name="lista-comandi", description="Visualizza tutti i comandi disponibili del bot")
+async def lista_comandi(interaction: discord.Interaction):
+    embed = discord.Embed(
+        title="📋 𝑳𝑰𝑺𝑻𝑨 𝑪𝑶𝑴𝑨𝑵𝑫𝑰",
+        description="Seleziona dal menu a tendina qui sotto il tipo di comandi per il quale vuoi visualizzare i diversi comandi disponibili.",
+        color=discord.Color.gold()
+    )
+    embed.set_thumbnail(url=interaction.user.display_avatar.url)
+    embed.set_footer(text="Liberty Roleplay • Sistema Comandi")
+    
+    view = CommandCategoryView()
+    await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
 print("✅ Comandi app registrati", flush=True)
 

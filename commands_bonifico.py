@@ -1,10 +1,8 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
-import aiosqlite
 import database
 
-DATABASE_NAME = "economy_bot.db"
 LOG_CHANNEL_ID = 1415297578022604850
 
 async def log_command(bot, channel_id: int, message: str = None, embed: discord.Embed = None):
@@ -107,7 +105,7 @@ def setup_bonifico_commands(bot: commands.Bot):
             await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
 
         except Exception as e:
-            print(f"ERRORE GRAVE DURANTE BONIFICO: {e}")
+            print(f"ERRORE GRAVE DURANTE BONIFICO: {e}", flush=True)
             
             # LOG ERRORE CON EMBED
             error_log_embed = discord.Embed(

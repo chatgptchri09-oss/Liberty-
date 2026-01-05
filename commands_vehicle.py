@@ -8,6 +8,7 @@ LOG_CHANNEL_ID = 1415297578022604850
 VEHICLE_LOG_CHANNEL_ID = 1414759489998946396 
 LFD_ROLE_ID = 1415093546549248040
 OFFICINA_ROLE_ID = 1415240071216500746
+LOG_CHANNEL_MODIFICHE_ID = 1457772963867922554
 
 def has_role(interaction: discord.Interaction, role_id: int) -> bool:
     if not isinstance(interaction.user, discord.Member):
@@ -109,13 +110,13 @@ def setup_vehicle_commands(bot: commands.Bot):
         
         # LOG CON EMBED
         log_embed = discord.Embed(
-            title=f"📋 LOG ASSICURAZIONE {'AGGIUNTA' if stato == 'aggiungi' else 'RIMOSSA'}",
+            title=f" 📋 ASSICURAZIONE {'AGGIUNTA' if stato == 'aggiungi' else 'RIMOSSA'}",
             color=discord.Color.green() if stato == "aggiungi" else discord.Color.red()
         )
-        log_embed.add_field(name="👮 Eseguito da", value=interaction.user.mention, inline=True)
+        log_embed.add_field(name="👨‍🔧 Eseguito da", value=interaction.user.mention, inline=True)
         log_embed.add_field(name="🔖 Targa", value=targa, inline=True)
         log_embed.timestamp = discord.utils.utcnow()
-        await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
+        await log_command(bot, LOG_CHANNEL_MODIFICHE_ID, embed=log_embed)
     
     @bot.tree.command(name="modificaveicolo", description="[OFFICINA] Modifica un veicolo")
     @app_commands.describe(
@@ -148,14 +149,14 @@ def setup_vehicle_commands(bot: commands.Bot):
         
         # LOG CON EMBED
         log_embed = discord.Embed(
-            title="🔧 LOG MODIFICA VEICOLO",
+            title="🔧  MODIFICA VEICOLO",
             color=discord.Color.blue()
         )
-        log_embed.add_field(name="👮 Eseguito da", value=interaction.user.mention, inline=True)
+        log_embed.add_field(name="👨‍🔧 Eseguito da", value=interaction.user.mention, inline=True)
         log_embed.add_field(name="🔖 Targa", value=targa, inline=True)
         log_embed.add_field(name="🔧 Modifiche", value=modifiche[:1024], inline=False)
         log_embed.timestamp = discord.utils.utcnow()
-        await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
+        await log_command(bot, LOG_CHANNEL_MODIFICHE_ID, embed=log_embed)
     
     @bot.tree.command(name="sequestraveicolo", description="[LFD] Sequestra un veicolo")
     @app_commands.describe(targa="La targa del veicolo da sequestrare")

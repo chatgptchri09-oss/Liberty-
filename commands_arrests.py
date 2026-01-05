@@ -2,7 +2,6 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from discord.ui import Modal, TextInput
-import aiosqlite
 from datetime import datetime
 import database
 
@@ -20,19 +19,19 @@ async def log_arrest(bot, channel_id: int, embed: discord.Embed):
         if channel and hasattr(channel, 'send'):
             await channel.send(embed=embed)
     except Exception as e:
-        print(f"Errore nel log arresto: {e}")
+        print(f"Errore nel log arresto: {e}", flush=True)
 
 async def save_arrest_to_db(user_id: str, nome_completo: str, eta: str, residenza: str, motivo: str, pena: str):
     try:
-        async with aiosqlite.connect(database.DATABASE_NAME) as db:
-            await db.execute(
-                "INSERT INTO arrests (user_id, nome_completo, eta, residenza, motivo, pena, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (user_id, nome_completo, eta, residenza, motivo, pena, datetime.utcnow().isoformat())
+        pool = await database.get_pool()
+        async with pool.acquire() as conn:
+            await conn.execute(
+                "INSERT INTO arrests (user_id, nome_completo, eta, residenza, motivo, pena, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+                user_id, nome_completo, eta, residenza, motivo, pena, datetime.utcnow().isoformat()
             )
-            await db.commit()
-        print(f"[DEBUG] Arresto salvato nel database per user_id: {user_id}")
+        print(f"[DEBUG] Arresto salvato nel database per user_id: {user_id}", flush=True)
     except Exception as e:
-        print(f"[ERRORE] Impossibile salvare arresto nel DB: {e}")
+        print(f"[ERRORE] Impossibile salvare arresto nel DB: {e}", flush=True)
 
 class ArrestModal(Modal, title="⛓️ Modulo di Arresto"):
     nome_completo = TextInput(label="Nome e Cognome", placeholder="Es: Mario Rossi", required=True, max_length=100)
@@ -47,13 +46,13 @@ class ArrestModal(Modal, title="⛓️ Modulo di Arresto"):
         self.cittadino = cittadino
 
     async def on_submit(self, interaction: discord.Interaction):
-        print(f"[DEBUG] Modal submit ricevuto da {interaction.user}")
+        print(f"[DEBUG] Modal submit ricevuto da {interaction.user}", flush=True)
         
         try:
             await interaction.response.defer(ephemeral=True)
-            print(f"[DEBUG] Defer completato")
+            print(f"[DEBUG] Defer completato", flush=True)
         except Exception as e:
-            print(f"[ERRORE] Errore nel defer: {e}")
+            print(f"[ERRORE] Errore nel defer: {e}", flush=True)
             return
         
         nome_completo = self.nome_completo.value
@@ -63,7 +62,7 @@ class ArrestModal(Modal, title="⛓️ Modulo di Arresto"):
         pena_value = self.pena.value
         agente = interaction.user.mention
         
-        print(f"[DEBUG] Dati raccolti: {nome_completo}, {eta_value}, {residenza_value}")
+        print(f"[DEBUG] Dati raccolti: {nome_completo}, {eta_value}, {residenza_value}", flush=True)
         
         await save_arrest_to_db(
             str(self.cittadino.id),
@@ -90,13 +89,13 @@ class ArrestModal(Modal, title="⛓️ Modulo di Arresto"):
         
         embed.set_footer(text="L.F.D - Los Santos Police Department")
         
-        print(f"[DEBUG] Embed creato, invio al canale log...")
+        print(f"[DEBUG] Embed creato, invio al canale log...", flush=True)
         
         try:
             await log_arrest(self.bot, ARREST_LOG_CHANNEL_ID, embed)
-            print(f"[DEBUG] Log inviato con successo")
+            print(f"[DEBUG] Log inviato con successo", flush=True)
         except Exception as e:
-            print(f"[ERRORE] Errore nell'invio del log: {e}")
+            print(f"[ERRORE] Errore nell'invio del log: {e}", flush=True)
         
         try:
             await interaction.followup.send(
@@ -105,29 +104,29 @@ class ArrestModal(Modal, title="⛓️ Modulo di Arresto"):
                 f"**Pena:** {pena_value}",
                 ephemeral=True
             )
-            print(f"[DEBUG] Conferma inviata all'agente")
+            print(f"[DEBUG] Conferma inviata all'agente", flush=True)
         except Exception as e:
-            print(f"[ERRORE] Errore nell'invio della conferma: {e}")
+            print(f"[ERRORE] Errore nell'invio della conferma: {e}", flush=True)
 
 def setup_arrest_commands(bot: commands.Bot):
     
     @bot.tree.command(name="modulo-arresto", description="[L.F.D] Registra un arresto")
     @app_commands.describe(cittadino="Il cittadino da arrestare")
     async def modulo_arresto(interaction: discord.Interaction, cittadino: discord.Member):
-        print(f"[DEBUG] Comando /modulo-arresto chiamato da {interaction.user}")
+        print(f"[DEBUG] Comando /modulo-arresto chiamato da {interaction.user}", flush=True)
         
         if not has_role(interaction, LFD_ROLE_ID):
-            print(f"[DEBUG] {interaction.user} non ha i permessi")
+            print(f"[DEBUG] {interaction.user} non ha i permessi", flush=True)
             await interaction.response.send_message(
                 "❌ Solo gli agenti del L.F.D possono usare questo comando!",
                 ephemeral=True
             )
             return
         
-        print(f"[DEBUG] Permessi OK, cittadino selezionato: {cittadino}")
+        print(f"[DEBUG] Permessi OK, cittadino selezionato: {cittadino}", flush=True)
         
         if cittadino.bot:
-            print(f"[DEBUG] Tentativo di arrestare un bot")
+            print(f"[DEBUG] Tentativo di arrestare un bot", flush=True)
             await interaction.response.send_message(
                 "❌ Non puoi arrestare un bot!",
                 ephemeral=True
@@ -135,15 +134,15 @@ def setup_arrest_commands(bot: commands.Bot):
             return
         
         try:
-            print(f"[DEBUG] Apertura modal...")
+            print(f"[DEBUG] Apertura modal...", flush=True)
             modal = ArrestModal(bot, cittadino)
             await interaction.response.send_modal(modal)
-            print(f"[DEBUG] Modal inviato con successo")
+            print(f"[DEBUG] Modal inviato con successo", flush=True)
         except Exception as e:
-            print(f"[ERRORE] Errore nell'apertura del modal: {e}")
+            print(f"[ERRORE] Errore nell'apertura del modal: {e}", flush=True)
             await interaction.response.send_message(
                 f"❌ Errore nell'apertura del modulo: {e}",
                 ephemeral=True
             )
     
-    print("✅ Comando /modulo-arresto caricato")
+    print("✅ Comando /modulo-arresto caricato", flush=True)

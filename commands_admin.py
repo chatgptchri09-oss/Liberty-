@@ -1,11 +1,12 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
-import database
+import aiosqlite
 
 # ====================
 # COSTANTI (DEVONO CORRISPONDERE A QUELLE DI bot.py)
 # ====================
+DATABASE_NAME = "economy_bot.db"
 LOG_CHANNEL_ID = 1415297578022604850
 STAFF_ROLE_ID = 1414738761207517214
 WHITELISTER_ROLE_ID = 1415090850253246534
@@ -40,6 +41,14 @@ async def log_command(bot, channel_id: int, message: str = None, embed: discord.
                 await channel.send(message)
     except:
         pass
+
+async def get_user_data(user_id: str):
+    async with aiosqlite.connect(DATABASE_NAME) as db:
+        async with db.execute("SELECT cash, bank FROM users WHERE user_id = ?", (user_id,)) as cursor:
+            user_data = await cursor.fetchone()
+            if user_data:
+                return {"cash": user_data[0], "bank": user_data[1]}
+            return {"cash": 0, "bank": 0}
 
 # ====================
 # MODAL PER BACKGROUND
@@ -527,52 +536,15 @@ def setup_admin_commands(bot: commands.Bot):
         await interaction.response.defer(ephemeral=True, thinking=True)
         
         try:
-            current_data = await database.get_user(user_id)
-            new_bank = max(0, current_data['bank'] - importo)
-            removed_amount = current_data['bank'] - new_bank
-            
-            if removed_amount == 0 and current_data['bank'] > 0:
-                 await interaction.followup.send(f"❌ Impossibile rimuovere **${importo:,}**: l'utente ha solo **${current_data['bank']:,}** in banca. Nessuna operazione eseguita.", ephemeral=True)
-                 return
-            
-            await database.update_balance(user_id, bank=new_bank)
-            
-            try:
-                await utente.send(
-                    f"⚠️ Lo staff ha rimosso **${removed_amount:,}** dal tuo conto bancario.\n"
-                    f"**Motivo:** {motivo}\n"
-                    f"Nuovo saldo in banca: **${new_bank:,}**"
-                )
-                dm_status = "DM inviato."
-            except:
-                dm_status = "DM non inviabile."
-
-            await interaction.followup.send(
-                f"✅ Rimossi **${removed_amount:,}** dal conto bancario di {utente.mention}. (Nuovo saldo: ${new_bank:,}). ({dm_status})",
-                ephemeral=True
-            )
-            
-            # LOG CON EMBED
-            log_embed = discord.Embed(
-                title="🚫 LOG RIMOZIONE DENARO",
-                color=discord.Color.red()
-            )
-            log_embed.add_field(name="Staff", value=interaction.user.mention, inline=True)
-            log_embed.add_field(name="Utente", value=utente.mention, inline=True)
-            log_embed.add_field(name="Importo", value=f"${removed_amount:,}", inline=True)
-            log_embed.add_field(name="Motivo", value=motivo, inline=False)
-            log_embed.timestamp = discord.utils.utcnow()
-            await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
-
-        except Exception as e:
-            await interaction.followup.send(f"❌ Errore durante la rimozione di denaro: {e}", ephemeral=True)
-        await interaction.response.defer(ephemeral=True, thinking=True)
-        
-        try:
-            current_data = await database.get_user(user_id)
+            current_data = await get_user_data(user_id)
             new_bank = current_data['bank'] + importo
             
-            await database.update_balance(user_id, bank=new_bank)
+            async with aiosqlite.connect(DATABASE_NAME) as db:
+                await db.execute(
+                    "INSERT INTO users (user_id, cash, bank) VALUES (?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET bank = ?",
+                    (user_id, current_data['cash'], new_bank, new_bank)
+                )
+                await db.commit()
             
             try:
                 await utente.send(
@@ -620,3 +592,50 @@ def setup_admin_commands(bot: commands.Bot):
             return
 
         user_id = str(utente.id)
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        
+        try:
+            current_data = await get_user_data(user_id)
+            new_bank = max(0, current_data['bank'] - importo)
+            removed_amount = current_data['bank'] - new_bank
+            
+            if removed_amount == 0 and current_data['bank'] > 0:
+                 await interaction.followup.send(f"❌ Impossibile rimuovere **${importo:,}**: l'utente ha solo **${current_data['bank']:,}** in banca. Nessuna operazione eseguita.", ephemeral=True)
+                 return
+            
+            async with aiosqlite.connect(DATABASE_NAME) as db:
+                await db.execute(
+                    "INSERT INTO users (user_id, cash, bank) VALUES (?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET bank = ?",
+                    (user_id, current_data['cash'], new_bank, new_bank)
+                )
+                await db.commit()
+            
+            try:
+                await utente.send(
+                    f"⚠️ Lo staff ha rimosso **${removed_amount:,}** dal tuo conto bancario.\n"
+                    f"**Motivo:** {motivo}\n"
+                    f"Nuovo saldo in banca: **${new_bank:,}**"
+                )
+                dm_status = "DM inviato."
+            except:
+                dm_status = "DM non inviabile."
+
+            await interaction.followup.send(
+                f"✅ Rimossi **${removed_amount:,}** dal conto bancario di {utente.mention}. (Nuovo saldo: ${new_bank:,}). ({dm_status})",
+                ephemeral=True
+            )
+            
+            # LOG CON EMBED
+            log_embed = discord.Embed(
+                title="🚫 LOG RIMOZIONE DENARO",
+                color=discord.Color.red()
+            )
+            log_embed.add_field(name="Staff", value=interaction.user.mention, inline=True)
+            log_embed.add_field(name="Utente", value=utente.mention, inline=True)
+            log_embed.add_field(name="Importo", value=f"${removed_amount:,}", inline=True)
+            log_embed.add_field(name="Motivo", value=motivo, inline=False)
+            log_embed.timestamp = discord.utils.utcnow()
+            await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
+
+        except Exception as e:
+            await interaction.followup.send(f"❌ Errore durante la rimozione di denaro: {e}", ephemeral=True)

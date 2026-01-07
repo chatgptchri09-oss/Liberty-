@@ -3,7 +3,7 @@ from discord import app_commands
 from discord.ext import commands
 import os
 from datetime import datetime
-import database
+import mongo_database as database
 from aiohttp import web
 import asyncio
 import aiosqlite 

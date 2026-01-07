@@ -6,6 +6,7 @@ from datetime import datetime
 import mongo_database as database
 from aiohttp import web
 import asyncio
+import aiosqlite 
 from discord.ui import Modal, TextInput, View, Button 
 import sys
 
@@ -45,6 +46,7 @@ PEGASUS_ROLE_ID = 1415262517407645828
 CHIAVE_ROLE_ID = 1414735564632231988
 
 LOG_CHANNEL_ID = 1415297578022604850
+DATABASE_NAME = "economy_bot.db" 
 
 COMPANY_LOG_CHANNELS = {
     "EMS": 1424111086537281567,
@@ -123,6 +125,7 @@ def create_bancomat_embed(user: dict, user_mention: str, discord_user: discord.M
     embed.add_field(name="💳 𝐁𝐀𝐍𝐂𝐀", value=f"${user['bank']:,}", inline=False)
     embed.add_field(name="💰 𝐓𝐎𝐓𝐀𝐋𝐄", value=f"${user['cash'] + user['bank']:,}", inline=False)
     
+    # Aggiungi la foto profilo come thumbnail
     if discord_user:
         embed.set_thumbnail(url=discord_user.display_avatar.url)
     
@@ -231,7 +234,10 @@ async def on_ready():
     print(f"✅ Bot ID: {bot.user.id}", flush=True)
     print(f"✅ Bot online su {len(bot.guilds)} server", flush=True)
     await database.init_db()
-    print("✅ MongoDB inizializzato", flush=True)
+    try:
+        await setup_marijuana_database()
+    except:
+        print("⚠️ Setup marijuana database fallito (potrebbero mancare i moduli)", flush=True)
 
 print("✅ Event handlers registrati", flush=True)
 
@@ -254,6 +260,41 @@ except Exception as e:
     print(f"❌ ERRORE in commands_fines: {e}", flush=True)
 
 try:
+    print("📦 Import commands_documents...", flush=True)
+    from commands_documents import setup_document_commands
+    print("✅ commands_documents OK", flush=True)
+except Exception as e:
+    print(f"❌ ERRORE in commands_documents: {e}", flush=True)
+
+try:
+    print("📦 Import commands_wallet...", flush=True)
+    from commands_wallet import setup_wallet_commands
+    print("✅ commands_wallet OK", flush=True)
+except Exception as e:
+    print(f"❌ ERRORE in commands_wallet: {e}", flush=True)
+
+try:
+    print("📦 Import commands_inventory...", flush=True)
+    from commands_inventory import setup_inventory_commands
+    print("✅ commands_inventory OK", flush=True)
+except Exception as e:
+    print(f"❌ ERRORE in commands_inventory: {e}", flush=True)
+
+try:
+    print("📦 Import commands_rp...", flush=True)
+    from commands_rp import setup_rp_commands
+    print("✅ commands_rp OK", flush=True)
+except Exception as e:
+    print(f"❌ ERRORE in commands_rp: {e}", flush=True)
+
+try:
+    print("📦 Import commands_vehicle...", flush=True)
+    from commands_vehicle import setup_vehicle_commands
+    print("✅ commands_vehicle OK", flush=True)
+except Exception as e:
+    print(f"❌ ERRORE in commands_vehicle: {e}", flush=True)
+
+try:
     print("📦 Import commands_bonifico...", flush=True)
     from commands_bonifico import setup_bonifico_commands
     print("✅ commands_bonifico OK", flush=True)
@@ -267,8 +308,82 @@ try:
 except Exception as e:
     print(f"❌ ERRORE in commands_admin: {e}", flush=True)
 
-# NOTA: Gli altri comandi (documents, inventory, ecc.) useranno ancora SQLite temporaneo
-# Per ora convertiamo solo i comandi critici dell'economia
+try:
+    print("📦 Import commands_bando...", flush=True)
+    from commands_bando import setup_bando_commands
+    print("✅ commands_bando OK", flush=True)
+except Exception as e:
+    print(f"❌ ERRORE in commands_bando: {e}", flush=True)
+
+try:
+    print("📦 Import commands_rp_status...", flush=True)
+    from commands_rp_status import setup_rpoff_commands
+    print("✅ commands_rp_status OK", flush=True)
+except Exception as e:
+    print(f"❌ ERRORE in commands_rp_status: {e}", flush=True)
+
+try:
+    print("📦 Import commands_arrests...", flush=True)
+    from commands_arrests import setup_arrest_commands
+    print("✅ commands_arrests OK", flush=True)
+except Exception as e:
+    print(f"❌ ERRORE in commands_arrests: {e}", flush=True)
+
+try:
+    print("📦 Import commands_criminal_record...", flush=True)
+    from commands_criminal_record import setup_criminal_record_commands
+    print("✅ commands_criminal_record OK", flush=True)
+except Exception as e:
+    print(f"❌ ERRORE in commands_criminal_record: {e}", flush=True)
+
+try:
+    print("📦 Import commands_properties...", flush=True)
+    from commands_properties import setup_property_commands
+    print("✅ commands_properties OK", flush=True)
+except Exception as e:
+    print(f"❌ ERRORE in commands_properties: {e}", flush=True)
+
+try:
+    print("📦 Import commands_wipepg...", flush=True)
+    from commands_wipepg import setup_wipepg_commands
+    print("✅ commands_wipepg OK", flush=True)
+except Exception as e:
+    print(f"❌ ERRORE in commands_wipepg: {e}", flush=True)
+
+try:
+    print("📦 Import commands_deposits...", flush=True)
+    from commands_deposits import setup_deposit_commands
+    print("✅ commands_deposits OK", flush=True)
+except Exception as e:
+    print(f"❌ ERRORE in commands_deposits: {e}", flush=True)
+
+try:
+    print("📦 Import commands_robbery...", flush=True)
+    from commands_robbery import setup_robbery_commands
+    print("✅ commands_robbery OK", flush=True)
+except Exception as e:
+    print(f"❌ ERRORE in commands_robbery: {e}", flush=True)
+
+try:
+    print("📦 Import commands_theft...", flush=True)
+    from commands_theft import setup_theft_commands
+    print("✅ commands_theft OK", flush=True)
+except Exception as e:
+    print(f"❌ ERRORE in commands_theft: {e}", flush=True)
+
+try:
+    print("📦 Import commands_scoop...", flush=True)
+    from commands_scoop import setup_scoop_commands
+    print("✅ commands_scoop OK", flush=True)
+except Exception as e:
+    print(f"❌ ERRORE in commands_scoop: {e}", flush=True)
+
+try:
+    print("📦 Import commands_marijuana...", flush=True)
+    from commands_marijuana import setup_marijuana_commands, setup_marijuana_database
+    print("✅ commands_marijuana OK", flush=True)
+except Exception as e:
+    print(f"❌ ERRORE in commands_marijuana: {e}", flush=True)
 
 print("✅ Tutti gli import completati!", flush=True)
 
@@ -291,6 +406,36 @@ except Exception as e:
     print(f"❌ setup_fine_commands: {e}", flush=True)
 
 try:
+    setup_document_commands(bot)
+    print("✅ setup_document_commands", flush=True)
+except Exception as e:
+    print(f"❌ setup_document_commands: {e}", flush=True)
+
+try:
+    setup_wallet_commands(bot)
+    print("✅ setup_wallet_commands", flush=True)
+except Exception as e:
+    print(f"❌ setup_wallet_commands: {e}", flush=True)
+
+try:
+    setup_inventory_commands(bot)
+    print("✅ setup_inventory_commands", flush=True)
+except Exception as e:
+    print(f"❌ setup_inventory_commands: {e}", flush=True)
+
+try:
+    setup_rp_commands(bot)
+    print("✅ setup_rp_commands", flush=True)
+except Exception as e:
+    print(f"❌ setup_rp_commands: {e}", flush=True)
+
+try:
+    setup_vehicle_commands(bot)
+    print("✅ setup_vehicle_commands", flush=True)
+except Exception as e:
+    print(f"❌ setup_vehicle_commands: {e}", flush=True)
+
+try:
     setup_bonifico_commands(bot)
     print("✅ setup_bonifico_commands", flush=True)
 except Exception as e:
@@ -301,6 +446,72 @@ try:
     print("✅ setup_admin_commands", flush=True)
 except Exception as e:
     print(f"❌ setup_admin_commands: {e}", flush=True)
+
+try:
+    setup_bando_commands(bot)
+    print("✅ setup_bando_commands", flush=True)
+except Exception as e:
+    print(f"❌ setup_bando_commands: {e}", flush=True)
+
+try:
+    setup_rpoff_commands(bot)
+    print("✅ setup_rpoff_commands", flush=True)
+except Exception as e:
+    print(f"❌ setup_rpoff_commands: {e}", flush=True)
+
+try:
+    setup_arrest_commands(bot)
+    print("✅ setup_arrest_commands", flush=True)
+except Exception as e:
+    print(f"❌ setup_arrest_commands: {e}", flush=True)
+
+try:
+    setup_criminal_record_commands(bot)
+    print("✅ setup_criminal_record_commands", flush=True)
+except Exception as e:
+    print(f"❌ setup_criminal_record_commands: {e}", flush=True)
+
+try:
+    setup_property_commands(bot)
+    print("✅ setup_property_commands", flush=True)
+except Exception as e:
+    print(f"❌ setup_property_commands: {e}", flush=True)
+
+try:
+    setup_wipepg_commands(bot)
+    print("✅ setup_wipepg_commands", flush=True)
+except Exception as e:
+    print(f"❌ setup_wipepg_commands: {e}", flush=True)
+
+try:
+    setup_deposit_commands(bot)
+    print("✅ setup_deposit_commands", flush=True)
+except Exception as e:
+    print(f"❌ setup_deposit_commands: {e}", flush=True)
+
+try:
+    setup_robbery_commands(bot)
+    print("✅ setup_robbery_commands", flush=True)
+except Exception as e:
+    print(f"❌ setup_robbery_commands: {e}", flush=True)
+
+try:
+    setup_theft_commands(bot)
+    print("✅ setup_theft_commands", flush=True)
+except Exception as e:
+    print(f"❌ setup_theft_commands: {e}", flush=True)
+
+try:
+    setup_scoop_commands(bot)
+    print("✅ setup_scoop_commands", flush=True)
+except Exception as e:
+    print(f"❌ setup_scoop_commands: {e}", flush=True)
+
+try:
+    setup_marijuana_commands(bot)
+    print("✅ setup_marijuana_commands", flush=True)
+except Exception as e:
+    print(f"❌ setup_marijuana_commands: {e}", flush=True)
 
 print("✅ Setup comandi completato!", flush=True)
 
@@ -329,7 +540,7 @@ async def sync(interaction: discord.Interaction):
     synced = await bot.tree.sync()
     await interaction.followup.send(f"✅ Sincronizzati {len(synced)} comandi!\nPer vederli, ricarica Discord (Ctrl+R o Cmd+R).", ephemeral=True)
 
-@bot.tree.command(name="controlla-bancomat", description="Visualizza il saldo del bancomat di un altro utente")
+@bot.tree.command(name="controlla-bancomat", description="Visualizza il saldo del bancomat di un altro utente e invia una notifica.")
 @app_commands.describe(utente="L'utente di cui controllare il bancomat")
 async def controlla_bancomat(interaction: discord.Interaction, utente: discord.Member):
     checker_member = interaction.user
@@ -384,6 +595,174 @@ async def controlla_bancomat(interaction: discord.Interaction, utente: discord.M
         print(f"Errore in /controlla-bancomat: {e}", flush=True)
         await interaction.followup.send("❌ Si è verificato un errore nel controllo del bancomat.", ephemeral=True)
 
+# ====================
+# SISTEMA LISTA COMANDI CON SELECT MENU
+# ====================
+
+class CommandCategorySelect(discord.ui.Select):
+    def __init__(self):
+        options = [
+            discord.SelectOption(
+                label="🗽 Comandi Staff",
+                description="Mostra i comandi utilizzabili solamente dagli staff",
+                value="staff"
+            ),
+            discord.SelectOption(
+                label="👮‍♂️ Comandi Polizia",
+                description="Mostra i comandi utilizzabili solamente dai poliziotti",
+                value="polizia"
+            ),
+            discord.SelectOption(
+                label="💸 Comandi Economia",
+                description="Mostra i comandi dell'economia",
+                value="economia"
+            ),
+            discord.SelectOption(
+                label="🐬 Comandi Roleplay",
+                description="Mostra i comandi del Roleplay",
+                value="roleplay"
+            )
+        ]
+        super().__init__(placeholder="Seleziona una categoria di comandi...", options=options)
+
+    async def callback(self, interaction: discord.Interaction):
+        category = self.values[0]
+        
+        if category == "staff":
+            embed = discord.Embed(
+                title="🗽 𝑪𝑶𝑴𝑨𝑵𝑫𝑰 𝑺𝑻𝑨𝑭𝑭",
+                description="Ecco tutti i comandi utilizzabili dagli staff:",
+                color=discord.Color.red()
+            )
+            commands_list = [
+                "`/crea-item` - Crea un nuovo item nel sistema",
+                "`/annuncio` - Invia un annuncio pubblico nel server",
+                "`/bando` - Crea un nuovo bando per assunzioni",
+                "`/add-money` - Aggiungi denaro a un utente",
+                "`/esito-bando` - Comunica l'esito di un bando",
+                "`/paga-stipendio` - Paga lo stipendio a un utente",
+                "`/eliminaitem` - Elimina un item dal sistema",
+                "`/give-item` - Dai un item a un utente",
+                "`/remove-money` - Rimuovi denaro da un utente",
+                "`/rimuovi-documento` - Rimuovi un documento a un utente",
+                "`/wipe-pg` - Resetta completamente il personaggio di un utente",
+                "`/rpon` - Attiva la modalità Roleplay per un utente",
+                "`/rpoff` - Disattiva la modalità Roleplay per un utente",
+                "`/sondaggiorp` - Crea un sondaggio roleplay",
+                "`/rimuovizaino` - Svuota lo zaino di un utente",
+                "`/take-item` - Rimuovi un item da un utente",
+                "`/rimuovicertificatomedico` - Rimuovi il certificato medico a un utente",
+                "`/whitelister` - Dai l'esito di una whitelist o di un background PG"
+            ]
+            embed.description += "\n\n" + "\n".join(commands_list)
+            
+        elif category == "polizia":
+            embed = discord.Embed(
+                title="👮‍♂️ 𝑪𝑶𝑴𝑨𝑵𝑫𝑰 𝑷𝑶𝑳𝑰𝒁𝑰𝑨",
+                description="Ecco tutti i comandi utilizzabili dai poliziotti:",
+                color=discord.Color.blue()
+            )
+            commands_list = [
+                "`/documento` - Controlla i documenti di un cittadino",
+                "`/ammanetto` - Ammanetta un sospetto",
+                "`/multa` - Emetti una multa a un cittadino",
+                "`/rimuovicertificatobalistico` - Rimuovi il certificato balistico",
+                "`/sequestraveicolo` - Sequestra un veicolo",
+                "`/controllatarga` - Controlla la targa di un veicolo",
+                "`/controllomulta` - Verifica le multe di un cittadino",
+                "`/daiportodarmi` - Rilascia il porto d'armi",
+                "`/dissequestraveicolo` - Dissequestra un veicolo",
+                "`/revoca-patente` - Revoca la patente di guida",
+                "`/rimuovilibretto` - Rimuovi il libretto di un veicolo",
+                "`/modulo-arresto` - Compila un modulo di arresto",
+                "`/cercapersona` - Cerca una persona nel database",
+                "`/puliziafedinapenale` - Pulisci la fedina penale di un cittadino"
+            ]
+            embed.description += "\n\n" + "\n".join(commands_list)
+            
+        elif category == "economia":
+            embed = discord.Embed(
+                title="💸 𝑪𝑶𝑴𝑨𝑵𝑫𝑰 𝑬𝑪𝑶𝑵𝑶𝑴𝑰𝑨",
+                description="Ecco tutti i comandi dell'economia:",
+                color=discord.Color.green()
+            )
+            commands_list = [
+                "`/bancomat` - Visualizza il tuo saldo e gestisci il tuo conto",
+                "`/bonifico` - Invia denaro a un altro utente",
+                "`/controlla-bancomat` - Visualizza il saldo di un altro utente",
+                "`/fattura` - Emetti una fattura per un servizio",
+                "`/pagafattura` - Paga una fattura ricevuta",
+                "`/pagamulta` - Paga una multa ricevuta",
+                "`/portafoglio` - Visualizza il tuo portafoglio con tutti i tuoi beni"
+            ]
+            embed.description += "\n\n" + "\n".join(commands_list)
+            
+        elif category == "roleplay":
+            embed = discord.Embed(
+                title="🐬 𝑪𝑶𝑴𝑨𝑵𝑫𝑰 𝑹𝑶𝑳𝑬𝑷𝑳𝑨𝒀",
+                description="Ecco tutti i comandi del Roleplay:",
+                color=discord.Color.purple()
+            )
+            commands_list = [
+                "`/anonimo` - Invia un messaggio anonimo",
+                "`/assicurazione` - Gestisci l'assicurazione del tuo veicolo",
+                "`/cura` - Cura un cittadino (medici)",
+                "`/dai-item` - Dai un item a un altro giocatore",
+                "`/daicertificato` - Rilascia un certificato",
+                "`/daicertificatomedico` - Rilascia un certificato medico",
+                "`/dailibretto` - Rilascia il libretto di un veicolo",
+                "`/daipatente` - Rilascia la patente di guida",
+                "`/daiproprieta` - Trasferisci una proprietà",
+                "`/depositi` - Visualizza i tuoi depositi",
+                "`/inizio-turno` - Inizia il tuo turno di lavoro",
+                "`/fine-turno` - Termina il tuo turno di lavoro",
+                "`/furto` - Commetti un furto (azione illegale)",
+                "`/rapina` - Commetti una rapina (azione illegale)",
+                "`/invzaino` - Visualizza il contenuto del tuo zaino",
+                "`/item-sell` - Compra uno o più item dal negozio",
+                "`/itemshop` - Visualizza il negozio degli item",
+                "`/me` - Esegui un'azione roleplay",
+                "`/mettidep` - Metti degli item nel deposito",
+                "`/miafedinapenale` - Visualizza la tua fedina penale",
+                "`/mie-proprieta` - Visualizza le tue proprietà",
+                "`/modificaveicolo` - Modifica il tuo veicolo",
+                "`/nascondo` - Nascondi un oggetto",
+                "`/raccolta-cocaina` - Raccogli cocaina (azione illegale)",
+                "`/raccolta-marijuana` - Raccogli marijuana (azione illegale)",
+                "`/scoop` - Pubblica uno scoop giornalistico",
+                "`/slotmachine` - Gioca alla slot machine",
+                "`/smantellaauto` - Smantella un'auto rubata (azione illegale)",
+                "`/utilizza-item` - Utilizza un item dal tuo inventario",
+                "`/vendizaino` - Vendi il contenuto del tuo zaino"
+            ]
+            embed.description += "\n\n" + "\n".join(commands_list)
+        
+        embed.set_footer(text="Usa il menu a tendina per cambiare categoria")
+        
+        # Mantieni il menu a tendina nella risposta
+        view = CommandCategoryView()
+        await interaction.response.edit_message(embed=embed, view=view)
+
+
+class CommandCategoryView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+        self.add_item(CommandCategorySelect())
+
+
+@bot.tree.command(name="lista-comandi", description="Visualizza tutti i comandi disponibili del bot")
+async def lista_comandi(interaction: discord.Interaction):
+    embed = discord.Embed(
+        title="📋 𝑳𝑰𝑺𝑻𝑨 𝑪𝑶𝑴𝑨𝑵𝑫𝑰",
+        description="Seleziona dal menu a tendina qui sotto il tipo di comandi per il quale vuoi visualizzare i diversi comandi disponibili.",
+        color=discord.Color.gold()
+    )
+    embed.set_thumbnail(url=interaction.user.display_avatar.url)
+    embed.set_footer(text="Liberty Roleplay • Sistema Comandi")
+    
+    view = CommandCategoryView()
+    await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+
 print("✅ Comandi app registrati", flush=True)
 
 # ====================
@@ -411,6 +790,7 @@ async def start_webserver():
 
 async def main():
     try:
+        # Avvia il webserver PRIMA
         print("🌐 Avvio webserver...", flush=True)
         await start_webserver()
         
@@ -418,17 +798,23 @@ async def main():
         
         if not TOKEN:
             print("❌ ERRORE: DISCORD_TOKEN non trovato nelle variabili d'ambiente!", flush=True)
+            print("❌ Controlla su Render → Environment → DISCORD_TOKEN", flush=True)
             return
         
         print("🔄 Connessione a Discord in corso...", flush=True)
         print(f"🔑 Token presente: {TOKEN[:20]}...", flush=True)
         
+        # Avvia il bot
         await bot.start(TOKEN)
             
     except discord.LoginFailure:
         print("❌ ERRORE: Token Discord non valido!", flush=True)
+        print("❌ Vai su https://discord.com/developers/applications", flush=True)
+        print("❌ Resetta il token e aggiornalo su Render", flush=True)
     except discord.HTTPException as e:
         print(f"❌ ERRORE HTTP Discord: {e}", flush=True)
+        if e.status == 429:
+            print("⚠️ Rate limited da Discord. Riprova tra 30 minuti.", flush=True)
     except Exception as e:
         print(f"❌ ERRORE FATALE: {e}", flush=True)
         import traceback

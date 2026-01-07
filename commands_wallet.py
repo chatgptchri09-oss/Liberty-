@@ -65,7 +65,7 @@ def setup_wallet_commands(bot: commands.Bot):
                 _, name, surname, birth_date, birth_place, nationality, photo_url = doc
                 
                 embed = discord.Embed(
-                    title="📄 DOCUMENTO D'IDENTITÀ",
+                    title="<a:documento:1458563773546893541> DOCUMENTO D'IDENTITÀ <a:documento:1458563773546893541>",
                     color=discord.Color.blue()
                 )
                 embed.add_field(name="👤 Nome", value=name, inline=True)

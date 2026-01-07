@@ -9,6 +9,7 @@ LOG_CHANNEL_ID = 1415297578022604850
 STAFF_ROLE_ID = 1414738761207517214
 MARKET_ROLE_ID = 1415242295153918123
 ITEMS_PER_PAGE = 5
+LOG_CHANNEL_ITEM_ID = 1458565566070788146
 
 def has_role(interaction: discord.Interaction, role_id: int) -> bool:
     if not isinstance(interaction.user, discord.Member):
@@ -246,7 +247,7 @@ class ItemQuantityModal(discord.ui.Modal, title="Inserisci Quantità"):
         log_embed.add_field(name="📦 Item", value=self.item_name, inline=False)
         log_embed.add_field(name="🔢 Quantità", value=str(quantity), inline=False)
         log_embed.timestamp = discord.utils.utcnow()
-        await log_command(self.bot, LOG_CHANNEL_ID, embed=log_embed)
+        await log_command(self.bot, LOG_CHANNEL_ITEM_ID, embed=log_embed)
 
 class ItemSelect(discord.ui.Select):
     def __init__(self, bot: commands.Bot, target_user: discord.Member, item_options: list):
@@ -394,7 +395,7 @@ def setup_inventory_commands(bot: commands.Bot):
                 log_embed.add_field(name="🔢 Quantità", value=str(quantita), inline=True)
                 log_embed.add_field(name="📊 Residuo", value=str(current_quantity), inline=True)
                 log_embed.timestamp = discord.utils.utcnow()
-                await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
+                await log_command(bot, LOG_CHANNEL_ITEM_ID, embed=log_embed)
             
             view = discord.ui.View(timeout=300)
             view.add_item(FuzzyItemSelect(matches, handle_selection))
@@ -441,7 +442,7 @@ def setup_inventory_commands(bot: commands.Bot):
         log_embed.add_field(name="🔢 Quantità", value=str(quantita), inline=True)
         log_embed.add_field(name="📊 Residuo", value=str(current_quantity), inline=True)
         log_embed.timestamp = discord.utils.utcnow()
-        await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
+        await log_command(bot, LOG_CHANNEL_ITEM_ID, embed=log_embed)
 
     @bot.tree.command(name="crea-item", description="[STAFF] Crea un nuovo item")
     @app_commands.describe(nome_item="Nome dell'item", ruolo_richiesto="Ruolo richiesto per acquistare l'item")
@@ -461,7 +462,7 @@ def setup_inventory_commands(bot: commands.Bot):
                 log_embed.add_field(name="📦 Nome Item", value=nome_item, inline=True)
                 log_embed.add_field(name="🔒 Ruolo Richiesto", value=ruolo_richiesto.mention, inline=True)
                 log_embed.timestamp = discord.utils.utcnow()
-                await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
+                await log_command(bot, LOG_CHANNEL_ITEM_ID, embed=log_embed)
             except aiosqlite.IntegrityError:
                 await interaction.response.send_message(f"❌ L'item **{nome_item}** esiste già!", ephemeral=True)
 
@@ -496,7 +497,7 @@ def setup_inventory_commands(bot: commands.Bot):
                 log_embed.add_field(name="👮 Eliminato da", value=interaction.user.mention, inline=False)
                 log_embed.add_field(name="📦 Item Eliminato", value=selected_item, inline=False)
                 log_embed.timestamp = discord.utils.utcnow()
-                await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
+                await log_command(bot, LOG_CHANNEL_ITEM_ID, embed=log_embed)
             
             view = discord.ui.View(timeout=300)
             view.add_item(FuzzyItemSelect(matches, handle_deletion))
@@ -516,7 +517,7 @@ def setup_inventory_commands(bot: commands.Bot):
                 log_embed.add_field(name="👮 Eliminato da", value=interaction.user.mention, inline=False)
                 log_embed.add_field(name="📦 Item Eliminato", value=item_name, inline=False)
                 log_embed.timestamp = discord.utils.utcnow()
-                await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
+                await log_command(bot, LOG_CHANNEL_ITEM_ID, embed=log_embed)
             else:
                 await interaction.followup.send(f"❌ L'item **{item_name}** non esiste!", ephemeral=True)
     
@@ -568,7 +569,7 @@ def setup_inventory_commands(bot: commands.Bot):
         log_embed.add_field(name="👮 Venditore", value=interaction.user.mention, inline=True)
         log_embed.add_field(name="👤 Acquirente", value=utente.mention, inline=True)
         log_embed.timestamp = discord.utils.utcnow()
-        await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
+        await log_command(bot, LOG_CHANNEL_ITEM_ID, embed=log_embed)
     
     @bot.tree.command(name="rimuovizaino", description="[STAFF] Rimuovi lo zaino da un utente")
     @app_commands.describe(utente="L'utente a cui rimuovere lo zaino")
@@ -595,7 +596,7 @@ def setup_inventory_commands(bot: commands.Bot):
         log_embed.add_field(name="👮 Rimosso da", value=interaction.user.mention, inline=True)
         log_embed.add_field(name="👤 Utente", value=utente.mention, inline=True)
         log_embed.timestamp = discord.utils.utcnow()
-        await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
+        await log_command(bot, LOG_CHANNEL_ITEM_ID, embed=log_embed)
 
         try:
             await utente.send("⚠️ Ti è stato rimosso lo zaino da uno staff!")
@@ -636,7 +637,7 @@ def setup_inventory_commands(bot: commands.Bot):
             log_embed.add_field(name="👮 Controllato da", value=interaction.user.mention, inline=True)
             log_embed.add_field(name="👤 Zaino di", value=utente.mention, inline=True)
             log_embed.timestamp = discord.utils.utcnow()
-            await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
+            await log_command(bot, LOG_CHANNEL_ITEM_ID, embed=log_embed)
         
     # CONTINUA NEL PROSSIMO MESSAGGIO CON item-sell, utilizza-item e dai-item
     # PARTE 3 DI commands_inventory.py - ULTIMI COMANDI (item-sell, utilizza-item, dai-item)
@@ -701,7 +702,7 @@ def setup_inventory_commands(bot: commands.Bot):
                 log_embed.add_field(name="🔢 Quantità", value=str(quantita), inline=False)
                 log_embed.add_field(name="🔒 Ruolo", value=f"<@&{required_role_id}>", inline=False)
                 log_embed.timestamp = discord.utils.utcnow()
-                await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
+                await log_command(bot, LOG_CHANNEL_ITEM_ID, embed=log_embed)
             
             view = discord.ui.View(timeout=300)
             view.add_item(FuzzyItemSelect(matches, handle_purchase))
@@ -733,7 +734,7 @@ def setup_inventory_commands(bot: commands.Bot):
         log_embed.add_field(name="🔢 Quantità", value=str(quantita), inline=False)
         log_embed.add_field(name="🔒 Ruolo", value=f"<@&{required_role_id}>", inline=False)
         log_embed.timestamp = discord.utils.utcnow()
-        await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
+        await log_command(bot, LOG_CHANNEL_ITEM_ID, embed=log_embed)
 
     @bot.tree.command(name="utilizza-item", description="Rimuovi item dal tuo zaino per 'utilizzarli'.")
     @app_commands.describe(nome_item="Nome dell'item da utilizzare (anche parziale)", quantita="Quantità da utilizzare (default: 1)")
@@ -794,7 +795,7 @@ def setup_inventory_commands(bot: commands.Bot):
                 log_embed.add_field(name="🔢 Quantità", value=str(quantita), inline=True)
                 log_embed.add_field(name="📊 Residuo", value=str(remaining), inline=False)
                 log_embed.timestamp = discord.utils.utcnow()
-                await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
+                await log_command(bot, LOG_CHANNEL_ITEM_ID, embed=log_embed)
             
             matches_with_role = [(item, "N/A") for item in matches]
             view = discord.ui.View(timeout=300)
@@ -832,7 +833,7 @@ def setup_inventory_commands(bot: commands.Bot):
         log_embed.add_field(name="🔢 Quantità", value=str(quantita), inline=True)
         log_embed.add_field(name="📊 Residuo", value=str(remaining), inline=False)
         log_embed.timestamp = discord.utils.utcnow()
-        await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
+        await log_command(bot, LOG_CHANNEL_ITEM_ID, embed=log_embed)
 
     @bot.tree.command(name="dai-item", description="Passa un item dal tuo zaino a un altro utente.")
     @app_commands.describe(utente="L'utente a cui dare l'item", nome_item="Nome dell'item da passare (anche parziale)", quantita="Quantità da trasferire (default: 1)")
@@ -917,7 +918,7 @@ def setup_inventory_commands(bot: commands.Bot):
                 log_embed.add_field(name="📦 Item", value=selected_item, inline=False)
                 log_embed.add_field(name="🔢 Quantità", value=str(quantita), inline=False)
                 log_embed.timestamp = discord.utils.utcnow()
-                await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
+                await log_command(bot, LOG_CHANNEL_ITEM_ID, embed=log_embed)
             
             matches_with_role = [(item, "N/A") for item in matches]
             view = discord.ui.View(timeout=300)
@@ -963,4 +964,4 @@ def setup_inventory_commands(bot: commands.Bot):
         log_embed.add_field(name="📦 Item", value=selected_item, inline=False)
         log_embed.add_field(name="🔢 Quantità", value=str(quantita), inline=False)
         log_embed.timestamp = discord.utils.utcnow()
-        await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
+        await log_command(bot, LOG_CHANNEL_ITEM_ID, embed=log_embed)

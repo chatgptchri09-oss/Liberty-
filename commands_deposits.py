@@ -8,6 +8,7 @@ import math
 DATABASE_NAME = "economy_bot.db"
 LOG_CHANNEL_ID = 1415297578022604850
 ITEMS_PER_PAGE = 10
+LOG_CHANNEL_ITEM_ID = 1458565566070788146
 
 # Configurazione depositi
 DEPOSITS = {
@@ -215,7 +216,7 @@ class ItemConfirmView(discord.ui.View):
             log_embed.add_field(name="🔢 Quantità", value=str(self.quantity), inline=False)
             log_embed.timestamp = discord.utils.utcnow()
             
-            await log_command(self.bot, LOG_CHANNEL_ID, embed=log_embed)
+            await log_command(self.bot, LOG_CHANNEL_ITEM_ID, embed=log_embed)
             
             await interaction.response.edit_message(
                 content=f"✅ Hai depositato **{self.quantity}x {self.selected_item}** nel deposito **{self.deposit_name}**!",
@@ -256,7 +257,7 @@ class ItemConfirmView(discord.ui.View):
             log_embed.add_field(name="🔢 Quantità", value=str(self.quantity), inline=False)
             log_embed.timestamp = discord.utils.utcnow()
             
-            await log_command(self.bot, LOG_CHANNEL_ID, embed=log_embed)
+            await log_command(self.bot, LOG_CHANNEL_ITEM_ID, embed=log_embed)
             
             await interaction.response.edit_message(
                 content=f"✅ Hai prelevato **{self.quantity}x {self.selected_item}** dal deposito **{self.deposit_name}**!",
@@ -370,7 +371,7 @@ class DepositModal(discord.ui.Modal, title="Deposita Item"):
                 log_embed.add_field(name="🔢 Quantità", value=str(qty), inline=False)
                 log_embed.timestamp = discord.utils.utcnow()
                 
-                await log_command(self.bot, LOG_CHANNEL_ID, embed=log_embed)
+                await log_command(self.bot, LOG_CHANNEL_ITEM_ID, embed=log_embed)
                 
                 await interaction.response.send_message(
                     f"✅ Hai depositato **{qty}x {item_name}** nel deposito **{self.deposit_name}**!",
@@ -423,7 +424,7 @@ class DepositModal(discord.ui.Modal, title="Deposita Item"):
                     log_embed.add_field(name="🔢 Quantità", value=str(qty), inline=False)
                     log_embed.timestamp = discord.utils.utcnow()
                     
-                    await log_command(self.bot, LOG_CHANNEL_ID, embed=log_embed)
+                    await log_command(self.bot, LOG_CHANNEL_ITEM_ID, embed=log_embed)
                     
                     await interaction.response.send_message(
                         f"✅ Hai depositato **{qty}x {item_name}** nel deposito **{self.deposit_name}**!",
@@ -571,7 +572,7 @@ class WithdrawModal(discord.ui.Modal, title="Preleva Item"):
                 log_embed.add_field(name="🔢 Quantità", value=str(qty), inline=False)
                 log_embed.timestamp = discord.utils.utcnow()
                 
-                await log_command(self.bot, LOG_CHANNEL_ID, embed=log_embed)
+                await log_command(self.bot, LOG_CHANNEL_ITEM_ID, embed=log_embed)
                 
                 await interaction.response.send_message(
                     f"✅ Hai prelevato **{qty}x {item_name}** dal deposito **{self.deposit_name}**!",
@@ -624,7 +625,7 @@ class WithdrawModal(discord.ui.Modal, title="Preleva Item"):
                     log_embed.add_field(name="🔢 Quantità", value=str(qty), inline=False)
                     log_embed.timestamp = discord.utils.utcnow()
                     
-                    await log_command(self.bot, LOG_CHANNEL_ID, embed=log_embed)
+                    await log_command(self.bot, LOG_CHANNEL_ITEM_ID, embed=log_embed)
                     
                     await interaction.response.send_message(
                         f"✅ Hai prelevato **{qty}x {item_name}** dal deposito **{self.deposit_name}**!",

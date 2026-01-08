@@ -74,7 +74,7 @@ def setup_wallet_commands(bot: commands.Bot):
                 embed.add_field(name="🏙️ Luogo di nascita", value=birth_place, inline=False)
                 embed.add_field(name="🌍 Nazionalità", value=nationality, inline=False)
                 if photo_url:
-                    embed.set_thumbnail(url=photo_url)
+                    embed.set_image(url=photo_url)
                 
                 view = ShowDocumentView(self.bot, embed, f"Questo è il documento di {interaction.user.mention}") 
                 await interaction.response.send_message(embed=embed, view=view, ephemeral=True)

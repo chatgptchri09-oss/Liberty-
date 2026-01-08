@@ -792,22 +792,23 @@ async def start_webserver():
 
 async def main():
     try:
-        # Avvia il webserver PRIMA
         print("🌐 Avvio webserver...", flush=True)
         await start_webserver()
         
         TOKEN = os.getenv("DISCORD_TOKEN")
         
         if not TOKEN:
-            print("❌ ERRORE: DISCORD_TOKEN non trovato nelle variabili d'ambiente!", flush=True)
-            print("❌ Controlla su Render → Environment → DISCORD_TOKEN", flush=True)
+            print("❌ ERRORE: DISCORD_TOKEN non trovato!", flush=True)
             return
         
         print("🔄 Connessione a Discord in corso...", flush=True)
-        print(f"🔑 Token presente: {TOKEN[:20]}...", flush=True)
         
-        # Avvia il bot
+        # ✅ AGGIUNGI QUESTA RIGA QUI:
+        asyncio.create_task(backup.backup_database())
+        print("✅ Sistema di backup automatico attivato", flush=True)
+        
         await bot.start(TOKEN)
+        
             
     except discord.LoginFailure:
         print("❌ ERRORE: Token Discord non valido!", flush=True)

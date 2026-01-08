@@ -9,6 +9,8 @@ import asyncio
 import aiosqlite 
 from discord.ui import Modal, TextInput, View, Button 
 import sys
+import backup
+
 
 # FORZA IL FLUSH DEI LOG SUBITO
 sys.stdout.reconfigure(line_buffering=True)

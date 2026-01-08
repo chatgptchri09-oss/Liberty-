@@ -5,7 +5,7 @@ import base64
 import aiohttp
 
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
-GITHUB_REPO = "TUO_USERNAME/liberty-bot-backups"  # ⚠️ CAMBIA CON IL TUO USERNAME!
+GITHUB_REPO = "chatgptchri09-oss/liberty-bot-backups"  # ⚠️ CAMBIA CON IL TUO USERNAME!
 DATABASE_NAME = "economy_bot.db"
 
 async def backup_database():

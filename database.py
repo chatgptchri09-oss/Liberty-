@@ -41,6 +41,19 @@ async def init_db():
                 has_backpack INTEGER DEFAULT 0
             )
         """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS reports (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
+                utente TEXT NOT NULL,
+                titolo TEXT NOT NULL,
+                accusato TEXT NOT NULL,
+                motivo TEXT NOT NULL,
+                facoltativo TEXT,
+                created_at TEXT NOT NULL
+            )
+        """)
         
         # TABELLA FATTURE
         await db.execute("""

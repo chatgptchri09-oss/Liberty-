@@ -12,6 +12,7 @@ STAFF_ROLE_ID = 1414738761207517214
 WHITELISTER_ROLE_ID = 1415090850253246534
 BACKGROUND_CHANNEL_ID = 1415100952796725268
 BACKGROUND_APPROVED_ROLE_ID = 1415102727746490522
+LOG_CHANNEL_MONEY_ID = 1459209240450433094
 
 # Ruoli da aggiungere se la whitelist è passata
 WL_ROLES = [
@@ -504,14 +505,7 @@ def setup_admin_commands(bot: commands.Bot):
         await interaction.followup.send("✅ Annuncio inviato con successo!", ephemeral=True)
         
         # LOG CON EMBED
-        log_embed = discord.Embed(
-            title="📢 LOG ANNUNCIO",
-            color=discord.Color.gold()
-        )
-        log_embed.add_field(name="Inviato da", value=interaction.user.mention, inline=False)
-        log_embed.add_field(name="Testo", value=testo[:1000], inline=False)
-        log_embed.timestamp = discord.utils.utcnow()
-        await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
+        
     
     @bot.tree.command(name="add-money", description="[STAFF] Aggiungi soldi al conto bancario di un utente.")
     @app_commands.describe(
@@ -571,7 +565,7 @@ def setup_admin_commands(bot: commands.Bot):
             log_embed.add_field(name="Importo", value=f"${importo:,}", inline=True)
             log_embed.add_field(name="Motivo", value=motivo, inline=False)
             log_embed.timestamp = discord.utils.utcnow()
-            await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
+            await log_command(bot, LOG_CHANNEL_MONEY_ID, embed=log_embed)
 
         except Exception as e:
             await interaction.followup.send(f"❌ Errore durante l'aggiunta di denaro: {e}", ephemeral=True)
@@ -635,7 +629,7 @@ def setup_admin_commands(bot: commands.Bot):
             log_embed.add_field(name="Importo", value=f"${removed_amount:,}", inline=True)
             log_embed.add_field(name="Motivo", value=motivo, inline=False)
             log_embed.timestamp = discord.utils.utcnow()
-            await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
+            await log_command(bot, LOG_CHANNEL_MONEY_ID, embed=log_embed)
 
         except Exception as e:
             await interaction.followup.send(f"❌ Errore durante la rimozione di denaro: {e}", ephemeral=True)

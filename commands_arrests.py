@@ -219,6 +219,7 @@ def setup_arrest_commands(bot: commands.Bot):
             timestamp=discord.utils.utcnow()
         )
         
+        embed.add_field(name="👮 Poliziotto che esegue la denuncia", value=interaction.user.mention, inline=False)
         embed.add_field(name="👤 Utente che ha fatto la denuncia", value=utente.mention, inline=False)
         embed.add_field(name="📌 Titolo", value=titolo, inline=False)
         embed.add_field(name="🎯 Accusato", value=accusato, inline=False)

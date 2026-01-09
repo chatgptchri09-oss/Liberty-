@@ -8,6 +8,7 @@ import database
 
 LFD_ROLE_ID = 1415093546549248040
 ARREST_LOG_CHANNEL_ID = 1436347936635097179
+REPORT_LOG_CHANNEL_ID = 1459208033879195648  # Cambia questo ID con il canale per le denunce
 
 def has_role(interaction: discord.Interaction, role_id: int) -> bool:
     if not isinstance(interaction.user, discord.Member):
@@ -22,6 +23,14 @@ async def log_arrest(bot, channel_id: int, embed: discord.Embed):
     except Exception as e:
         print(f"Errore nel log arresto: {e}")
 
+async def log_report(bot, channel_id: int, embed: discord.Embed):
+    try:
+        channel = bot.get_channel(channel_id)
+        if channel and hasattr(channel, 'send'):
+            await channel.send(embed=embed)
+    except Exception as e:
+        print(f"Errore nel log denuncia: {e}")
+
 async def save_arrest_to_db(user_id: str, nome_completo: str, eta: str, residenza: str, motivo: str, pena: str):
     try:
         async with aiosqlite.connect(database.DATABASE_NAME) as db:
@@ -33,6 +42,18 @@ async def save_arrest_to_db(user_id: str, nome_completo: str, eta: str, residenz
         print(f"[DEBUG] Arresto salvato nel database per user_id: {user_id}")
     except Exception as e:
         print(f"[ERRORE] Impossibile salvare arresto nel DB: {e}")
+
+async def save_report_to_db(user_id: str, utente: str, titolo: str, accusato: str, motivo: str, facoltativo: str = ""):
+    try:
+        async with aiosqlite.connect(database.DATABASE_NAME) as db:
+            await db.execute(
+                "INSERT INTO reports (user_id, utente, titolo, accusato, motivo, facoltativo, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (user_id, utente, titolo, accusato, motivo, facoltativo, datetime.utcnow().isoformat())
+            )
+            await db.commit()
+        print(f"[DEBUG] Denuncia salvata nel database per user_id: {user_id}")
+    except Exception as e:
+        print(f"[ERRORE] Impossibile salvare denuncia nel DB: {e}")
 
 class ArrestModal(Modal, title="⛓️ Modulo di Arresto"):
     nome_completo = TextInput(label="Nome e Cognome", placeholder="Es: Mario Rossi", required=True, max_length=100)
@@ -146,4 +167,84 @@ def setup_arrest_commands(bot: commands.Bot):
                 ephemeral=True
             )
     
-    print("✅ Comando /modulo-arresto caricato")
+    @bot.tree.command(name="denuncia", description="[L.F.D] Presenta una denuncia")
+    @app_commands.describe(
+        utente="Utente che sta facendo la denuncia",
+        titolo="Titolo della denuncia",
+        accusato="Nome e cognome dell'accusato",
+        motivo="Motivo della denuncia",
+        facoltativo="Informazioni aggiuntive (opzionale)"
+    )
+    async def denuncia(
+        interaction: discord.Interaction,
+        utente: discord.Member,
+        titolo: str,
+        accusato: str,
+        motivo: str,
+        facoltativo: str = ""
+    ):
+        print(f"[DEBUG] Comando /denuncia chiamato da {interaction.user}")
+        
+        if not has_role(interaction, LFD_ROLE_ID):
+            print(f"[DEBUG] {interaction.user} non ha i permessi")
+            await interaction.response.send_message(
+                "❌ Solo gli agenti del L.F.D possono usare questo comando!",
+                ephemeral=True
+            )
+            return
+        
+        try:
+            await interaction.response.defer(ephemeral=True)
+            print(f"[DEBUG] Defer completato")
+        except Exception as e:
+            print(f"[ERRORE] Errore nel defer: {e}")
+            return
+        
+        facoltativo_value = facoltativo if facoltativo else "Nessuna informazione aggiuntiva"
+        
+        print(f"[DEBUG] Dati denuncia raccolti: {titolo}, {accusato}")
+        
+        await save_report_to_db(
+            str(utente.id),
+            utente.mention,
+            titolo,
+            accusato,
+            motivo,
+            facoltativo_value
+        )
+        
+        embed = discord.Embed(
+            title="📋 DENUNCIA",
+            color=discord.Color.red(),
+            timestamp=discord.utils.utcnow()
+        )
+        
+        embed.add_field(name="👤 Utente che ha fatto la denuncia", value=utente.mention, inline=False)
+        embed.add_field(name="📌 Titolo", value=titolo, inline=False)
+        embed.add_field(name="🎯 Accusato", value=accusato, inline=False)
+        embed.add_field(name="📝 Motivo", value=motivo, inline=False)
+        embed.add_field(name="ℹ️ Facoltativo", value=facoltativo_value, inline=False)
+        
+        embed.set_footer(text="L.F.D - Los Santos Police Department")
+        
+        print(f"[DEBUG] Embed denuncia creato, invio al canale log...")
+        
+        try:
+            await log_report(bot, REPORT_LOG_CHANNEL_ID, embed)
+            print(f"[DEBUG] Log denuncia inviato con successo")
+        except Exception as e:
+            print(f"[ERRORE] Errore nell'invio del log denuncia: {e}")
+        
+        try:
+            await interaction.followup.send(
+                f"✅ Denuncia registrata con successo!\n"
+                f"**Utente denunciante:** {utente.mention}\n"
+                f"**Titolo:** {titolo}\n"
+                f"**Accusato:** {accusato}",
+                ephemeral=True
+            )
+            print(f"[DEBUG] Conferma denuncia inviata all'agente")
+        except Exception as e:
+            print(f"[ERRORE] Errore nell'invio della conferma denuncia: {e}")
+    
+    print("✅ Comandi /modulo-arresto e /denuncia caricati")

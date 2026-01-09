@@ -639,7 +639,7 @@ class CommandCategorySelect(discord.ui.Select):
             commands_list = [
                 "`/crea-item` - Crea un nuovo item nel sistema",
                 "`/annuncio` - Invia un annuncio pubblico nel server",
-                "`/bando` - Crea un nuovo bando per assunzioni",
+                "`/bando` - Comunica l'apertura o la chiusura di un bando lavorativo",
                 "`/add-money` - Aggiungi denaro a un utente",
                 "`/esito-bando` - Comunica l'esito di un bando",
                 "`/paga-stipendio` - Paga lo stipendio a un utente",
@@ -648,10 +648,10 @@ class CommandCategorySelect(discord.ui.Select):
                 "`/remove-money` - Rimuovi denaro da un utente",
                 "`/rimuovi-documento` - Rimuovi un documento a un utente",
                 "`/wipe-pg` - Resetta completamente il personaggio di un utente",
-                "`/rpon` - Attiva la modalità Roleplay per un utente",
-                "`/rpoff` - Disattiva la modalità Roleplay per un utente",
+                "`/rpon` - Attiva la modalità Roleplay",
+                "`/rpoff` - Disattiva la modalità Roleplay",
                 "`/sondaggiorp` - Crea un sondaggio roleplay",
-                "`/rimuovizaino` - Svuota lo zaino di un utente",
+                "`/rimuovizaino` - Rimuovi lo zaino di un utente",
                 "`/take-item` - Rimuovi un item da un utente",
                 "`/rimuovicertificatomedico` - Rimuovi il certificato medico a un utente",
                 "`/whitelister` - Dai l'esito di una whitelist o di un background PG"
@@ -665,12 +665,12 @@ class CommandCategorySelect(discord.ui.Select):
                 color=discord.Color.blue()
             )
             commands_list = [
-                "`/documento` - Controlla i documenti di un cittadino",
+                "`/documento` - Crea il documento ad un cittadino",
                 "`/ammanetto` - Ammanetta un sospetto",
                 "`/multa` - Emetti una multa a un cittadino",
                 "`/rimuovicertificatobalistico` - Rimuovi il certificato balistico",
                 "`/sequestraveicolo` - Sequestra un veicolo",
-                "`/controllatarga` - Controlla la targa di un veicolo",
+                "`/controllatarga` - Controlla la targa di un veicolo ",
                 "`/controllomulta` - Verifica le multe di un cittadino",
                 "`/daiportodarmi` - Rilascia il porto d'armi",
                 "`/dissequestraveicolo` - Dissequestra un veicolo",
@@ -679,6 +679,7 @@ class CommandCategorySelect(discord.ui.Select):
                 "`/modulo-arresto` - Compila un modulo di arresto",
                 "`/cercapersona` - Cerca una persona nel database",
                 "`/puliziafedinapenale` - Pulisci la fedina penale di un cittadino"
+                "`/denuncia` - Compila una denuncia ufficiale"
             ]
             embed.description += "\n\n" + "\n".join(commands_list)
             
@@ -707,14 +708,14 @@ class CommandCategorySelect(discord.ui.Select):
             )
             commands_list = [
                 "`/anonimo` - Invia un messaggio anonimo",
-                "`/assicurazione` - Gestisci l'assicurazione del tuo veicolo",
-                "`/cura` - Cura un cittadino (medici)",
+                "`/assicurazione` - Gestisci l'assicurazione di un veicolo",
+                "`/cura` - Cura un cittadino ",
                 "`/dai-item` - Dai un item a un altro giocatore",
                 "`/daicertificato` - Rilascia un certificato",
                 "`/daicertificatomedico` - Rilascia un certificato medico",
                 "`/dailibretto` - Rilascia il libretto di un veicolo",
                 "`/daipatente` - Rilascia la patente di guida",
-                "`/daiproprieta` - Trasferisci una proprietà",
+                "`/daiproprieta` - Registra una prorietà ad un cittadino",
                 "`/depositi` - Visualizza i tuoi depositi",
                 "`/inizio-turno` - Inizia il tuo turno di lavoro",
                 "`/fine-turno` - Termina il tuo turno di lavoro",
@@ -727,7 +728,7 @@ class CommandCategorySelect(discord.ui.Select):
                 "`/mettidep` - Metti degli item nel deposito",
                 "`/miafedinapenale` - Visualizza la tua fedina penale",
                 "`/mie-proprieta` - Visualizza le tue proprietà",
-                "`/modificaveicolo` - Modifica il tuo veicolo",
+                "`/modificaveicolo` - Modifica un veicolo",
                 "`/nascondo` - Nascondi un oggetto",
                 "`/raccolta-cocaina` - Raccogli cocaina (azione illegale)",
                 "`/raccolta-marijuana` - Raccogli marijuana (azione illegale)",
@@ -735,7 +736,7 @@ class CommandCategorySelect(discord.ui.Select):
                 "`/slotmachine` - Gioca alla slot machine",
                 "`/smantellaauto` - Smantella un'auto rubata (azione illegale)",
                 "`/utilizza-item` - Utilizza un item dal tuo inventario",
-                "`/vendizaino` - Vendi il contenuto del tuo zaino"
+                "`/vendizaino` - Vendi uno zaino"
             ]
             embed.description += "\n\n" + "\n".join(commands_list)
         

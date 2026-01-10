@@ -53,7 +53,7 @@ def setup_rpoff_commands(bot: commands.Bot):
         embed = discord.Embed(
             title="<a:offline:1431606235354107914> ROLEPLAY OFF",
             description=(
-                "<a:offline:1431606235354107914> La sessione di **roleplay è terminata**!\n\n"
+                "<a:offline:1459628872197738641> La sessione di **roleplay è terminata**!\n\n"
                 "📌 • Ricorda di eseguire il comando `/fine-turno` per ricevere lo stipendio della giornata lavorativa.\n\n"
                 "🙏 Grazie per aver giocato con noi su **Liberty RP**!"
             ),
@@ -95,7 +95,7 @@ def setup_rpoff_commands(bot: commands.Bot):
         
         # Creazione embed principale
         embed = discord.Embed(
-            title="<a:Online:1431599470897922069> ROLEPLAY ON",
+            title="<a:online:1459627385702973572> ROLEPLAY ON",
             description=(
                 "💬 La roleplay è **UFFICIALMENTE ON!**\n\n"
                 "💃🕺 **DIAMO IL VIA ALLE DANZE!**\n\n"

@@ -6,6 +6,7 @@ from discord.ext import commands
 # COSTANTI (DEVONO ESSERE LE STESSE DI bot.py)
 # ====================
 STAFF_ROLE_ID = 1414738761207517214
+WHITELISTER_ROLE_ID = 1415090850253246534
 LOG_CHANNEL_ID = 1415297578022604850
 
 # ====================
@@ -202,3 +203,46 @@ def setup_bando_commands(bot: commands.Bot):
         
         # 5. Risposta finale (Ephemera)
         await interaction.followup.send(f"✅ Bando Assunto inviato con successo e ruoli aggiunti a {cittadino.mention}.", ephemeral=True)
+
+    @bot.tree.command(name="status-whitelist", description="[WHITELISTER] Gestisci lo stato della whitelist")
+    @app_commands.describe(stato="Seleziona lo stato della whitelist")
+    @app_commands.choices(stato=[
+        app_commands.Choice(name="On", value="ON"),
+        app_commands.Choice(name="Off", value="OFF"),
+    ])
+    async def status_whitelist(interaction: discord.Interaction, stato: app_commands.Choice[str]):
+        if not has_role(interaction, WHITELISTER_ROLE_ID):
+            await interaction.response.send_message("❌ Solo i Whitelister possono usare questo comando.", ephemeral=True)
+            return
+        
+        # Ottieni l'icona del server
+        server_icon = interaction.guild.icon.url if interaction.guild.icon else None
+        
+        if stato.value == "ON":
+            embed = discord.Embed(
+                title="<a:online:1459627385702973572> 𝐖𝐡𝐢𝐭𝐞𝐥𝐢𝐬𝐭 𝐎𝐧𝐥𝐢𝐧𝐞 <a:online:1459627385702973572>",
+                description="> **Prima** di affrontare la whitelist si consiglia di leggere il bene il **regolamento** <:regolamento:1459626703411478560>",
+                color=discord.Color.green()
+            )
+            embed.set_image(url="https://i.postimg.cc/Dwj9WDf4/Whitelist-On.gif")
+            
+            if server_icon:
+                embed.set_thumbnail(url=server_icon)
+            
+            await interaction.response.send_message(embed=embed)
+            
+        elif stato.value == "OFF":
+            embed = discord.Embed(
+                title="<a:offline:1459628872197738641> 𝐖𝐡𝐢𝐭𝐞𝐥𝐢𝐬𝐭 𝐎𝐟𝐟𝐥𝐢𝐧𝐞 <a:offline:1459628872197738641>",
+                description=(
+                    "> **Saranno riaperte** quando un whitelister sarà disponibile.\n"
+                    "> ___Non contattate in privato i whitelister___"
+                ),
+                color=discord.Color.red()
+            )
+            embed.set_image(url="https://i.postimg.cc/QNY1yJMR/Whitelist-Off.gif")
+            
+            if server_icon:
+                embed.set_thumbnail(url=server_icon)
+            
+            await interaction.response.send_message(embed=embed)

@@ -204,7 +204,7 @@ def setup_bando_commands(bot: commands.Bot):
         # 5. Risposta finale (Ephemera)
         await interaction.followup.send(f"✅ Bando Assunto inviato con successo e ruoli aggiunti a {cittadino.mention}.", ephemeral=True)
 
-    @bot.tree.command(name="status-whitelist", description="[WHITELISTER] Gestisci lo stato della whitelist")
+    @bot.tree.command(name="status-whitelist", description="Gestisci lo stato della whitelist")
     @app_commands.describe(stato="Seleziona lo stato della whitelist")
     @app_commands.choices(stato=[
         app_commands.Choice(name="On", value="ON"),
@@ -221,7 +221,7 @@ def setup_bando_commands(bot: commands.Bot):
         if stato.value == "ON":
             embed = discord.Embed(
                 title="<a:online:1459627385702973572> 𝐖𝐡𝐢𝐭𝐞𝐥𝐢𝐬𝐭 𝐎𝐧𝐥𝐢𝐧𝐞 <a:online:1459627385702973572>",
-                description="> **Prima** di affrontare la whitelist si consiglia di leggere il bene il **regolamento** <:regolamento:1459626703411478560>",
+                description="> **Prima** di affrontare la whitelist si consiglia di leggere bene il **regolamento** <:regolamento:1459626703411478560>",
                 color=discord.Color.green()
             )
             embed.set_image(url="https://i.postimg.cc/Dwj9WDf4/Whitelist-On.gif")
@@ -236,7 +236,7 @@ def setup_bando_commands(bot: commands.Bot):
                 title="<a:offline:1459628872197738641> 𝐖𝐡𝐢𝐭𝐞𝐥𝐢𝐬𝐭 𝐎𝐟𝐟𝐥𝐢𝐧𝐞 <a:offline:1459628872197738641>",
                 description=(
                     "> **Saranno riaperte** quando un whitelister sarà disponibile.\n"
-                    "> ___Non contattate in privato i whitelister___"
+                    "> ___Non contattate in privato i whitelister grazie___"
                 ),
                 color=discord.Color.red()
             )

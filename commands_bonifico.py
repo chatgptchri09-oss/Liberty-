@@ -6,6 +6,7 @@ import database
 
 DATABASE_NAME = "economy_bot.db"
 LOG_CHANNEL_ID = 1415297578022604850
+LOG_CHANNEL_MONEY_ID = 1459209240450433094
 
 async def log_command(bot, channel_id: int, message: str = None, embed: discord.Embed = None):
     try:
@@ -104,7 +105,7 @@ def setup_bonifico_commands(bot: commands.Bot):
             log_embed.add_field(name="Nuovo saldo mittente", value=f"${new_sender_bank:,}", inline=True)
             log_embed.add_field(name="Nuovo saldo destinatario", value=f"${new_receiver_bank:,}", inline=True)
             log_embed.timestamp = discord.utils.utcnow()
-            await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
+            await log_command(bot, LOG_CHANNEL_MONEY_ID, embed=log_embed)
 
         except Exception as e:
             print(f"ERRORE GRAVE DURANTE BONIFICO: {e}")

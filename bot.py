@@ -655,6 +655,7 @@ class CommandCategorySelect(discord.ui.Select):
                 "`/take-item` - Rimuovi un item da un utente",
                 "`/rimuovicertificatomedico` - Rimuovi il certificato medico a un utente",
                 "`/whitelister` - Dai l'esito di una whitelist o di un background PG"
+                "`/status-whitelist` - Indica se i servizi whitelist sono offline o online",
             ]
             embed.description += "\n\n" + "\n".join(commands_list)
             

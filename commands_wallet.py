@@ -179,16 +179,17 @@ def setup_wallet_commands(bot: commands.Bot):
                 )
                 
                 for vehicle in vehicles:
-                    _, user_id, client_name, client_surname, vehicle_model, plate, insurance, modifications, seized = vehicle
-                    
-                    insurance_text = "✅ Assicurazione" if insurance else "❌ Assicurazione"
-                    modifications_text = modifications if modifications and modifications != "/////" else "/////"
-                    
-                    embed.add_field(
-                        name=f"🚗 {vehicle_model}",
-                        value=f"**Proprietario:** {client_name} {client_surname}\n**Targa:** {plate}\n**{insurance_text}**\n**Modifiche:** {modifications_text}",
-                        inline=False
-                    )
+    _, user_id, client_name, client_surname, vehicle_model, plate, insurance, modifications, seized, illegal = vehicle
+    
+    insurance_text = "✅ Assicurazione" if insurance else "❌ Assicurazione"
+    modifications_text = modifications if modifications and modifications != "/////" else "/////"
+    illegal_text = " (illegale)" if illegal else ""
+    
+    embed.add_field(
+        name=f"🚗 {vehicle_model}{illegal_text}",
+        value=f"**Proprietario:** {client_name} {client_surname}\n**Targa:** {plate}\n**{insurance_text}**\n**Modifiche:** {modifications_text}",
+        inline=False
+    )
                 
                 view = ShowDocumentView(self.bot, embed, f"Questi sono i libretti di {interaction.user.mention}")
                 await interaction.response.send_message(embed=embed, view=view, ephemeral=True)

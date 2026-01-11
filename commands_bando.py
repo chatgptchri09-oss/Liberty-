@@ -94,7 +94,7 @@ def setup_bando_commands(bot: commands.Bot):
         if stato.value == "APERTO":
             embed = discord.Embed(
                 title="<a:online:1459627385702973572> 𝐁𝐚𝐧𝐝𝐨 𝐀𝐩𝐞𝐫𝐭𝐨 <a:online:1459627385702973572>",
-                description="Lo staff annuncia che le candidature per questo bando sono ufficialmente aperte!",
+                description="> Lo staff annuncia che le candidature per questo bando sono ufficialmente aperte!",
                 color=discord.Color.green()
             )
             embed.set_image(url="https://cdn.discordapp.com/attachments/1235599658928308264/1250595402474848417/BandoAperto.png")
@@ -106,7 +106,7 @@ def setup_bando_commands(bot: commands.Bot):
         elif stato.value == "CHIUSO":
             embed = discord.Embed(
                 title="<a:offline:1459628872197738641> 𝐁𝐚𝐧𝐝𝐨 𝐂𝐡𝐢𝐮𝐬𝐨 <a:offline:1459628872197738641>",
-                description="Lo staff annuncia che le candidature per questo bando sono ufficialmente chiuse.",
+                description="> Lo staff annuncia che le candidature per questo bando sono ufficialmente chiuse.",
                 color=discord.Color.red()
             )
             embed.set_image(url="https://cdn.discordapp.com/attachments/1235599658928308264/1250595402223452160/BandoChiuso.png")

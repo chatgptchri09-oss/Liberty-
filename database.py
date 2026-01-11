@@ -205,6 +205,20 @@ async def init_db():
         """)
         
         await db.commit()
+        
+        # AGGIUNGI COLONNA ILLEGAL SE NON ESISTE
+        try:
+            cursor = await db.execute("PRAGMA table_info(vehicle_registrations)")
+            columns = await cursor.fetchall()
+            column_names = [col[1] for col in columns]
+            
+            if 'illegal' not in column_names:
+                await db.execute("ALTER TABLE vehicle_registrations ADD COLUMN illegal INTEGER DEFAULT 0")
+                await db.commit()
+                print("✅ Colonna 'illegal' aggiunta alla tabella vehicle_registrations")
+        except Exception as e:
+            print(f"⚠️ Errore nell'aggiunta colonna illegal: {e}")
+    
     print("✅ Database inizializzato con successo!")
 
 async def get_user(user_id: str):

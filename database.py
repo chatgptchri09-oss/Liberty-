@@ -69,24 +69,6 @@ async def init_db():
             )
         """)
 
-
-        # TABELLA VEICOLI (MODIFICATA)
-        await db.execute("""
-            CREATE TABLE IF NOT EXISTS vehicle_registrations (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id TEXT,
-                client_name TEXT,
-                client_surname TEXT,
-                vehicle_model TEXT,
-                plate TEXT,
-                insurance INTEGER DEFAULT 0,
-                modifications TEXT,
-                seized INTEGER DEFAULT 0,
-                illegal INTEGER DEFAULT 0
-           )
-       """)
-
-
         # TABELLA MULTE
         await db.execute("""
             CREATE TABLE IF NOT EXISTS fines (
@@ -152,7 +134,7 @@ async def init_db():
             )
         """)
         
-        # TABELLA VEICOLI
+        # TABELLA VEICOLI (CON COLONNA ILLEGAL)
         await db.execute("""
             CREATE TABLE IF NOT EXISTS vehicle_registrations (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -163,7 +145,8 @@ async def init_db():
                 plate TEXT,
                 insurance INTEGER DEFAULT 0,
                 modifications TEXT,
-                seized INTEGER DEFAULT 0
+                seized INTEGER DEFAULT 0,
+                illegal INTEGER DEFAULT 0
             )
         """)
         

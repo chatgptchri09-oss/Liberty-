@@ -179,17 +179,22 @@ def setup_wallet_commands(bot: commands.Bot):
                 )
                 
                 for vehicle in vehicles:
-    _, user_id, client_name, client_surname, vehicle_model, plate, insurance, modifications, seized, illegal = vehicle
-    
-    insurance_text = "✅ Assicurazione" if insurance else "❌ Assicurazione"
-    modifications_text = modifications if modifications and modifications != "/////" else "/////"
-    illegal_text = " (illegale)" if illegal else ""
-    
-    embed.add_field(
-        name=f"🚗 {vehicle_model}{illegal_text}",
-        value=f"**Proprietario:** {client_name} {client_surname}\n**Targa:** {plate}\n**{insurance_text}**\n**Modifiche:** {modifications_text}",
-        inline=False
-    )
+                    # Gestisci sia veicoli con 9 colonne (con illegal) che con 8 (senza illegal)
+                    if len(vehicle) == 10:
+                        _, user_id, client_name, client_surname, vehicle_model, plate, insurance, modifications, seized, illegal = vehicle
+                    else:
+                        _, user_id, client_name, client_surname, vehicle_model, plate, insurance, modifications, seized = vehicle
+                        illegal = 0  # Default a 0 se la colonna non esiste
+                    
+                    insurance_text = "✅ Assicurazione" if insurance else "❌ Assicurazione"
+                    modifications_text = modifications if modifications and modifications != "/////" else "/////"
+                    illegal_text = " (illegale)" if illegal else ""
+                    
+                    embed.add_field(
+                        name=f"🚗 {vehicle_model}{illegal_text}",
+                        value=f"**Proprietario:** {client_name} {client_surname}\n**Targa:** {plate}\n**{insurance_text}**\n**Modifiche:** {modifications_text}",
+                        inline=False
+                    )
                 
                 view = ShowDocumentView(self.bot, embed, f"Questi sono i libretti di {interaction.user.mention}")
                 await interaction.response.send_message(embed=embed, view=view, ephemeral=True)

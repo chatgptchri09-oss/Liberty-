@@ -333,7 +333,7 @@ def setup_criminal_record_commands(bot: commands.Bot):
             except:
                 pass
 
-    @bot.tree.command(name="dailibrettoillegale", description="[DEALER] Registra un libretto illegale")
+    @bot.tree.command(name="dailibrettoillegale", description="Registra un libretto illegale")
     @app_commands.describe(
         utente="Il cliente che riceve il libretto",
         prezzo="Il prezzo del libretto illegale (solo informativo)"
@@ -341,7 +341,7 @@ def setup_criminal_record_commands(bot: commands.Bot):
     async def dailibrettoillegale(interaction: discord.Interaction, utente: discord.Member, prezzo: int):
         if not has_role(interaction, ILLEGAL_DEALER_ROLE_ID):
             await interaction.response.send_message(
-                "❌ Solo i dealer illegali possono usare questo comando!",
+                "❌ Solo il cartello può usare questo comando!",
                 ephemeral=True
             )
             return

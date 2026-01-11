@@ -1,11 +1,13 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
+from discord.ui import Modal, TextInput
 import aiosqlite
 import database
 from datetime import datetime
 
 LFD_ROLE_ID = 1415093546549248040
+ILLEGAL_DEALER_ROLE_ID = 1415361876136820858
 LOG_CHANNEL_ID = 1415297578022604850
 
 def has_role(interaction: discord.Interaction, role_id: int) -> bool:
@@ -87,6 +89,83 @@ async def get_fines_by_name(nome: str, cognome: str):
     except Exception as e:
         print(f"Errore get_fines_by_name: {e}", flush=True)
         return []
+
+class IllegalVehicleModal(Modal, title="📒 Libretto Illegale"):
+    nome = TextInput(label="Nome", placeholder="Inserisci il nome del proprietario", required=True, max_length=50)
+    cognome = TextInput(label="Cognome", placeholder="Inserisci il cognome del proprietario", required=True, max_length=50)
+    modello = TextInput(label="Modello Veicolo", placeholder="Es: BMW M3, Audi RS6", required=True, max_length=100)
+    targa = TextInput(label="Targa", placeholder="Es: ABC123", required=True, max_length=20)
+
+    def __init__(self, bot, utente: discord.Member, prezzo: int, dealer: discord.Member):
+        super().__init__()
+        self.bot = bot
+        self.utente = utente
+        self.prezzo = prezzo
+        self.dealer = dealer
+
+    async def on_submit(self, interaction: discord.Interaction):
+        try:
+            await interaction.response.defer(ephemeral=True)
+            
+            nome_value = self.nome.value
+            cognome_value = self.cognome.value
+            modello_value = self.modello.value
+            targa_value = self.targa.value
+            
+            # Salva il libretto illegale nel database
+            async with aiosqlite.connect(database.DATABASE_NAME) as db:
+                await db.execute(
+                    "INSERT INTO vehicle_registrations (user_id, client_name, client_surname, vehicle_model, plate, insurance, modifications, seized, illegal) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (str(self.utente.id), nome_value, cognome_value, modello_value, targa_value, 0, "/////", 0, 1)
+                )
+                await db.commit()
+            
+            # Embed di conferma
+            embed = discord.Embed(
+                title="📒 LIBRETTO ILLEGALE REGISTRATO",
+                color=discord.Color.red(),
+                timestamp=datetime.utcnow()
+            )
+            embed.add_field(name="👤 Proprietario", value=f"{nome_value} {cognome_value}", inline=False)
+            embed.add_field(name="🚗 Veicolo", value=modello_value, inline=True)
+            embed.add_field(name="🔢 Targa", value=targa_value, inline=True)
+            embed.add_field(name="💰 Prezzo", value=f"${self.prezzo:,}", inline=False)
+            embed.add_field(name="🏴‍☠️ Dealer", value=self.dealer.mention, inline=False)
+            embed.set_footer(text="⚠️ Libretto Illegale")
+            
+            # Invia DM al cliente
+            try:
+                dm_embed = discord.Embed(
+                    title="📒 HAI RICEVUTO UN LIBRETTO ILLEGALE",
+                    description=f"Hai acquistato un libretto illegale da {self.dealer.mention}!",
+                    color=discord.Color.red()
+                )
+                dm_embed.add_field(name="🚗 Veicolo", value=modello_value, inline=True)
+                dm_embed.add_field(name="🔢 Targa", value=targa_value, inline=True)
+                dm_embed.add_field(name="💰 Prezzo", value=f"${self.prezzo:,}", inline=False)
+                dm_embed.set_footer(text="⚠️ Questo è un documento illegale")
+                await self.utente.send(embed=dm_embed)
+                dm_status = "✅ Notifica DM inviata"
+            except:
+                dm_status = "⚠️ Impossibile inviare DM (bloccati)"
+            
+            # Log nel canale
+            await log_command(self.bot, LOG_CHANNEL_ID, embed=embed)
+            
+            await interaction.followup.send(
+                f"✅ Libretto illegale registrato con successo per {self.utente.mention}!\n"
+                f"**Veicolo:** {modello_value}\n"
+                f"**Targa:** {targa_value}\n"
+                f"**Prezzo:** ${self.prezzo:,}\n"
+                f"{dm_status}",
+                ephemeral=True
+            )
+        except Exception as e:
+            print(f"Errore in IllegalVehicleModal: {e}", flush=True)
+            try:
+                await interaction.followup.send("❌ Si è verificato un errore nella registrazione del libretto illegale.", ephemeral=True)
+            except:
+                pass
 
 def setup_criminal_record_commands(bot: commands.Bot):
     
@@ -253,3 +332,40 @@ def setup_criminal_record_commands(bot: commands.Bot):
                 await interaction.followup.send("❌ Si è verificato un errore nella pulizia della fedina penale.", ephemeral=True)
             except:
                 pass
+
+    @bot.tree.command(name="dailibrettoillegale", description="[DEALER] Registra un libretto illegale")
+    @app_commands.describe(
+        utente="Il cliente che riceve il libretto",
+        prezzo="Il prezzo del libretto illegale (solo informativo)"
+    )
+    async def dailibrettoillegale(interaction: discord.Interaction, utente: discord.Member, prezzo: int):
+        if not has_role(interaction, ILLEGAL_DEALER_ROLE_ID):
+            await interaction.response.send_message(
+                "❌ Solo i dealer illegali possono usare questo comando!",
+                ephemeral=True
+            )
+            return
+        
+        if utente.bot:
+            await interaction.response.send_message(
+                "❌ Non puoi dare un libretto illegale a un bot!",
+                ephemeral=True
+            )
+            return
+        
+        if prezzo < 0:
+            await interaction.response.send_message(
+                "❌ Il prezzo non può essere negativo!",
+                ephemeral=True
+            )
+            return
+        
+        try:
+            modal = IllegalVehicleModal(bot, utente, prezzo, interaction.user)
+            await interaction.response.send_modal(modal)
+        except Exception as e:
+            print(f"Errore in dailibrettoillegale: {e}", flush=True)
+            await interaction.response.send_message(
+                "❌ Si è verificato un errore nell'apertura del modulo.",
+                ephemeral=True
+            )

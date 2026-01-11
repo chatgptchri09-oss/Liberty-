@@ -769,6 +769,28 @@ async def lista_comandi(interaction: discord.Interaction):
 
 print("✅ Comandi app registrati", flush=True)
 
+@bot.tree.command(name="fix-database", description="[ADMIN] Aggiunge colonna illegal")
+async def fix_database(interaction: discord.Interaction):
+    if not has_role(interaction, CHIAVE_ROLE_ID):
+        await interaction.response.send_message("❌ Solo gli admin!", ephemeral=True)
+        return
+    
+    try:
+        async with aiosqlite.connect(database.DATABASE_NAME) as db:
+            # Controlla se la colonna esiste già
+            cursor = await db.execute("PRAGMA table_info(vehicle_registrations)")
+            columns = await cursor.fetchall()
+            column_names = [col[1] for col in columns]
+            
+            if 'illegal' not in column_names:
+                await db.execute("ALTER TABLE vehicle_registrations ADD COLUMN illegal INTEGER DEFAULT 0")
+                await db.commit()
+                await interaction.response.send_message("✅ Colonna 'illegal' aggiunta con successo!", ephemeral=True)
+            else:
+                await interaction.response.send_message("✅ La colonna 'illegal' esiste già!", ephemeral=True)
+    except Exception as e:
+        await interaction.response.send_message(f"❌ Errore: {e}", ephemeral=True)
+
 # ====================
 # WEBSERVER H24
 # ====================

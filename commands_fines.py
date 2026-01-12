@@ -197,7 +197,7 @@ def setup_fine_commands(bot: commands.Bot):
             payment_log_embed.add_field(name="Pagato da", value=interaction.user.mention, inline=True)
             payment_log_embed.add_field(name="Importo", value=f"${fine_amount:,}", inline=True)
             payment_log_embed.timestamp = discord.utils.utcnow()
-            await log_command(bot, LOG_CHANNEL_ID, embed=payment_log_embed)
+            await log_command(bot, LOG_CHANNEL_MULTE_ID, embed=payment_log_embed)
     
     @bot.tree.command(name="pagamulta", description="Paga una multa ricevuta")
     async def pagamulta(interaction: discord.Interaction):

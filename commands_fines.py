@@ -9,6 +9,7 @@ LFD_ROLE_ID = 1415093546549248040
 LOG_CHANNEL_ID = 1415297578022604850
 LFD_LOG_CHANNEL_ID = 1424007218554208316
 ARRESTO_LOG_CHANNEL_ID = 1436347936635097179
+LOG_CHANNEL_MULTE_ID = 1424007218554208316
 
 SLOT_SYMBOLS = ["🐺", "⭐", "🍋", "💎", "🎰"]
 
@@ -98,7 +99,7 @@ class FineModal(discord.ui.Modal, title="<a:sirena:1431792628332101723> Multa"):
         log_embed.add_field(name="Importo", value=f"${fine_amount:,}", inline=True)
         log_embed.add_field(name="Infrazioni", value=self.infractions_input.value[:1000], inline=False)
         log_embed.timestamp = discord.utils.utcnow()
-        await log_command(self.bot, LOG_CHANNEL_ID, embed=log_embed)
+        await log_command(self.bot, LOG_CHANNEL_MULTE_ID, embed=log_embed)
 
 
 def setup_fine_commands(bot: commands.Bot):

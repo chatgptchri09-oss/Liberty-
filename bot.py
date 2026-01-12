@@ -387,6 +387,13 @@ try:
 except Exception as e:
     print(f"❌ ERRORE in commands_marijuana: {e}", flush=True)
 
+try:
+    print("📦 Import commands_fondocassa...", flush=True)
+    from commands_fondocassa import setup_fondocassa_commands
+    print("✅ commands_fondocassa OK", flush=True)
+except Exception as e:
+    print(f"❌ ERRORE in commands_fondocassa: {e}", flush=True)
+
 print("✅ Tutti gli import completati!", flush=True)
 
 # ====================
@@ -514,6 +521,12 @@ try:
     print("✅ setup_marijuana_commands", flush=True)
 except Exception as e:
     print(f"❌ setup_marijuana_commands: {e}", flush=True)
+
+try:
+    setup_fondocassa_commands(bot)
+    print("✅ setup_fondocassa_commands", flush=True)
+except Exception as e:
+    print(f"❌ setup_fondocassa_commands: {e}", flush=True)
 
 print("✅ Setup comandi completato!", flush=True)
 
@@ -656,6 +669,7 @@ class CommandCategorySelect(discord.ui.Select):
                 "`/rimuovicertificatomedico` - Rimuovi il certificato medico a un utente",
                 "`/whitelister` - Dai l'esito di una whitelist o di un background PG"
                 "`/status-whitelist` - Indica se i servizi whitelist sono offline o online",
+                "`/add-fondocassa` - Aggiungi soldi al fondocassa di un'azienda"
             ]
             embed.description += "\n\n" + "\n".join(commands_list)
             
@@ -698,9 +712,9 @@ class CommandCategorySelect(discord.ui.Select):
                 "`/pagafattura` - Paga una fattura ricevuta",
                 "`/pagamulta` - Paga una multa ricevuta",
                 "`/portafoglio` - Visualizza il tuo portafoglio con tutti i tuoi beni"
+                "`/fondocassa` - Visualizza il fondo cassa di un'azienda per cui lavori"
             ]
             embed.description += "\n\n" + "\n".join(commands_list)
-            
         elif category == "roleplay":
             embed = discord.Embed(
                 title="🐬 𝑪𝑶𝑴𝑨𝑵𝑫𝑰 𝑹𝑶𝑳𝑬𝑷𝑳𝑨𝒀",

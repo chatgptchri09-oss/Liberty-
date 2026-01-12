@@ -83,6 +83,14 @@ async def init_db():
                 created_at TEXT
             )
         """)
+
+        # TABELLA FONDI CASSA
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS cash_funds (
+                fund_name TEXT PRIMARY KEY,
+                balance INTEGER DEFAULT 0
+            )
+        """)
         
         # TABELLA ARRESTI
         await db.execute("""

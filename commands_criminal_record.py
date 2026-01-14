@@ -7,7 +7,7 @@ import database
 from datetime import datetime
 
 LFD_ROLE_ID = 1415093546549248040
-ILLEGAL_DEALER_ROLE_ID = 1415361876136820858
+ILLEGAL_DEALER_ROLE_ID = 1460715608994742314
 LOG_CHANNEL_ID = 1415297578022604850
 
 def has_role(interaction: discord.Interaction, role_id: int) -> bool:
@@ -341,7 +341,7 @@ def setup_criminal_record_commands(bot: commands.Bot):
     async def dailibrettoillegale(interaction: discord.Interaction, utente: discord.Member, prezzo: int):
         if not has_role(interaction, ILLEGAL_DEALER_ROLE_ID):
             await interaction.response.send_message(
-                "❌ Solo il cartello può usare questo comando!",
+                "❌ Solo i dealer illegali possono usare questo comando!",
                 ephemeral=True
             )
             return

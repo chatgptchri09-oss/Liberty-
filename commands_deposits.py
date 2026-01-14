@@ -12,15 +12,15 @@ LOG_CHANNEL_ITEM_ID = 1458565566070788146
 
 # Configurazione depositi
 DEPOSITS = {
-    "Red Vipers": {
-        "emoji": "🐍",
+    "Bloods": {
+        "emoji": "🩸",
         "role_id": 1424383006151413881
     },
-    "Grim Shadows": {
-        "emoji": "🥷",
+    "Crips": {
+        "emoji": "🔪",
         "role_id": 1424383242194255944
     },
-    "Iron Fangs": {
+    "O'Block": {
         "emoji": "🧲",
         "role_id": 1424383496104710196
     },

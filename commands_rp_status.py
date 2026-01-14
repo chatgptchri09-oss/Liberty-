@@ -51,7 +51,7 @@ def setup_rpoff_commands(bot: commands.Bot):
         
         # Creazione embed principale
         embed = discord.Embed(
-            title="<a:offline:1431606235354107914> ROLEPLAY OFF",
+            title="<a:offline:1459628872197738641> ROLEPLAY OFF",
             description=(
                 "<a:offline:1459628872197738641> La sessione di **roleplay è terminata**!\n\n"
                 "📌 • Ricorda di eseguire il comando `/fine-turno` per ricevere lo stipendio della giornata lavorativa.\n\n"

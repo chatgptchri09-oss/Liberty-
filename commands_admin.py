@@ -49,7 +49,7 @@ async def get_user_data(user_id: str):
             user_data = await cursor.fetchone()
             if user_data:
                 return {"cash": user_data[0], "bank": user_data[1]}
-            return {"cash": 0, "bank": 0}
+            return {"cash": 0, "bank": 20000}
 
 # ====================
 # MODAL PER BACKGROUND
@@ -503,9 +503,6 @@ def setup_admin_commands(bot: commands.Bot):
         await interaction.channel.send(content="@everyone", embed=embed)
         
         await interaction.followup.send("✅ Annuncio inviato con successo!", ephemeral=True)
-        
-        # LOG CON EMBED
-        
     
     @bot.tree.command(name="add-money", description="[STAFF] Aggiungi soldi al conto bancario di un utente.")
     @app_commands.describe(
@@ -570,7 +567,7 @@ def setup_admin_commands(bot: commands.Bot):
         except Exception as e:
             await interaction.followup.send(f"❌ Errore durante l'aggiunta di denaro: {e}", ephemeral=True)
 
-    @bot.tree.command(name="remove-money", description="[STAFF] Rimuovi soldi dal conto bancario di un utente.")
+    @bot.tree.command(name="remove-money", description="[STAFF] Rimuovi soldi da un utente (prima contanti, poi banca).")
     @app_commands.describe(
         utente="L'utente a cui rimuovere i soldi",
         importo="L'importo da rimuovere",
@@ -590,34 +587,70 @@ def setup_admin_commands(bot: commands.Bot):
         
         try:
             current_data = await get_user_data(user_id)
-            new_bank = max(0, current_data['bank'] - importo)
-            removed_amount = current_data['bank'] - new_bank
+            current_cash = current_data['cash']
+            current_bank = current_data['bank']
             
-            if removed_amount == 0 and current_data['bank'] > 0:
-                 await interaction.followup.send(f"❌ Impossibile rimuovere **${importo:,}**: l'utente ha solo **${current_data['bank']:,}** in banca. Nessuna operazione eseguita.", ephemeral=True)
-                 return
+            remaining_to_remove = importo
+            new_cash = current_cash
+            new_bank = current_bank
             
+            # Prima rimuovi dai contanti
+            if current_cash > 0:
+                if current_cash >= remaining_to_remove:
+                    # I contanti bastano per coprire tutto
+                    new_cash = current_cash - remaining_to_remove
+                    remaining_to_remove = 0
+                else:
+                    # Prendi tutti i contanti e continua con la banca
+                    remaining_to_remove -= current_cash
+                    new_cash = 0
+            
+            # Poi rimuovi dalla banca se necessario
+            if remaining_to_remove > 0:
+                if current_bank >= remaining_to_remove:
+                    new_bank = current_bank - remaining_to_remove
+                    remaining_to_remove = 0
+                else:
+                    # Prendi tutto dalla banca
+                    remaining_to_remove -= current_bank
+                    new_bank = 0
+            
+            # Calcola quanto effettivamente rimosso
+            total_removed = importo - remaining_to_remove
+            
+            if total_removed == 0:
+                await interaction.followup.send(
+                    f"❌ {utente.mention} non ha soldi da rimuovere!",
+                    ephemeral=True
+                )
+                return
+            
+            # Aggiorna il database
             async with aiosqlite.connect(DATABASE_NAME) as db:
                 await db.execute(
-                    "INSERT INTO users (user_id, cash, bank) VALUES (?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET bank = ?",
-                    (user_id, current_data['cash'], new_bank, new_bank)
+                    "INSERT INTO users (user_id, cash, bank) VALUES (?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET cash = ?, bank = ?",
+                    (user_id, new_cash, new_bank, new_cash, new_bank)
                 )
                 await db.commit()
             
+            # Notifica l'utente
             try:
-                await utente.send(
-                    f"⚠️ Lo staff ha rimosso **${removed_amount:,}** dal tuo conto bancario.\n"
-                    f"**Motivo:** {motivo}\n"
-                    f"Nuovo saldo in banca: **${new_bank:,}**"
-                )
+                dm_message = f"⚠️ Lo staff ha rimosso **${total_removed:,}** dai tuoi fondi.\n**Motivo:** {motivo}\n"
+                if remaining_to_remove > 0:
+                    dm_message += f"\n⚠️ Non avevi abbastanza soldi! Mancavano ${remaining_to_remove:,}"
+                dm_message += f"\nNuovo saldo:\n💵 Contanti: **${new_cash:,}**\n🏦 Banca: **${new_bank:,}**"
+                
+                await utente.send(dm_message)
                 dm_status = "DM inviato."
             except:
                 dm_status = "DM non inviabile."
 
-            await interaction.followup.send(
-                f"✅ Rimossi **${removed_amount:,}** dal conto bancario di {utente.mention}. (Nuovo saldo: ${new_bank:,}). ({dm_status})",
-                ephemeral=True
-            )
+            response_msg = f"✅ Rimossi **${total_removed:,}** da {utente.mention}."
+            if remaining_to_remove > 0:
+                response_msg += f"\n⚠️ L'utente non aveva abbastanza soldi (mancavano ${remaining_to_remove:,})"
+            response_msg += f"\nNuovo saldo: 💵 ${new_cash:,} | 🏦 ${new_bank:,} ({dm_status})"
+            
+            await interaction.followup.send(response_msg, ephemeral=True)
             
             # LOG CON EMBED
             log_embed = discord.Embed(
@@ -626,7 +659,10 @@ def setup_admin_commands(bot: commands.Bot):
             )
             log_embed.add_field(name="Staff", value=interaction.user.mention, inline=True)
             log_embed.add_field(name="Utente", value=utente.mention, inline=True)
-            log_embed.add_field(name="Importo", value=f"${removed_amount:,}", inline=True)
+            log_embed.add_field(name="Importo Richiesto", value=f"${importo:,}", inline=True)
+            log_embed.add_field(name="Importo Rimosso", value=f"${total_removed:,}", inline=True)
+            if remaining_to_remove > 0:
+                log_embed.add_field(name="⚠️ Mancante", value=f"${remaining_to_remove:,}", inline=True)
             log_embed.add_field(name="Motivo", value=motivo, inline=False)
             log_embed.timestamp = discord.utils.utcnow()
             await log_command(bot, LOG_CHANNEL_MONEY_ID, embed=log_embed)

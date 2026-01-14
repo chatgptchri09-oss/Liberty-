@@ -751,7 +751,8 @@ class CommandCategorySelect(discord.ui.Select):
                 "`/slotmachine` - Gioca alla slot machine",
                 "`/smantellaauto` - Smantella un'auto rubata (azione illegale)",
                 "`/utilizza-item` - Utilizza un item dal tuo inventario",
-                "`/vendizaino` - Vendi uno zaino"
+                "`/vendizaino` - Vendi uno zaino",
+                "`/dailibrettoillegale` - Registra un libretto illegale"
             ]
             embed.description += "\n\n" + "\n".join(commands_list)
         

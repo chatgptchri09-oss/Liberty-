@@ -667,7 +667,7 @@ class CommandCategorySelect(discord.ui.Select):
                 "`/rimuovizaino` - Rimuovi lo zaino di un utente",
                 "`/take-item` - Rimuovi un item da un utente",
                 "`/rimuovicertificatomedico` - Rimuovi il certificato medico a un utente",
-                "`/whitelister` - Dai l'esito di una whitelist o di un background PG"
+                "`/whitelister` - Dai l'esito di una whitelist o di un background PG",
                 "`/status-whitelist` - Indica se i servizi whitelist sono offline o online",
                 "`/add-fondocassa` - Aggiungi soldi al fondocassa di un'azienda"
             ]
@@ -693,7 +693,7 @@ class CommandCategorySelect(discord.ui.Select):
                 "`/rimuovilibretto` - Rimuovi il libretto di un veicolo",
                 "`/modulo-arresto` - Compila un modulo di arresto",
                 "`/cercapersona` - Cerca una persona nel database",
-                "`/puliziafedinapenale` - Pulisci la fedina penale di un cittadino"
+                "`/puliziafedinapenale` - Pulisci la fedina penale di un cittadino",
                 "`/denuncia` - Compila una denuncia ufficiale"
             ]
             embed.description += "\n\n" + "\n".join(commands_list)

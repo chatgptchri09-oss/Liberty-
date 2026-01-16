@@ -293,38 +293,179 @@ class FuzzyItemSelect(discord.ui.Select):
 def setup_inventory_commands(bot: commands.Bot):
     
     @bot.tree.command(name="give-item", description="[STAFF] Aggiungi un item all'inventario di un utente.")
-    @app_commands.describe(utente="L'utente a cui dare l'item")
-    async def give_item(interaction: discord.Interaction, utente: discord.Member):
-        if not has_role(interaction, STAFF_ROLE_ID):
-            await interaction.response.send_message(
-                f"❌ Solo lo staff può usare questo comando! (Richiesto: <@&{STAFF_ROLE_ID}>)", 
+@app_commands.describe(
+    utente="L'utente a cui dare l'item",
+    nome="Nome dell'item (anche parziale)",
+    quantita="Quantità da dare (default: 1)"
+)
+async def give_item(interaction: discord.Interaction, utente: discord.Member, nome: str, quantita: int = 1):
+    if not has_role(interaction, STAFF_ROLE_ID):
+        await interaction.response.send_message(
+            f"❌ Solo lo staff può usare questo comando! (Richiesto: <@&{STAFF_ROLE_ID}>)", 
+            ephemeral=True
+        )
+        return
+    
+    if utente.bot:
+        await interaction.response.send_message("❌ Non puoi dare item a un bot.", ephemeral=True)
+        return
+    
+    if quantita <= 0:
+        await interaction.response.send_message("❌ La quantità deve essere maggiore di 0!", ephemeral=True)
+        return
+    
+    await interaction.response.defer(ephemeral=True, thinking=True)
+    
+    try:
+        # Cerca item che contengono il testo cercato
+        nome_ricerca = nome.strip().lower()
+        
+        async with aiosqlite.connect(DATABASE_NAME) as db:
+            async with db.execute("SELECT name FROM items") as cursor:
+                all_items = [row[0] for row in await cursor.fetchall()]
+        
+        if not all_items:
+            await interaction.followup.send("❌ Nessun item disponibile nello shop. Creane uno con `/crea-item`.", ephemeral=True)
+            return
+        
+        # Filtra item che contengono il testo cercato (case insensitive)
+        matched_items = []
+        exact_match = None
+        
+        for item_name in all_items:
+            if nome_ricerca == item_name.lower():
+                exact_match = item_name
+                break
+            elif nome_ricerca in item_name.lower():
+                matched_items.append(item_name)
+        
+        # Se c'è un match esatto, usalo direttamente
+        if exact_match:
+            selected_item = exact_match
+        elif len(matched_items) == 1:
+            # Solo un match parziale, usalo
+            selected_item = matched_items[0]
+        elif len(matched_items) > 1:
+            # Più match, chiedi di scegliere
+            items_list = "\n".join([f"• {item}" for item in matched_items[:10]])
+            await interaction.followup.send(
+                f"🔍 Ho trovato **{len(matched_items)}** item che contengono **'{nome}'**:\n\n{items_list}\n\n"
+                f"❌ Specifica meglio il nome dell'item!",
+                ephemeral=True
+            )
+            return
+        elif not matched_items and not exact_match:
+            # Nessun match
+            await interaction.followup.send(
+                f"❌ Nessun item trovato con **'{nome}'**!\n"
+                f"Usa un nome più preciso o controlla con `/itemshop`.",
+                ephemeral=True
+            )
+            return
+        else:
+            selected_item = matched_items[0]
+        
+        # Verifica che l'utente abbia lo zaino
+        async with aiosqlite.connect(DATABASE_NAME) as db:
+            async with db.execute(
+                "SELECT has_backpack FROM users WHERE user_id = ?",
+                (str(utente.id),)
+            ) as cursor:
+                user_result = await cursor.fetchone()
+        
+        if not user_result or user_result[0] == 0:
+            await interaction.followup.send(
+                f"❌ {utente.mention} non ha uno zaino! Dagliene uno prima.",
                 ephemeral=True
             )
             return
         
-        if utente.bot:
-            await interaction.response.send_message("❌ Non puoi dare item a un bot.", ephemeral=True)
-            return
-
-        await interaction.response.defer(ephemeral=True, thinking=True)
-
+        # Aggiungi l'item allo zaino
         async with aiosqlite.connect(DATABASE_NAME) as db:
-            async with db.execute("SELECT name FROM items") as cursor:
-                item_names = [row[0] for row in await cursor.fetchall()]
-
-        if not item_names:
-            await interaction.followup.send("❌ Nessun item disponibile nello shop. Creane uno con `/crea-item`.", ephemeral=True)
-            return
-            
-        view = discord.ui.View(timeout=300)
-        view.add_item(ItemSelect(bot, utente, item_names))
-
-        await interaction.followup.send(
-            f"🎁 Seleziona l'item da aggiungere allo zaino di **{utente.mention}**:",
-            view=view,
-            ephemeral=True
+            await db.execute(
+                """INSERT INTO inventory (user_id, item_name, quantity) 
+                   VALUES (?, ?, ?) 
+                   ON CONFLICT(user_id, item_name) 
+                   DO UPDATE SET quantity = quantity + excluded.quantity""",
+                (str(utente.id), selected_item, quantita)
+            )
+            await db.commit()
+        
+        # Embed di conferma
+        embed = discord.Embed(
+            title="🎁 ITEM AGGIUNTO",
+            description=f"**{quantita}x {selected_item}** aggiunto allo zaino di {utente.mention}",
+            color=discord.Color.green()
         )
+        embed.add_field(name="👤 Utente", value=utente.mention, inline=True)
+        embed.add_field(name="📦 Item", value=selected_item, inline=True)
+        embed.add_field(name="🔢 Quantità", value=str(quantita), inline=True)
+        embed.add_field(name="👨‍💼 Aggiunto da", value=interaction.user.mention, inline=False)
+        embed.timestamp = discord.utils.utcnow()
+        
+        await interaction.followup.send(embed=embed, ephemeral=True)
+        
+        # Invia DM all'utente
+        try:
+            dm_embed = discord.Embed(
+                title="🎁 HAI RICEVUTO UN ITEM!",
+                description=f"Lo staff ti ha aggiunto **{quantita}x {selected_item}** nel tuo zaino!",
+                color=discord.Color.green()
+            )
+            dm_embed.set_footer(text=f"Aggiunto da {interaction.user.display_name}")
+            await utente.send(embed=dm_embed)
+        except:
+            pass
+        
+        # Log
+        log_embed = discord.Embed(
+            title="📦 LOG GIVE ITEM",
+            color=discord.Color.gold()
+        )
+        log_embed.add_field(name="👨‍💼 Staff", value=interaction.user.mention, inline=True)
+        log_embed.add_field(name="👤 Utente", value=utente.mention, inline=True)
+        log_embed.add_field(name="📦 Item", value=selected_item, inline=True)
+        log_embed.add_field(name="🔢 Quantità", value=str(quantita), inline=True)
+        log_embed.timestamp = discord.utils.utcnow()
+        await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
+        
+    except Exception as e:
+        print(f"Errore in give_item: {e}")
+        await interaction.followup.send(f"❌ Errore: {e}", ephemeral=True)
 
+@give_item.autocomplete('nome')
+async def item_autocomplete(
+    interaction: discord.Interaction,
+    current: str,
+) -> list[app_commands.Choice[str]]:
+    """Autocomplete per la ricerca degli item"""
+    try:
+        async with aiosqlite.connect(DATABASE_NAME) as db:
+            async with db.execute("SELECT name FROM items ORDER BY name") as cursor:
+                all_items = [row[0] for row in await cursor.fetchall()]
+        
+        if not current:
+            # Se non c'è input, mostra i primi 25 item
+            return [
+                app_commands.Choice(name=item, value=item)
+                for item in all_items[:25]
+            ]
+        
+        # Filtra item che contengono il testo cercato (case insensitive)
+        current_lower = current.lower()
+        matched = [
+            item for item in all_items
+            if current_lower in item.lower()
+        ]
+        
+        # Ritorna i primi 25 match
+        return [
+            app_commands.Choice(name=item, value=item)
+            for item in matched[:25]
+        ]
+    except Exception as e:
+        print(f"Errore autocomplete: {e}")
+        return []
     @bot.tree.command(name="take-item", description="[STAFF] Rimuovi un item dall'inventario di un utente.")
     @app_commands.describe(
         utente="L'utente a cui togliere l'item",

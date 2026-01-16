@@ -135,7 +135,7 @@ class MostraProprietaView(discord.ui.View):
         self.user = user
         self.properties = properties
 
-    @discord.ui.button(label="📢 Mostra", style=discord.ButtonStyle.primary, emoji="📢")
+    @discord.ui.button(label="Mostra", style=discord.ButtonStyle.primary, emoji="📢")
     async def mostra_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         # Crea l'embed pubblico
         embed = discord.Embed(

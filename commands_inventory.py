@@ -292,11 +292,13 @@ class FuzzyItemSelect(discord.ui.Select):
 
 def setup_inventory_commands(bot: commands.Bot):
     
-    @bot.tree.command(name="give-item", description="[STAFF] Aggiungi un item all'inventario di un utente.")
-@app_commands.describe(
-    utente="L'utente a cui dare l'item",
-    nome="Nome dell'item (anche parziale)",
-    quantita="Quantità da dare (default: 1)"
+    @bot.tree.command(name="give-item", description="...")
+    @app_commands.describe(  # ← ORA È INDENTATO CORRETTAMENTE
+        utente="L'utente a cui dare l'item",
+        nome="nome dell'item (anche parziale)",
+        quantita="quantità dell'item (default=1)"
+    )
+    async def give_item(...):
 )
 async def give_item(interaction: discord.Interaction, utente: discord.Member, nome: str, quantita: int = 1):
     if not has_role(interaction, STAFF_ROLE_ID):

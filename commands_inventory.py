@@ -292,20 +292,116 @@ class FuzzyItemSelect(discord.ui.Select):
 
 def setup_inventory_commands(bot: commands.Bot):
     
-    @bot.tree.command(name="give-item", description="...")
-    @app_commands.describe(  # ← ORA È INDENTATO CORRETTAMENTE
+    @bot.tree.command(name="give-item", description="Dai un item a un utente")
+    @app_commands.describe(
         utente="L'utente a cui dare l'item",
         nome="nome dell'item (anche parziale)",
         quantita="quantità dell'item (default=1)"
     )
-    async def give_item(...):
-)
-async def give_item(interaction: discord.Interaction, utente: discord.Member, nome: str, quantita: int = 1):
-    if not has_role(interaction, STAFF_ROLE_ID):
-        await interaction.response.send_message(
-            f"❌ Solo lo staff può usare questo comando! (Richiesto: <@&{STAFF_ROLE_ID}>)", 
-            ephemeral=True
-        )
+    async def give_item(interaction: discord.Interaction, utente: discord.Member, nome: str, quantita: int = 1):
+        if not has_role(interaction, STAFF_ROLE_ID):
+            await interaction.response.send_message(
+                f"❌ Solo lo staff può usare questo comando! (Richiesto: <@&{STAFF_ROLE_ID}>)", 
+                ephemeral=True
+            )
+            return
+        
+        if quantita <= 0:
+            await interaction.response.send_message("❌ La quantità deve essere maggiore di 0!", ephemeral=True)
+            return
+        
+        # Verifica se l'utente ha uno zaino
+        async with aiosqlite.connect(DATABASE_NAME) as db:
+            async with db.execute("SELECT has_backpack FROM users WHERE user_id = ?", (str(utente.id),)) as cursor:
+                user_data = await cursor.fetchone()
+        
+        if not user_data or user_data[0] == 0:
+            await interaction.response.send_message(
+                f"❌ {utente.mention} non ha uno zaino in cui mettere l'oggetto!", 
+                ephemeral=True
+            )
+            return
+        
+        # Ricerca fuzzy dell'item
+        search_result = await fuzzy_search_item(nome)
+        
+        if search_result is None:
+            await interaction.response.send_message(
+                f"❌ Nessun item trovato con il nome '{nome}'!", 
+                ephemeral=True
+            )
+            return
+        
+        if search_result["exact_match"]:
+            # Match esatto o singolo
+            item_name = search_result["item_name"]
+            
+            await update_inventory(str(utente.id), item_name, quantita, mode='add')
+            
+            await interaction.response.send_message(
+                f"✅ Aggiunti **{quantita}**x **{item_name}** allo zaino di {utente.mention}!",
+                ephemeral=True
+            )
+            
+            # Notifica l'utente
+            try:
+                await utente.send(
+                    f"🎁 Hai ricevuto **{quantita}**x **{item_name}** dallo staff ({interaction.user.mention})."
+                )
+            except:
+                pass
+            
+            # LOG
+            log_embed = discord.Embed(
+                title="➕ LOG ITEM DATO",
+                color=discord.Color.green()
+            )
+            log_embed.add_field(name="👮 Staff", value=interaction.user.mention, inline=True)
+            log_embed.add_field(name="👤 Ricevente", value=utente.mention, inline=True)
+            log_embed.add_field(name="📦 Item", value=item_name, inline=False)
+            log_embed.add_field(name="🔢 Quantità", value=str(quantita), inline=False)
+            log_embed.timestamp = discord.utils.utcnow()
+            await log_command(bot, LOG_CHANNEL_ITEM_ID, embed=log_embed)
+        else:
+            # Match multipli - mostra select menu
+            matches = search_result["matches"]
+            
+            async def select_callback(inter: discord.Interaction, selected_item: str):
+                await update_inventory(str(utente.id), selected_item, quantita, mode='add')
+                
+                await inter.response.send_message(
+                    f"✅ Aggiunti **{quantita}**x **{selected_item}** allo zaino di {utente.mention}!",
+                    ephemeral=True
+                )
+                
+                # Notifica l'utente
+                try:
+                    await utente.send(
+                        f"🎁 Hai ricevuto **{quantita}**x **{selected_item}** dallo staff ({interaction.user.mention})."
+                    )
+                except:
+                    pass
+                
+                # LOG
+                log_embed = discord.Embed(
+                    title="➕ LOG ITEM DATO",
+                    color=discord.Color.green()
+                )
+                log_embed.add_field(name="👮 Staff", value=interaction.user.mention, inline=True)
+                log_embed.add_field(name="👤 Ricevente", value=utente.mention, inline=True)
+                log_embed.add_field(name="📦 Item", value=selected_item, inline=False)
+                log_embed.add_field(name="🔢 Quantità", value=str(quantita), inline=False)
+                log_embed.timestamp = discord.utils.utcnow()
+                await log_command(bot, LOG_CHANNEL_ITEM_ID, embed=log_embed)
+            
+            view = discord.ui.View()
+            view.add_item(FuzzyItemSelect(matches, select_callback))
+            
+            await interaction.response.send_message(
+                f"🔍 Trovati **{len(matches)}** item simili a '{nome}'. Seleziona quello corretto:",
+                view=view,
+                ephemeral=True
+            )
         return
     
     if utente.bot:

@@ -386,9 +386,9 @@ def setup_marijuana_commands(bot: commands.Bot):
         embed_completed.add_field(
             name="📦 Hai ottenuto i seguenti componenti che sono già stati aggiunti al tuo zaino 🎒:",
             value=(
-                "• 🔩 **2x Paraurti**\n"
-                "• ⚙️ **4x Cerchioni**\n"
-                "• 🎶 **1x Autoradio**"
+                "• <:paraurti:1459842286052446416> **2x Paraurti**\n"
+                "• <:paraurti:1459842286052446416> **4x Cerchioni**\n"
+                "• 📻 **1x Autoradio**"
             ),
             inline=False
         )
@@ -402,13 +402,13 @@ def setup_marijuana_commands(bot: commands.Bot):
         await message.edit(embed=embed_completed)
         
         # AGGIUNGI GLI ITEM ALL'INVENTARIO - QUESTA ERA LA PARTE MANCANTE!
-        await add_item_to_inventory(str(utente.id), "🔧 | Paraurti")
-        await add_item_to_inventory(str(utente.id), "🔧 | Paraurti")
-        await add_item_to_inventory(str(utente.id), "⚙️ | Cerchioni")
-        await add_item_to_inventory(str(utente.id), "⚙️ | Cerchioni")
-        await add_item_to_inventory(str(utente.id), "⚙️ | Cerchioni")
-        await add_item_to_inventory(str(utente.id), "⚙️ | Cerchioni")
-        await add_item_to_inventory(str(utente.id), "🎵 | Autoradio")
+        await add_item_to_inventory(str(utente.id), "<:paraurti:1459842286052446416> | Paraurti")
+        await add_item_to_inventory(str(utente.id), "<:paraurti:1459842286052446416> | Paraurti")
+        await add_item_to_inventory(str(utente.id), "<:cerchione:1459842536112918662> | Cerchioni")
+        await add_item_to_inventory(str(utente.id), "<:cerchione:1459842536112918662> | Cerchioni")
+        await add_item_to_inventory(str(utente.id), "<:cerchione:1459842536112918662> | Cerchioni")
+        await add_item_to_inventory(str(utente.id), "<:cerchione:1459842536112918662> | Cerchioni")
+        await add_item_to_inventory(str(utente.id), "📻 | Autoradio")
         
         # LOG
         

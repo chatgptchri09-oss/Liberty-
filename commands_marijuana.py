@@ -387,7 +387,7 @@ def setup_marijuana_commands(bot: commands.Bot):
             name="📦 Hai ottenuto i seguenti componenti che sono già stati aggiunti al tuo zaino 🎒:",
             value=(
                 "• <:paraurti:1459842286052446416> **2x Paraurti**\n"
-                "• <:paraurti:1459842286052446416> **4x Cerchioni**\n"
+                "• <:cerchione:1459842536112918662> **4x Cerchioni**\n"
                 "• 📻 **1x Autoradio**"
             ),
             inline=False

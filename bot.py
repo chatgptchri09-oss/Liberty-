@@ -10,7 +10,7 @@ import aiosqlite
 from discord.ui import Modal, TextInput, View, Button 
 import sys
 import backup
-
+import aiohttp
 
 # FORZA IL FLUSH DEI LOG SUBITO
 sys.stdout.reconfigure(line_buffering=True)
@@ -110,6 +110,61 @@ async def log_command(channel_id: int, message: str = None, embed: discord.Embed
     except:
         pass
 
+# ====================
+# FUNZIONE RIPRISTINO BACKUP DA GITHUB
+# ====================
+
+async def restore_latest_backup():
+    """Scarica e ripristina l'ultimo backup da GitHub all'avvio del bot"""
+    GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+    BACKUP_REPO = os.getenv("BACKUP_REPO", "TUO_USERNAME/liberty-backups")  # Es: "marco123/liberty-backups"
+    API_URL = f"https://api.github.com/repos/{BACKUP_REPO}/contents/backups"
+    
+    if not GITHUB_TOKEN:
+        print("⚠️ GITHUB_TOKEN non trovato, skip ripristino backup", flush=True)
+        return
+    
+    try:
+        print("🔍 Cerco l'ultimo backup su GitHub...", flush=True)
+        
+        headers = {
+            "Authorization": f"token {GITHUB_TOKEN}",
+            "Accept": "application/vnd.github.v3+json"
+        }
+        
+        async with aiohttp.ClientSession() as session:
+            async with session.get(API_URL, headers=headers) as resp:
+                if resp.status != 200:
+                    print(f"❌ Errore GitHub API: {resp.status}", flush=True)
+                    return
+                
+                files = await resp.json()
+                backup_files = [f for f in files if f["name"].endswith(".db")]
+                
+                if not backup_files:
+                    print("⚠️ Nessun backup trovato su GitHub", flush=True)
+                    return
+                
+                latest_backup = sorted(backup_files, key=lambda x: x["name"])[-1]
+                backup_name = latest_backup["name"]
+                download_url = latest_backup["download_url"]
+                
+                print(f"📥 Scarico backup: {backup_name}", flush=True)
+                
+                async with session.get(download_url, headers=headers) as download_resp:
+                    if download_resp.status == 200:
+                        content = await download_resp.read()
+                        
+                        with open("economy_bot.db", "wb") as f:
+                            f.write(content)
+                        
+                        print(f"✅ Database ripristinato da: {backup_name}", flush=True)
+                    else:
+                        print(f"❌ Errore download: {download_resp.status}", flush=True)
+    
+    except Exception as e:
+        print(f"❌ Errore ripristino backup: {e}", flush=True)
+
 print("✅ Funzioni di supporto definite", flush=True)
 
 # ====================
@@ -127,7 +182,6 @@ def create_bancomat_embed(user: dict, user_mention: str, discord_user: discord.M
     embed.add_field(name="💳 𝐁𝐀𝐍𝐂𝐀", value=f"${user['bank']:,}", inline=False)
     embed.add_field(name="💰 𝐓𝐎𝐓𝐀𝐋𝐄", value=f"${user['cash'] + user['bank']:,}", inline=False)
     
-    # Aggiungi la foto profilo come thumbnail
     if discord_user:
         embed.set_thumbnail(url=discord_user.display_avatar.url)
     
@@ -235,7 +289,13 @@ async def on_ready():
     print(f"✅ Logged in as {bot.user}", flush=True)
     print(f"✅ Bot ID: {bot.user.id}", flush=True)
     print(f"✅ Bot online su {len(bot.guilds)} server", flush=True)
+    
+    # ✅ RIPRISTINA IL DATABASE PRIMA DI TUTTO
+    await restore_latest_backup()
+    
+    # Poi inizializza il database (creerà solo le tabelle mancanti)
     await database.init_db()
+    
     try:
         await setup_marijuana_database()
     except:
@@ -609,6 +669,8 @@ async def controlla_bancomat(interaction: discord.Interaction, utente: discord.M
     except Exception as e:
         print(f"Errore in /controlla-bancomat: {e}", flush=True)
         await interaction.followup.send("❌ Si è verificato un errore nel controllo del bancomat.", ephemeral=True)
+
+
 
 # ====================
 # SISTEMA LISTA COMANDI CON SELECT MENU

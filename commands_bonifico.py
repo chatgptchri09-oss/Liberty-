@@ -7,6 +7,12 @@ import database
 DATABASE_NAME = "economy_bot.db"
 LOG_CHANNEL_ID = 1415297578022604850
 LOG_CHANNEL_MONEY_ID = 1459209240450433094
+CHIAVE_ROLE_ID = 1414735564632231988
+
+def has_role(interaction: discord.Interaction, role_id: int) -> bool:
+    if not isinstance(interaction.user, discord.Member):
+        return False
+    return any(role.id == role_id for role in interaction.user.roles)
 
 async def log_command(bot, channel_id: int, message: str = None, embed: discord.Embed = None):
     try:
@@ -126,3 +132,59 @@ def setup_bonifico_commands(bot: commands.Bot):
                 f"❌ Si è verificato un errore critico durante il bonifico. Controlla il log del bot per i dettagli.",
                 ephemeral=True
             )
+
+    @bot.tree.command(name="wipe-item", description="[CHIAVE] Elimina tutti gli item e zaini dal sistema")
+    async def wipe_item(interaction: discord.Interaction):
+        if not has_role(interaction, CHIAVE_ROLE_ID):
+            await interaction.response.send_message(
+                f"❌ Solo i creatori del server possono usare questo comando! (Richiesto: <@&{CHIAVE_ROLE_ID}>)", 
+                ephemeral=True
+            )
+            return
+        
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        
+        try:
+            async with aiosqlite.connect(DATABASE_NAME) as db:
+                # Conta quanti utenti hanno zaini e item prima di eliminarli
+                async with db.execute("SELECT COUNT(*) FROM users WHERE has_backpack = 1") as cursor:
+                    backpack_count = (await cursor.fetchone())[0]
+                
+                async with db.execute("SELECT COUNT(DISTINCT user_id) FROM inventory") as cursor:
+                    users_with_items = (await cursor.fetchone())[0]
+                
+                async with db.execute("SELECT COUNT(*) FROM inventory") as cursor:
+                    total_items = (await cursor.fetchone())[0]
+                
+                # Elimina tutti gli item dall'inventario
+                await db.execute("DELETE FROM inventory")
+                
+                # Rimuove tutti gli zaini
+                await db.execute("UPDATE users SET has_backpack = 0")
+                
+                await db.commit()
+            
+            await interaction.followup.send(
+                f"✅ **WIPE COMPLETATO!**\n\n"
+                f"📦 **{total_items}** item eliminati\n"
+                f"👥 **{users_with_items}** utenti avevano item\n"
+                f"🎒 **{backpack_count}** zaini rimossi\n\n"
+                f"Tutti gli inventari sono stati azzerati!",
+                ephemeral=True
+            )
+            
+            # LOG
+            log_embed = discord.Embed(
+                title="🗑️ LOG WIPE ITEM GLOBALE",
+                color=discord.Color.dark_red()
+            )
+            log_embed.add_field(name="👮 Eseguito da", value=interaction.user.mention, inline=False)
+            log_embed.add_field(name="📦 Item eliminati", value=str(total_items), inline=True)
+            log_embed.add_field(name="👥 Utenti coinvolti", value=str(users_with_items), inline=True)
+            log_embed.add_field(name="🎒 Zaini rimossi", value=str(backpack_count), inline=True)
+            log_embed.timestamp = discord.utils.utcnow()
+            await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
+            
+        except Exception as e:
+            print(f"Errore in /wipe-item: {e}")
+            await interaction.followup.send(f"❌ Errore durante il wipe: {e}", ephemeral=True)

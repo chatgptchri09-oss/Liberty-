@@ -731,7 +731,8 @@ class CommandCategorySelect(discord.ui.Select):
                 "`/rimuovicertificatomedico` - Rimuovi il certificato medico a un utente",
                 "`/whitelister` - Dai l'esito di una whitelist o di un background PG",
                 "`/status-whitelist` - Indica se i servizi whitelist sono offline o online",
-                "`/add-fondocassa` - Aggiungi soldi al fondocassa di un'azienda"
+                "`/add-fondocassa` - Aggiungi soldi al fondocassa di un'azienda",
+                "`/wipe-item` - Rimuovi a tutti gli utenti i propri item e gli zaini"
             ]
             embed.description += "\n\n" + "\n".join(commands_list)
             

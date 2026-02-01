@@ -97,7 +97,7 @@ def setup_bando_commands(bot: commands.Bot):
                 description="> ✨<a:casomaiconflecia:1434244328448069642> Lo staff annuncia che le candidature per questo bando sono **UFFICIALMENTE APERTE**!",
                 color=discord.Color.green()
             )
-            embed.set_image(url="https://i.postimg.cc/Bb5YFbFX/D724D07D-3D34-45E5-916C-4F28A23995DE.png")
+            embed.set_image(url="https://i.postimg.cc/NMJZM51B/IMG-5044.png")
             
             await interaction.response.send_message(embed=embed)
             
@@ -109,7 +109,7 @@ def setup_bando_commands(bot: commands.Bot):
                 description="> 🔒<a:casomaiconflecia:1434244328448069642> Lo staff annuncia che le candidature per questo bando sono **UFFICIALMENTE CHIUSE**!",
                 color=discord.Color.red()
             )
-            embed.set_image(url="https://i.postimg.cc/NMJZM51B/IMG-5044.png")
+            embed.set_image(url="https://i.postimg.cc/Bb5YFbFX/D724D07D-3D34-45E5-916C-4F28A23995DE.png")
             
             await interaction.response.send_message(embed=embed)
             

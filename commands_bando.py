@@ -97,7 +97,7 @@ def setup_bando_commands(bot: commands.Bot):
                 description="> ✨<a:casomaiconflecia:1434244328448069642> Lo staff annuncia che le candidature per questo bando sono **UFFICIALMENTE APERTE**!",
                 color=discord.Color.green()
             )
-            embed.set_image(url="https://cdn.discordapp.com/attachments/1235599658928308264/1250595402474848417/BandoAperto.png")
+            embed.set_image(url="https://i.postimg.cc/Bb5YFbFX/D724D07D-3D34-45E5-916C-4F28A23995DE.png")
             
             await interaction.response.send_message(embed=embed)
             
@@ -109,7 +109,7 @@ def setup_bando_commands(bot: commands.Bot):
                 description="> 🔒<a:casomaiconflecia:1434244328448069642> Lo staff annuncia che le candidature per questo bando sono **UFFICIALMENTE CHIUSE**!",
                 color=discord.Color.red()
             )
-            embed.set_image(url="https://cdn.discordapp.com/attachments/1235599658928308264/1250595402223452160/BandoChiuso.png")
+            embed.set_image(url="https://i.postimg.cc/NMJZM51B/IMG-5044.png")
             
             await interaction.response.send_message(embed=embed)
             
@@ -224,7 +224,7 @@ def setup_bando_commands(bot: commands.Bot):
                 description="> **Prima** di affrontare la whitelist si consiglia di leggere bene il **regolamento** <:regolamento:1459626703411478560>",
                 color=discord.Color.green()
             )
-            embed.set_image(url="https://i.postimg.cc/Dwj9WDf4/Whitelist-On.gif")
+            embed.set_image(url="https://i.postimg.cc/ZRJtDGLh/IMG-5059.gif")
             
             if server_icon:
                 embed.set_thumbnail(url=server_icon)
@@ -240,7 +240,7 @@ def setup_bando_commands(bot: commands.Bot):
                 ),
                 color=discord.Color.red()
             )
-            embed.set_image(url="https://i.postimg.cc/QNY1yJMR/Whitelist-Off.gif")
+            embed.set_image(url="https://i.postimg.cc/xCmJtbt2/IMG-5056.gif")
             
             if server_icon:
                 embed.set_thumbnail(url=server_icon)

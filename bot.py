@@ -32,7 +32,7 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 print("✅ Bot inizializzato", flush=True)
 
 # ====================
-# VARIABILI GLOBALI PER RATE LIMIT PROTECTION
+# VARIABILI GLOBALI
 # ====================
 last_sync_time = 0
 SYNC_COOLDOWN = 3600  # 1 ora in secondi
@@ -118,7 +118,7 @@ async def log_command(channel_id: int, message: str = None, embed: discord.Embed
         pass
 
 # ====================
-# FUNZIONE RIPRISTINO BACKUP DA GITHUB
+# FUNZIONE RIPRISTINO BACKUP DA GITHUB (CON GESTIONE CORRETTA CONNESSIONI)
 # ====================
 
 async def restore_latest_backup():
@@ -131,6 +131,9 @@ async def restore_latest_backup():
         print("⚠️ GITHUB_TOKEN non trovato, skip ripristino backup", flush=True)
         return
     
+    connector = None
+    session = None
+    
     try:
         print("🔍 Cerco l'ultimo backup su GitHub...", flush=True)
         
@@ -139,7 +142,15 @@ async def restore_latest_backup():
             "Accept": "application/vnd.github.v3+json"
         }
         
-        async with aiohttp.ClientSession() as session:
+        # Configurazione timeout e connector per gestire correttamente le connessioni
+        timeout = aiohttp.ClientTimeout(total=30, connect=10)
+        connector = aiohttp.TCPConnector(limit=5, limit_per_host=5, force_close=True)
+        
+        async with aiohttp.ClientSession(
+            timeout=timeout, 
+            connector=connector,
+            connector_owner=True  # La sessione chiuderà il connector
+        ) as session:
             async with session.get(API_URL, headers=headers) as resp:
                 if resp.status != 200:
                     print(f"❌ Errore GitHub API: {resp.status}", flush=True)
@@ -168,7 +179,14 @@ async def restore_latest_backup():
                         print(f"✅ Database ripristinato da: {backup_name}", flush=True)
                     else:
                         print(f"❌ Errore download: {download_resp.status}", flush=True)
+        
+        # Piccola pausa per assicurarsi che tutto sia chiuso
+        await asyncio.sleep(0.5)
     
+    except asyncio.TimeoutError:
+        print("❌ Timeout durante il ripristino backup (30s)", flush=True)
+    except aiohttp.ClientError as e:
+        print(f"❌ Errore connessione durante ripristino: {e}", flush=True)
     except Exception as e:
         print(f"❌ Errore ripristino backup: {e}", flush=True)
 
@@ -297,7 +315,10 @@ async def on_ready():
     print(f"✅ Bot ID: {bot.user.id}", flush=True)
     print(f"✅ Bot online su {len(bot.guilds)} server", flush=True)
     
+    # Ripristino backup
     await restore_latest_backup()
+    
+    # Inizializza database
     await database.init_db()
     
     try:
@@ -305,9 +326,7 @@ async def on_ready():
     except:
         print("⚠️ Setup marijuana database fallito", flush=True)
     
-    # ❌ NON SINCRONIZZARE AUTOMATICAMENTE (per evitare rate limit)
-    print("ℹ️ Sincronizzazione automatica DISABILITATA per evitare rate limit", flush=True)
-    print("ℹ️ Usa il comando /sync manualmente quando necessario", flush=True)
+    print("ℹ️ Bot pronto! Usa /sync manualmente se necessario (max 1 volta all'ora)", flush=True)
 
 print("✅ Event handlers registrati", flush=True)
 
@@ -624,7 +643,7 @@ async def sync(interaction: discord.Interaction):
         )
         return
     
-    # Controlla il cooldown
+    # Controllo cooldown
     current_time = time.time()
     time_since_last_sync = current_time - last_sync_time
     
@@ -652,6 +671,8 @@ async def sync(interaction: discord.Interaction):
             f"⏰ Prossima sincronizzazione disponibile tra **1 ora**.",
             ephemeral=True
         )
+        
+        print(f"✅ Comandi sincronizzati da {interaction.user} ({len(synced)} comandi)", flush=True)
     except discord.HTTPException as e:
         if e.status == 429:
             await interaction.followup.send(

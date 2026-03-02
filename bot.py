@@ -11,6 +11,7 @@ from discord.ui import Modal, TextInput, View, Button
 import sys
 import backup
 import aiohttp
+import time
 
 # FORZA IL FLUSH DEI LOG SUBITO
 sys.stdout.reconfigure(line_buffering=True)
@@ -29,6 +30,12 @@ intents.guilds = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 print("✅ Bot inizializzato", flush=True)
+
+# ====================
+# VARIABILI GLOBALI PER RATE LIMIT PROTECTION
+# ====================
+last_sync_time = 0
+SYNC_COOLDOWN = 3600  # 1 ora in secondi
 
 # ====================
 # COSTANTI
@@ -117,7 +124,7 @@ async def log_command(channel_id: int, message: str = None, embed: discord.Embed
 async def restore_latest_backup():
     """Scarica e ripristina l'ultimo backup da GitHub all'avvio del bot"""
     GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
-    BACKUP_REPO = os.getenv("BACKUP_REPO", "TUO_USERNAME/liberty-backups")  # Es: "marco123/liberty-backups"
+    BACKUP_REPO = os.getenv("BACKUP_REPO", "TUO_USERNAME/liberty-backups")
     API_URL = f"https://api.github.com/repos/{BACKUP_REPO}/contents/backups"
     
     if not GITHUB_TOKEN:
@@ -298,13 +305,9 @@ async def on_ready():
     except:
         print("⚠️ Setup marijuana database fallito", flush=True)
     
-    # ❌ COMMENTA QUESTA PARTE PER EVITARE RATE LIMIT
-    # try:
-    #     print("🔄 Sincronizzazione comandi in corso...", flush=True)
-    #     synced = await bot.tree.sync()
-    #     print(f"✅ {len(synced)} comandi sincronizzati!", flush=True)
-    # except Exception as e:
-    #     print(f"❌ Errore sincronizzazione: {e}", flush=True)
+    # ❌ NON SINCRONIZZARE AUTOMATICAMENTE (per evitare rate limit)
+    print("ℹ️ Sincronizzazione automatica DISABILITATA per evitare rate limit", flush=True)
+    print("ℹ️ Usa il comando /sync manualmente quando necessario", flush=True)
 
 print("✅ Event handlers registrati", flush=True)
 
@@ -612,13 +615,53 @@ async def bancomat(interaction: discord.Interaction):
 
 @bot.tree.command(name="sync", description="[STAFF] Sincronizza i comandi")
 async def sync(interaction: discord.Interaction):
+    global last_sync_time
+    
     if not has_role(interaction, CHIAVE_ROLE_ID):
-        await interaction.response.send_message("❌ Solo i due creatori del server possono usare questo comando!", ephemeral=True)
+        await interaction.response.send_message(
+            "❌ Solo i creatori del server possono usare questo comando!", 
+            ephemeral=True
+        )
+        return
+    
+    # Controlla il cooldown
+    current_time = time.time()
+    time_since_last_sync = current_time - last_sync_time
+    
+    if time_since_last_sync < SYNC_COOLDOWN:
+        remaining_time = int(SYNC_COOLDOWN - time_since_last_sync)
+        minutes = remaining_time // 60
+        seconds = remaining_time % 60
+        await interaction.response.send_message(
+            f"⏰ **COOLDOWN ATTIVO!**\n\n"
+            f"Devi aspettare ancora **{minutes}m {seconds}s** prima di sincronizzare di nuovo!\n\n"
+            f"_Questo limite esiste per evitare il rate limit da Discord._",
+            ephemeral=True
+        )
         return
     
     await interaction.response.defer(ephemeral=True)
-    synced = await bot.tree.sync()
-    await interaction.followup.send(f"✅ Sincronizzati {len(synced)} comandi!\nPer vederli, ricarica Discord (Ctrl+R o Cmd+R).", ephemeral=True)
+    
+    try:
+        synced = await bot.tree.sync()
+        last_sync_time = time.time()
+        
+        await interaction.followup.send(
+            f"✅ **Sincronizzati {len(synced)} comandi!**\n\n"
+            f"🔄 Ricarica Discord (Ctrl+R o Cmd+R) per vederli.\n\n"
+            f"⏰ Prossima sincronizzazione disponibile tra **1 ora**.",
+            ephemeral=True
+        )
+    except discord.HTTPException as e:
+        if e.status == 429:
+            await interaction.followup.send(
+                f"❌ **RATE LIMITED!**\n\n"
+                f"Discord ha bloccato temporaneamente le sincronizzazioni.\n"
+                f"Aspetta almeno **1-2 ore** prima di riprovare!",
+                ephemeral=True
+            )
+        else:
+            await interaction.followup.send(f"❌ Errore: {e}", ephemeral=True)
 
 @bot.tree.command(name="controlla-bancomat", description="Visualizza il saldo del bancomat di un altro utente e invia una notifica.")
 @app_commands.describe(utente="L'utente di cui controllare il bancomat")
@@ -674,8 +717,6 @@ async def controlla_bancomat(interaction: discord.Interaction, utente: discord.M
     except Exception as e:
         print(f"Errore in /controlla-bancomat: {e}", flush=True)
         await interaction.followup.send("❌ Si è verificato un errore nel controllo del bancomat.", ephemeral=True)
-
-
 
 # ====================
 # SISTEMA LISTA COMANDI CON SELECT MENU
@@ -779,7 +820,7 @@ class CommandCategorySelect(discord.ui.Select):
                 "`/fattura` - Emetti una fattura per un servizio",
                 "`/pagafattura` - Paga una fattura ricevuta",
                 "`/pagamulta` - Paga una multa ricevuta",
-                "`/portafoglio` - Visualizza il tuo portafoglio con tutti i tuoi beni"
+                "`/portafoglio` - Visualizza il tuo portafoglio con tutti i tuoi beni",
                 "`/fondocassa` - Visualizza il fondo cassa di un'azienda per cui lavori"
             ]
             embed.description += "\n\n" + "\n".join(commands_list)
@@ -826,7 +867,6 @@ class CommandCategorySelect(discord.ui.Select):
         
         embed.set_footer(text="Usa il menu a tendina per cambiare categoria")
         
-        # Mantieni il menu a tendina nella risposta
         view = CommandCategoryView()
         await interaction.response.edit_message(embed=embed, view=view)
 
@@ -888,13 +928,11 @@ async def main():
         
         print("🔄 Connessione a Discord in corso...", flush=True)
         
-        # ✅ AGGIUNGI QUESTA RIGA QUI:
         asyncio.create_task(backup.backup_database())
         print("✅ Sistema di backup automatico attivato", flush=True)
         
         await bot.start(TOKEN)
         
-            
     except discord.LoginFailure:
         print("❌ ERRORE: Token Discord non valido!", flush=True)
         print("❌ Vai su https://discord.com/developers/applications", flush=True)

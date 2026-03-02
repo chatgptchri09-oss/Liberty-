@@ -290,16 +290,21 @@ async def on_ready():
     print(f"✅ Bot ID: {bot.user.id}", flush=True)
     print(f"✅ Bot online su {len(bot.guilds)} server", flush=True)
     
-    # ✅ RIPRISTINA IL DATABASE PRIMA DI TUTTO
     await restore_latest_backup()
-    
-    # Poi inizializza il database (creerà solo le tabelle mancanti)
     await database.init_db()
     
     try:
         await setup_marijuana_database()
     except:
-        print("⚠️ Setup marijuana database fallito (potrebbero mancare i moduli)", flush=True)
+        print("⚠️ Setup marijuana database fallito", flush=True)
+    
+    # ❌ COMMENTA QUESTA PARTE PER EVITARE RATE LIMIT
+    # try:
+    #     print("🔄 Sincronizzazione comandi in corso...", flush=True)
+    #     synced = await bot.tree.sync()
+    #     print(f"✅ {len(synced)} comandi sincronizzati!", flush=True)
+    # except Exception as e:
+    #     print(f"❌ Errore sincronizzazione: {e}", flush=True)
 
 print("✅ Event handlers registrati", flush=True)
 

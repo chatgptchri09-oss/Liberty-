@@ -1,72 +1,76 @@
 import asyncio
 import os
-from datetime import datetime
 import base64
 import aiohttp
+import sys
+from datetime import datetime
 
-GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
-GITHUB_REPO = "chatgptchri09-oss/liberty-bot-backups"  # ⚠️ CAMBIA CON IL TUO USERNAME!
+sys.stdout.reconfigure(line_buffering=True)
+
 DATABASE_NAME = "economy_bot.db"
+BACKUP_INTERVAL = 6 * 3600  # 6 ore in secondi
+
 
 async def backup_database():
-    """Esegue backup automatico ogni 6 ore"""
-    
-    if not GITHUB_TOKEN:
-        print("⚠️ GITHUB_TOKEN non trovato! Backup disabilitato.", flush=True)
-        return
-    
+    """Loop infinito che esegue il backup del database su GitHub ogni 6 ore."""
+    print("🔄 Sistema di backup avviato (ogni 6 ore)", flush=True)
+
     while True:
-        try:
-            print(f"📦 Avvio backup del database...", flush=True)
-            
-            # Verifica che il file esista
-            if not os.path.exists(DATABASE_NAME):
-                print(f"⚠️ Database {DATABASE_NAME} non trovato. Riprovo tra 1 ora.", flush=True)
-                await asyncio.sleep(60 * 60)
-                continue
-            
-            # Leggi il database
-            with open(DATABASE_NAME, 'rb') as f:
-                db_data = f.read()
-            
-            # Converti in base64 (formato richiesto da GitHub)
-            db_b64 = base64.b64encode(db_data).decode('utf-8')
-            
-            # Crea nome file con timestamp
-            timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-            filename = f"backups/backup_{timestamp}.db"
-            
-            # Upload su GitHub
-            url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{filename}"
-            headers = {
-                "Authorization": f"token {GITHUB_TOKEN}",
-                "Accept": "application/vnd.github.v3+json"
-            }
-            data = {
-                "message": f"Backup automatico {timestamp}",
-                "content": db_b64
-            }
-            
-            async with aiohttp.ClientSession() as session:
-                async with session.put(url, json=data, headers=headers) as resp:
-                    if resp.status == 201:
-                        print(f"✅ Backup salvato con successo: {filename}", flush=True)
-                    elif resp.status == 422:
-                        print(f"⚠️ Backup già esistente o errore formato", flush=True)
-                    else:
-                        error_text = await resp.text()
-                        print(f"❌ Errore backup (status {resp.status}): {error_text[:200]}", flush=True)
-            
-            # Attendi 6 ore prima del prossimo backup
-            print(f"⏰ Prossimo backup tra 6 ore", flush=True)
-            await asyncio.sleep(6 * 60 * 60)
-            
-        except FileNotFoundError:
-            print(f"⚠️ File {DATABASE_NAME} non trovato. Riprovo tra 1 ora.", flush=True)
-            await asyncio.sleep(60 * 60)
-        except Exception as e:
-            print(f"❌ Errore durante il backup: {e}", flush=True)
-            import traceback
-            traceback.print_exc()
-            # In caso di errore, riprova tra 1 ora
-            await asyncio.sleep(60 * 60)
+        await asyncio.sleep(BACKUP_INTERVAL)
+        await _push_backup()
+
+
+async def _push_backup():
+    """Esegue il backup del file .db su GitHub tramite API."""
+    github_token = os.getenv("GITHUB_TOKEN")
+    github_repo  = os.getenv("GITHUB_REPO")   # formato: "utente/nome-repo"
+
+    if not github_token or not github_repo:
+        print("⚠️ Backup saltato: GITHUB_TOKEN o GITHUB_REPO non configurati.", flush=True)
+        return
+
+    if not os.path.exists(DATABASE_NAME):
+        print(f"⚠️ Backup saltato: file '{DATABASE_NAME}' non trovato.", flush=True)
+        return
+
+    # Leggi e codifica il database in base64
+    with open(DATABASE_NAME, "rb") as f:
+        content_b64 = base64.b64encode(f.read()).decode("utf-8")
+
+    timestamp   = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+    remote_path = f"backups/{DATABASE_NAME}"
+    api_url     = f"https://api.github.com/repos/{github_repo}/contents/{remote_path}"
+
+    headers = {
+        "Authorization": f"token {github_token}",
+        "Accept": "application/vnd.github+json"
+    }
+
+    async with aiohttp.ClientSession() as session:
+
+        # Recupera il SHA del file esistente (necessario per aggiornarlo)
+        sha = None
+        async with session.get(api_url, headers=headers) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                sha = data.get("sha")
+            elif resp.status not in (404,):
+                text = await resp.text()
+                print(f"❌ Backup: errore nel recupero SHA ({resp.status}): {text}", flush=True)
+                return
+
+        # Payload per la creazione/aggiornamento del file
+        payload = {
+            "message": f"🔄 Backup automatico database — {timestamp}",
+            "content": content_b64,
+            "branch": "main"
+        }
+        if sha:
+            payload["sha"] = sha
+
+        async with session.put(api_url, headers=headers, json=payload) as resp:
+            if resp.status in (200, 201):
+                print(f"✅ Backup completato su GitHub ({timestamp})", flush=True)
+            else:
+                text = await resp.text()
+                print(f"❌ Backup fallito ({resp.status}): {text}", flush=True)

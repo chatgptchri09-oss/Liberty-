@@ -9,8 +9,6 @@ import asyncio
 import aiosqlite 
 from discord.ui import Modal, TextInput, View, Button 
 import sys
-import backup
-import aiohttp
 import time
 
 # FORZA IL FLUSH DEI LOG SUBITO
@@ -55,7 +53,7 @@ PEGASUS_ROLE_ID = 1415262517407645828
 CHIAVE_ROLE_ID = 1414735564632231988
 
 LOG_CHANNEL_ID = 1415297578022604850
-DATABASE_NAME = "economy_bot.db" 
+DATABASE_NAME = "economy_bot.db"
 
 COMPANY_LOG_CHANNELS = {
     "EMS": 1424111086537281567,
@@ -114,81 +112,8 @@ async def log_command(channel_id: int, message: str = None, embed: discord.Embed
                 await channel.send(embed=embed)
             elif message:
                 await channel.send(message)
-    except:
+    except Exception:
         pass
-
-# ====================
-# FUNZIONE RIPRISTINO BACKUP DA GITHUB (CON GESTIONE CORRETTA CONNESSIONI)
-# ====================
-
-async def restore_latest_backup():
-    """Scarica e ripristina l'ultimo backup da GitHub all'avvio del bot"""
-    GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
-    BACKUP_REPO = os.getenv("BACKUP_REPO", "TUO_USERNAME/liberty-backups")
-    API_URL = f"https://api.github.com/repos/{BACKUP_REPO}/contents/backups"
-    
-    if not GITHUB_TOKEN:
-        print("⚠️ GITHUB_TOKEN non trovato, skip ripristino backup", flush=True)
-        return
-    
-    connector = None
-    session = None
-    
-    try:
-        print("🔍 Cerco l'ultimo backup su GitHub...", flush=True)
-        
-        headers = {
-            "Authorization": f"token {GITHUB_TOKEN}",
-            "Accept": "application/vnd.github.v3+json"
-        }
-        
-        # Configurazione timeout e connector per gestire correttamente le connessioni
-        timeout = aiohttp.ClientTimeout(total=30, connect=10)
-        connector = aiohttp.TCPConnector(limit=5, limit_per_host=5, force_close=True)
-        
-        async with aiohttp.ClientSession(
-            timeout=timeout, 
-            connector=connector,
-            connector_owner=True  # La sessione chiuderà il connector
-        ) as session:
-            async with session.get(API_URL, headers=headers) as resp:
-                if resp.status != 200:
-                    print(f"❌ Errore GitHub API: {resp.status}", flush=True)
-                    return
-                
-                files = await resp.json()
-                backup_files = [f for f in files if f["name"].endswith(".db")]
-                
-                if not backup_files:
-                    print("⚠️ Nessun backup trovato su GitHub", flush=True)
-                    return
-                
-                latest_backup = sorted(backup_files, key=lambda x: x["name"])[-1]
-                backup_name = latest_backup["name"]
-                download_url = latest_backup["download_url"]
-                
-                print(f"📥 Scarico backup: {backup_name}", flush=True)
-                
-                async with session.get(download_url, headers=headers) as download_resp:
-                    if download_resp.status == 200:
-                        content = await download_resp.read()
-                        
-                        with open("economy_bot.db", "wb") as f:
-                            f.write(content)
-                        
-                        print(f"✅ Database ripristinato da: {backup_name}", flush=True)
-                    else:
-                        print(f"❌ Errore download: {download_resp.status}", flush=True)
-        
-        # Piccola pausa per assicurarsi che tutto sia chiuso
-        await asyncio.sleep(0.5)
-    
-    except asyncio.TimeoutError:
-        print("❌ Timeout durante il ripristino backup (30s)", flush=True)
-    except aiohttp.ClientError as e:
-        print(f"❌ Errore connessione durante ripristino: {e}", flush=True)
-    except Exception as e:
-        print(f"❌ Errore ripristino backup: {e}", flush=True)
 
 print("✅ Funzioni di supporto definite", flush=True)
 
@@ -206,10 +131,10 @@ def create_bancomat_embed(user: dict, user_mention: str, discord_user: discord.M
     embed.add_field(name="💸 𝐂𝐎𝐍𝐓𝐀𝐍𝐓𝐈", value=f"${user['cash']:,}", inline=False)
     embed.add_field(name="💳 𝐁𝐀𝐍𝐂𝐀", value=f"${user['bank']:,}", inline=False)
     embed.add_field(name="💰 𝐓𝐎𝐓𝐀𝐋𝐄", value=f"${user['cash'] + user['bank']:,}", inline=False)
-    
+
     if discord_user:
         embed.set_thumbnail(url=discord_user.display_avatar.url)
-    
+
     return embed
 
 
@@ -224,13 +149,13 @@ class MoneyTransferModal(Modal, title="Trasferimento di Denaro"):
 
     async def on_submit(self, interaction: discord.Interaction):
         user_id = str(interaction.user.id)
-        
+
         await interaction.response.defer(ephemeral=True, thinking=True)
-        
+
         try:
             amount_str = self.amount_input.value.replace(',', '').replace('$', '').strip()
             amount = int(amount_str)
-            
+
             if amount <= 0:
                 await interaction.followup.send("❌ L'importo deve essere maggiore di zero!", ephemeral=True)
                 return
@@ -241,10 +166,9 @@ class MoneyTransferModal(Modal, title="Trasferimento di Denaro"):
         user = await database.get_user(user_id)
         current_cash = user['cash']
         current_bank = user['bank']
-        
+
         new_cash = current_cash
         new_bank = current_bank
-        
         error_message = None
 
         if self.action == 'preleva':
@@ -253,7 +177,7 @@ class MoneyTransferModal(Modal, title="Trasferimento di Denaro"):
             else:
                 new_cash = current_cash + amount
                 new_bank = current_bank - amount
-                
+
         elif self.action == 'deposita':
             if amount > current_cash:
                 error_message = f"❌ Non hai abbastanza contanti per depositare **${amount:,}**! (Disponibile: ${current_cash:,})"
@@ -269,11 +193,10 @@ class MoneyTransferModal(Modal, title="Trasferimento di Denaro"):
 
         updated_user = await database.get_user(user_id)
         updated_embed = create_bancomat_embed(updated_user, interaction.user.mention, interaction.user)
-        
+
         action_text = "prelevati" if self.action == 'preleva' else "depositati"
-        
         view = BancomatView(user_id)
-        
+
         await interaction.followup.send(
             content=f"✅ Hai **{action_text}** **${amount:,}** con successo! Ecco il tuo nuovo saldo:",
             embed=updated_embed,
@@ -314,172 +237,65 @@ async def on_ready():
     print(f"✅ Logged in as {bot.user}", flush=True)
     print(f"✅ Bot ID: {bot.user.id}", flush=True)
     print(f"✅ Bot online su {len(bot.guilds)} server", flush=True)
-    
-    # Ripristino backup
-    await restore_latest_backup()
-    
-    # Inizializza database
+
     await database.init_db()
-    
+
     try:
         await setup_marijuana_database()
-    except:
+    except Exception:
         print("⚠️ Setup marijuana database fallito", flush=True)
-    
-    print("ℹ️ Bot pronto! Usa /sync manualmente se necessario (max 1 volta all'ora)", flush=True)
+
+    print("✅ Bot pronto! Usa /sync manualmente se necessario (max 1 volta all'ora)", flush=True)
 
 print("✅ Event handlers registrati", flush=True)
 
 # ====================
-# IMPORTAZIONE COMANDI - CON ERROR HANDLING
+# IMPORTAZIONE COMANDI
 # ====================
 
-try:
-    print("📦 Import commands_invoice...", flush=True)
-    from commands_invoice import setup_invoice_commands
-    print("✅ commands_invoice OK", flush=True)
-except Exception as e:
-    print(f"❌ ERRORE in commands_invoice: {e}", flush=True)
+_imports = [
+    ("commands_invoice",        "setup_invoice_commands"),
+    ("commands_fines",          "setup_fine_commands"),
+    ("commands_documents",      "setup_document_commands"),
+    ("commands_wallet",         "setup_wallet_commands"),
+    ("commands_inventory",      "setup_inventory_commands"),
+    ("commands_rp",             "setup_rp_commands"),
+    ("commands_vehicle",        "setup_vehicle_commands"),
+    ("commands_bonifico",       "setup_bonifico_commands"),
+    ("commands_admin",          "setup_admin_commands"),
+    ("commands_bando",          "setup_bando_commands"),
+    ("commands_rp_status",      "setup_rpoff_commands"),
+    ("commands_arrests",        "setup_arrest_commands"),
+    ("commands_criminal_record","setup_criminal_record_commands"),
+    ("commands_properties",     "setup_property_commands"),
+    ("commands_wipepg",         "setup_wipepg_commands"),
+    ("commands_deposits",       "setup_deposit_commands"),
+    ("commands_robbery",        "setup_robbery_commands"),
+    ("commands_theft",          "setup_theft_commands"),
+    ("commands_scoop",          "setup_scoop_commands"),
+    ("commands_fondocassa",     "setup_fondocassa_commands"),
+]
 
-try:
-    print("📦 Import commands_fines...", flush=True)
-    from commands_fines import setup_fine_commands
-    print("✅ commands_fines OK", flush=True)
-except Exception as e:
-    print(f"❌ ERRORE in commands_fines: {e}", flush=True)
+_loaded_setups = {}
 
-try:
-    print("📦 Import commands_documents...", flush=True)
-    from commands_documents import setup_document_commands
-    print("✅ commands_documents OK", flush=True)
-except Exception as e:
-    print(f"❌ ERRORE in commands_documents: {e}", flush=True)
+for _module_name, _func_name in _imports:
+    try:
+        print(f"📦 Import {_module_name}...", flush=True)
+        _mod = __import__(_module_name)
+        _loaded_setups[_func_name] = getattr(_mod, _func_name)
+        print(f"✅ {_module_name} OK", flush=True)
+    except Exception as e:
+        print(f"❌ ERRORE in {_module_name}: {e}", flush=True)
 
-try:
-    print("📦 Import commands_wallet...", flush=True)
-    from commands_wallet import setup_wallet_commands
-    print("✅ commands_wallet OK", flush=True)
-except Exception as e:
-    print(f"❌ ERRORE in commands_wallet: {e}", flush=True)
-
-try:
-    print("📦 Import commands_inventory...", flush=True)
-    from commands_inventory import setup_inventory_commands
-    print("✅ commands_inventory OK", flush=True)
-except Exception as e:
-    print(f"❌ ERRORE in commands_inventory: {e}", flush=True)
-
-try:
-    print("📦 Import commands_rp...", flush=True)
-    from commands_rp import setup_rp_commands
-    print("✅ commands_rp OK", flush=True)
-except Exception as e:
-    print(f"❌ ERRORE in commands_rp: {e}", flush=True)
-
-try:
-    print("📦 Import commands_vehicle...", flush=True)
-    from commands_vehicle import setup_vehicle_commands
-    print("✅ commands_vehicle OK", flush=True)
-except Exception as e:
-    print(f"❌ ERRORE in commands_vehicle: {e}", flush=True)
-
-try:
-    print("📦 Import commands_bonifico...", flush=True)
-    from commands_bonifico import setup_bonifico_commands
-    print("✅ commands_bonifico OK", flush=True)
-except Exception as e:
-    print(f"❌ ERRORE in commands_bonifico: {e}", flush=True)
-
-try:
-    print("📦 Import commands_admin...", flush=True)
-    from commands_admin import setup_admin_commands
-    print("✅ commands_admin OK", flush=True)
-except Exception as e:
-    print(f"❌ ERRORE in commands_admin: {e}", flush=True)
-
-try:
-    print("📦 Import commands_bando...", flush=True)
-    from commands_bando import setup_bando_commands
-    print("✅ commands_bando OK", flush=True)
-except Exception as e:
-    print(f"❌ ERRORE in commands_bando: {e}", flush=True)
-
-try:
-    print("📦 Import commands_rp_status...", flush=True)
-    from commands_rp_status import setup_rpoff_commands
-    print("✅ commands_rp_status OK", flush=True)
-except Exception as e:
-    print(f"❌ ERRORE in commands_rp_status: {e}", flush=True)
-
-try:
-    print("📦 Import commands_arrests...", flush=True)
-    from commands_arrests import setup_arrest_commands
-    print("✅ commands_arrests OK", flush=True)
-except Exception as e:
-    print(f"❌ ERRORE in commands_arrests: {e}", flush=True)
-
-try:
-    print("📦 Import commands_criminal_record...", flush=True)
-    from commands_criminal_record import setup_criminal_record_commands
-    print("✅ commands_criminal_record OK", flush=True)
-except Exception as e:
-    print(f"❌ ERRORE in commands_criminal_record: {e}", flush=True)
-
-try:
-    print("📦 Import commands_properties...", flush=True)
-    from commands_properties import setup_property_commands
-    print("✅ commands_properties OK", flush=True)
-except Exception as e:
-    print(f"❌ ERRORE in commands_properties: {e}", flush=True)
-
-try:
-    print("📦 Import commands_wipepg...", flush=True)
-    from commands_wipepg import setup_wipepg_commands
-    print("✅ commands_wipepg OK", flush=True)
-except Exception as e:
-    print(f"❌ ERRORE in commands_wipepg: {e}", flush=True)
-
-try:
-    print("📦 Import commands_deposits...", flush=True)
-    from commands_deposits import setup_deposit_commands
-    print("✅ commands_deposits OK", flush=True)
-except Exception as e:
-    print(f"❌ ERRORE in commands_deposits: {e}", flush=True)
-
-try:
-    print("📦 Import commands_robbery...", flush=True)
-    from commands_robbery import setup_robbery_commands
-    print("✅ commands_robbery OK", flush=True)
-except Exception as e:
-    print(f"❌ ERRORE in commands_robbery: {e}", flush=True)
-
-try:
-    print("📦 Import commands_theft...", flush=True)
-    from commands_theft import setup_theft_commands
-    print("✅ commands_theft OK", flush=True)
-except Exception as e:
-    print(f"❌ ERRORE in commands_theft: {e}", flush=True)
-
-try:
-    print("📦 Import commands_scoop...", flush=True)
-    from commands_scoop import setup_scoop_commands
-    print("✅ commands_scoop OK", flush=True)
-except Exception as e:
-    print(f"❌ ERRORE in commands_scoop: {e}", flush=True)
-
+# Marijuana ha due funzioni da importare
 try:
     print("📦 Import commands_marijuana...", flush=True)
     from commands_marijuana import setup_marijuana_commands, setup_marijuana_database
+    _loaded_setups["setup_marijuana_commands"] = setup_marijuana_commands
     print("✅ commands_marijuana OK", flush=True)
 except Exception as e:
     print(f"❌ ERRORE in commands_marijuana: {e}", flush=True)
-
-try:
-    print("📦 Import commands_fondocassa...", flush=True)
-    from commands_fondocassa import setup_fondocassa_commands
-    print("✅ commands_fondocassa OK", flush=True)
-except Exception as e:
-    print(f"❌ ERRORE in commands_fondocassa: {e}", flush=True)
+    setup_marijuana_database = None
 
 print("✅ Tutti gli import completati!", flush=True)
 
@@ -489,131 +305,12 @@ print("✅ Tutti gli import completati!", flush=True)
 
 print("🔧 Setup comandi in corso...", flush=True)
 
-try:
-    setup_invoice_commands(bot)
-    print("✅ setup_invoice_commands", flush=True)
-except Exception as e:
-    print(f"❌ setup_invoice_commands: {e}", flush=True)
-
-try:
-    setup_fine_commands(bot)
-    print("✅ setup_fine_commands", flush=True)
-except Exception as e:
-    print(f"❌ setup_fine_commands: {e}", flush=True)
-
-try:
-    setup_document_commands(bot)
-    print("✅ setup_document_commands", flush=True)
-except Exception as e:
-    print(f"❌ setup_document_commands: {e}", flush=True)
-
-try:
-    setup_wallet_commands(bot)
-    print("✅ setup_wallet_commands", flush=True)
-except Exception as e:
-    print(f"❌ setup_wallet_commands: {e}", flush=True)
-
-try:
-    setup_inventory_commands(bot)
-    print("✅ setup_inventory_commands", flush=True)
-except Exception as e:
-    print(f"❌ setup_inventory_commands: {e}", flush=True)
-
-try:
-    setup_rp_commands(bot)
-    print("✅ setup_rp_commands", flush=True)
-except Exception as e:
-    print(f"❌ setup_rp_commands: {e}", flush=True)
-
-try:
-    setup_vehicle_commands(bot)
-    print("✅ setup_vehicle_commands", flush=True)
-except Exception as e:
-    print(f"❌ setup_vehicle_commands: {e}", flush=True)
-
-try:
-    setup_bonifico_commands(bot)
-    print("✅ setup_bonifico_commands", flush=True)
-except Exception as e:
-    print(f"❌ setup_bonifico_commands: {e}", flush=True)
-
-try:
-    setup_admin_commands(bot)
-    print("✅ setup_admin_commands", flush=True)
-except Exception as e:
-    print(f"❌ setup_admin_commands: {e}", flush=True)
-
-try:
-    setup_bando_commands(bot)
-    print("✅ setup_bando_commands", flush=True)
-except Exception as e:
-    print(f"❌ setup_bando_commands: {e}", flush=True)
-
-try:
-    setup_rpoff_commands(bot)
-    print("✅ setup_rpoff_commands", flush=True)
-except Exception as e:
-    print(f"❌ setup_rpoff_commands: {e}", flush=True)
-
-try:
-    setup_arrest_commands(bot)
-    print("✅ setup_arrest_commands", flush=True)
-except Exception as e:
-    print(f"❌ setup_arrest_commands: {e}", flush=True)
-
-try:
-    setup_criminal_record_commands(bot)
-    print("✅ setup_criminal_record_commands", flush=True)
-except Exception as e:
-    print(f"❌ setup_criminal_record_commands: {e}", flush=True)
-
-try:
-    setup_property_commands(bot)
-    print("✅ setup_property_commands", flush=True)
-except Exception as e:
-    print(f"❌ setup_property_commands: {e}", flush=True)
-
-try:
-    setup_wipepg_commands(bot)
-    print("✅ setup_wipepg_commands", flush=True)
-except Exception as e:
-    print(f"❌ setup_wipepg_commands: {e}", flush=True)
-
-try:
-    setup_deposit_commands(bot)
-    print("✅ setup_deposit_commands", flush=True)
-except Exception as e:
-    print(f"❌ setup_deposit_commands: {e}", flush=True)
-
-try:
-    setup_robbery_commands(bot)
-    print("✅ setup_robbery_commands", flush=True)
-except Exception as e:
-    print(f"❌ setup_robbery_commands: {e}", flush=True)
-
-try:
-    setup_theft_commands(bot)
-    print("✅ setup_theft_commands", flush=True)
-except Exception as e:
-    print(f"❌ setup_theft_commands: {e}", flush=True)
-
-try:
-    setup_scoop_commands(bot)
-    print("✅ setup_scoop_commands", flush=True)
-except Exception as e:
-    print(f"❌ setup_scoop_commands: {e}", flush=True)
-
-try:
-    setup_marijuana_commands(bot)
-    print("✅ setup_marijuana_commands", flush=True)
-except Exception as e:
-    print(f"❌ setup_marijuana_commands: {e}", flush=True)
-
-try:
-    setup_fondocassa_commands(bot)
-    print("✅ setup_fondocassa_commands", flush=True)
-except Exception as e:
-    print(f"❌ setup_fondocassa_commands: {e}", flush=True)
+for _func_name, _func in _loaded_setups.items():
+    try:
+        _func(bot)
+        print(f"✅ {_func_name}", flush=True)
+    except Exception as e:
+        print(f"❌ {_func_name}: {e}", flush=True)
 
 print("✅ Setup comandi completato!", flush=True)
 
@@ -626,27 +323,27 @@ async def bancomat(interaction: discord.Interaction):
     user = await database.get_user(str(interaction.user.id))
     user_id = str(interaction.user.id)
     user_mention = interaction.user.mention
-    
+
     embed = create_bancomat_embed(user, user_mention, interaction.user)
     view = BancomatView(user_id)
-    
+
     await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+
 
 @bot.tree.command(name="sync", description="[STAFF] Sincronizza i comandi")
 async def sync(interaction: discord.Interaction):
     global last_sync_time
-    
+
     if not has_role(interaction, CHIAVE_ROLE_ID):
         await interaction.response.send_message(
-            "❌ Solo i creatori del server possono usare questo comando!", 
+            "❌ Solo i creatori del server possono usare questo comando!",
             ephemeral=True
         )
         return
-    
-    # Controllo cooldown
+
     current_time = time.time()
     time_since_last_sync = current_time - last_sync_time
-    
+
     if time_since_last_sync < SYNC_COOLDOWN:
         remaining_time = int(SYNC_COOLDOWN - time_since_last_sync)
         minutes = remaining_time // 60
@@ -658,37 +355,38 @@ async def sync(interaction: discord.Interaction):
             ephemeral=True
         )
         return
-    
+
     await interaction.response.defer(ephemeral=True)
-    
+
     try:
         synced = await bot.tree.sync()
         last_sync_time = time.time()
-        
+
         await interaction.followup.send(
             f"✅ **Sincronizzati {len(synced)} comandi!**\n\n"
             f"🔄 Ricarica Discord (Ctrl+R o Cmd+R) per vederli.\n\n"
             f"⏰ Prossima sincronizzazione disponibile tra **1 ora**.",
             ephemeral=True
         )
-        
         print(f"✅ Comandi sincronizzati da {interaction.user} ({len(synced)} comandi)", flush=True)
+
     except discord.HTTPException as e:
         if e.status == 429:
             await interaction.followup.send(
-                f"❌ **RATE LIMITED!**\n\n"
-                f"Discord ha bloccato temporaneamente le sincronizzazioni.\n"
-                f"Aspetta almeno **1-2 ore** prima di riprovare!",
+                "❌ **RATE LIMITED!**\n\n"
+                "Discord ha bloccato temporaneamente le sincronizzazioni.\n"
+                "Aspetta almeno **2-3 ore** prima di riprovare!",
                 ephemeral=True
             )
         else:
             await interaction.followup.send(f"❌ Errore: {e}", ephemeral=True)
 
+
 @bot.tree.command(name="controlla-bancomat", description="Visualizza il saldo del bancomat di un altro utente e invia una notifica.")
 @app_commands.describe(utente="L'utente di cui controllare il bancomat")
 async def controlla_bancomat(interaction: discord.Interaction, utente: discord.Member):
     checker_member = interaction.user
-    
+
     if utente.bot:
         await interaction.response.send_message("❌ Non puoi controllare il bancomat di un bot.", ephemeral=True)
         return
@@ -698,15 +396,15 @@ async def controlla_bancomat(interaction: discord.Interaction, utente: discord.M
         return
 
     await interaction.response.defer(ephemeral=True, thinking=True)
-    
+
     try:
         user_data = await database.get_user(str(utente.id))
-        
+
         embed = create_bancomat_embed(user_data, utente.mention, utente)
         embed.title = f"🔍 SALDO VISTO: {utente.display_name}"
         embed.color = discord.Color.gold()
         embed.set_footer(text=f"Visualizzato da: {checker_member.display_name}")
-        
+
         try:
             notification_embed = discord.Embed(
                 title="🚨 ATTENZIONE ❗",
@@ -715,7 +413,7 @@ async def controlla_bancomat(interaction: discord.Interaction, utente: discord.M
             )
             await utente.send(embed=notification_embed)
             dm_status = "Notifica DM inviata all'utente."
-        except:
+        except Exception:
             dm_status = "Notifica DM non inviabile (DM bloccati)."
 
         await interaction.followup.send(
@@ -723,11 +421,8 @@ async def controlla_bancomat(interaction: discord.Interaction, utente: discord.M
             embed=embed,
             ephemeral=True
         )
-        
-        log_embed = discord.Embed(
-            title="👁️ LOG CONTROLLO BANCOMAT",
-            color=discord.Color.gold()
-        )
+
+        log_embed = discord.Embed(title="👁️ LOG CONTROLLO BANCOMAT", color=discord.Color.gold())
         log_embed.add_field(name="👮 Controllato da", value=checker_member.mention, inline=True)
         log_embed.add_field(name="👤 Utente Controllato", value=utente.mention, inline=True)
         log_embed.add_field(name="💵 Contanti", value=f"${user_data['cash']:,}", inline=False)
@@ -738,6 +433,7 @@ async def controlla_bancomat(interaction: discord.Interaction, utente: discord.M
     except Exception as e:
         print(f"Errore in /controlla-bancomat: {e}", flush=True)
         await interaction.followup.send("❌ Si è verificato un errore nel controllo del bancomat.", ephemeral=True)
+
 
 # ====================
 # SISTEMA LISTA COMANDI CON SELECT MENU
@@ -771,7 +467,7 @@ class CommandCategorySelect(discord.ui.Select):
 
     async def callback(self, interaction: discord.Interaction):
         category = self.values[0]
-        
+
         if category == "staff":
             embed = discord.Embed(
                 title="🗽 𝑪𝑶𝑴𝑨𝑵𝑫𝑰 𝑺𝑻𝑨𝑭𝑭",
@@ -801,8 +497,7 @@ class CommandCategorySelect(discord.ui.Select):
                 "`/add-fondocassa` - Aggiungi soldi al fondocassa di un'azienda",
                 "`/wipe-item` - Rimuovi a tutti gli utenti i propri item e gli zaini"
             ]
-            embed.description += "\n\n" + "\n".join(commands_list)
-            
+
         elif category == "polizia":
             embed = discord.Embed(
                 title="👮‍♂️ 𝑪𝑶𝑴𝑨𝑵𝑫𝑰 𝑷𝑶𝑳𝑰𝒁𝑰𝑨",
@@ -815,7 +510,7 @@ class CommandCategorySelect(discord.ui.Select):
                 "`/multa` - Emetti una multa a un cittadino",
                 "`/rimuovicertificatobalistico` - Rimuovi il certificato balistico",
                 "`/sequestraveicolo` - Sequestra un veicolo",
-                "`/controllatarga` - Controlla la targa di un veicolo ",
+                "`/controllatarga` - Controlla la targa di un veicolo",
                 "`/controllomulta` - Verifica le multe di un cittadino",
                 "`/daiportodarmi` - Rilascia il porto d'armi",
                 "`/dissequestraveicolo` - Dissequestra un veicolo",
@@ -826,8 +521,7 @@ class CommandCategorySelect(discord.ui.Select):
                 "`/puliziafedinapenale` - Pulisci la fedina penale di un cittadino",
                 "`/denuncia` - Compila una denuncia ufficiale"
             ]
-            embed.description += "\n\n" + "\n".join(commands_list)
-            
+
         elif category == "economia":
             embed = discord.Embed(
                 title="💸 𝑪𝑶𝑴𝑨𝑵𝑫𝑰 𝑬𝑪𝑶𝑵𝑶𝑴𝑰𝑨",
@@ -844,7 +538,7 @@ class CommandCategorySelect(discord.ui.Select):
                 "`/portafoglio` - Visualizza il tuo portafoglio con tutti i tuoi beni",
                 "`/fondocassa` - Visualizza il fondo cassa di un'azienda per cui lavori"
             ]
-            embed.description += "\n\n" + "\n".join(commands_list)
+
         elif category == "roleplay":
             embed = discord.Embed(
                 title="🐬 𝑪𝑶𝑴𝑨𝑵𝑫𝑰 𝑹𝑶𝑳𝑬𝑷𝑳𝑨𝒀",
@@ -854,13 +548,13 @@ class CommandCategorySelect(discord.ui.Select):
             commands_list = [
                 "`/anonimo` - Invia un messaggio anonimo",
                 "`/assicurazione` - Gestisci l'assicurazione di un veicolo",
-                "`/cura` - Cura un cittadino ",
+                "`/cura` - Cura un cittadino",
                 "`/dai-item` - Dai un item a un altro giocatore",
                 "`/daicertificato` - Rilascia un certificato",
                 "`/daicertificatomedico` - Rilascia un certificato medico",
                 "`/dailibretto` - Rilascia il libretto di un veicolo",
                 "`/daipatente` - Rilascia la patente di guida",
-                "`/daiproprieta` - Registra una prorietà ad un cittadino",
+                "`/daiproprieta` - Registra una proprietà ad un cittadino",
                 "`/depositi` - Visualizza i tuoi depositi",
                 "`/inizio-turno` - Inizia il tuo turno di lavoro",
                 "`/fine-turno` - Termina il tuo turno di lavoro",
@@ -884,10 +578,12 @@ class CommandCategorySelect(discord.ui.Select):
                 "`/vendizaino` - Vendi uno zaino",
                 "`/dailibrettoillegale` - Registra un libretto illegale"
             ]
-            embed.description += "\n\n" + "\n".join(commands_list)
-        
+        else:
+            return
+
+        embed.description += "\n\n" + "\n".join(commands_list)
         embed.set_footer(text="Usa il menu a tendina per cambiare categoria")
-        
+
         view = CommandCategoryView()
         await interaction.response.edit_message(embed=embed, view=view)
 
@@ -907,7 +603,7 @@ async def lista_comandi(interaction: discord.Interaction):
     )
     embed.set_thumbnail(url=interaction.user.display_avatar.url)
     embed.set_footer(text="Liberty Roleplay • Sistema Comandi")
-    
+
     view = CommandCategoryView()
     await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
@@ -925,8 +621,7 @@ async def start_webserver():
     app.router.add_get("/", handle)
     app.router.add_get("/health", handle)
     runner = web.AppRunner(app)
-    await runner.setup() 
-
+    await runner.setup()
     port = int(os.environ.get("PORT", 10000))
     site = web.TCPSite(runner, "0.0.0.0", port)
     await site.start()
@@ -940,20 +635,16 @@ async def main():
     try:
         print("🌐 Avvio webserver...", flush=True)
         await start_webserver()
-        
+
         TOKEN = os.getenv("DISCORD_TOKEN")
-        
+
         if not TOKEN:
             print("❌ ERRORE: DISCORD_TOKEN non trovato!", flush=True)
             return
-        
+
         print("🔄 Connessione a Discord in corso...", flush=True)
-        
-        asyncio.create_task(backup.backup_database())
-        print("✅ Sistema di backup automatico attivato", flush=True)
-        
         await bot.start(TOKEN)
-        
+
     except discord.LoginFailure:
         print("❌ ERRORE: Token Discord non valido!", flush=True)
         print("❌ Vai su https://discord.com/developers/applications", flush=True)
@@ -967,14 +658,13 @@ async def main():
         import traceback
         traceback.print_exc()
 
-
 if __name__ == "__main__":
     from dotenv import load_dotenv
     load_dotenv()
-    
+
     print("🚀 Avvio bot Liberty...", flush=True)
     print(f"🐍 Python version: {sys.version}", flush=True)
-    
+
     try:
         asyncio.run(main())
     except KeyboardInterrupt:

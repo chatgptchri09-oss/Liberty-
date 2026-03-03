@@ -4,6 +4,7 @@ from discord.ext import commands
 import os
 from datetime import datetime
 import database
+import backup
 from aiohttp import web
 import asyncio
 import aiosqlite 
@@ -254,26 +255,26 @@ print("✅ Event handlers registrati", flush=True)
 # ====================
 
 _imports = [
-    ("commands_invoice",        "setup_invoice_commands"),
-    ("commands_fines",          "setup_fine_commands"),
-    ("commands_documents",      "setup_document_commands"),
-    ("commands_wallet",         "setup_wallet_commands"),
-    ("commands_inventory",      "setup_inventory_commands"),
-    ("commands_rp",             "setup_rp_commands"),
-    ("commands_vehicle",        "setup_vehicle_commands"),
-    ("commands_bonifico",       "setup_bonifico_commands"),
-    ("commands_admin",          "setup_admin_commands"),
-    ("commands_bando",          "setup_bando_commands"),
-    ("commands_rp_status",      "setup_rpoff_commands"),
-    ("commands_arrests",        "setup_arrest_commands"),
-    ("commands_criminal_record","setup_criminal_record_commands"),
-    ("commands_properties",     "setup_property_commands"),
-    ("commands_wipepg",         "setup_wipepg_commands"),
-    ("commands_deposits",       "setup_deposit_commands"),
-    ("commands_robbery",        "setup_robbery_commands"),
-    ("commands_theft",          "setup_theft_commands"),
-    ("commands_scoop",          "setup_scoop_commands"),
-    ("commands_fondocassa",     "setup_fondocassa_commands"),
+    ("commands_invoice",         "setup_invoice_commands"),
+    ("commands_fines",           "setup_fine_commands"),
+    ("commands_documents",       "setup_document_commands"),
+    ("commands_wallet",          "setup_wallet_commands"),
+    ("commands_inventory",       "setup_inventory_commands"),
+    ("commands_rp",              "setup_rp_commands"),
+    ("commands_vehicle",         "setup_vehicle_commands"),
+    ("commands_bonifico",        "setup_bonifico_commands"),
+    ("commands_admin",           "setup_admin_commands"),
+    ("commands_bando",           "setup_bando_commands"),
+    ("commands_rp_status",       "setup_rpoff_commands"),
+    ("commands_arrests",         "setup_arrest_commands"),
+    ("commands_criminal_record", "setup_criminal_record_commands"),
+    ("commands_properties",      "setup_property_commands"),
+    ("commands_wipepg",          "setup_wipepg_commands"),
+    ("commands_deposits",        "setup_deposit_commands"),
+    ("commands_robbery",         "setup_robbery_commands"),
+    ("commands_theft",           "setup_theft_commands"),
+    ("commands_scoop",           "setup_scoop_commands"),
+    ("commands_fondocassa",      "setup_fondocassa_commands"),
 ]
 
 _loaded_setups = {}
@@ -643,6 +644,11 @@ async def main():
             return
 
         print("🔄 Connessione a Discord in corso...", flush=True)
+
+        # Avvia il sistema di backup automatico ogni 6 ore
+        asyncio.create_task(backup.backup_database())
+        print("✅ Sistema di backup automatico attivato (ogni 6 ore)", flush=True)
+
         await bot.start(TOKEN)
 
     except discord.LoginFailure:

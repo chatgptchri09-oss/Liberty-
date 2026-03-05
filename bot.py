@@ -31,7 +31,7 @@ print("✅ Bot inizializzato", flush=True)
 # VARIABILI GLOBALI
 # ====================
 last_sync_time = 0
-SYNC_COOLDOWN  = 3600
+
 
 # ====================
 # COSTANTI RDR2
@@ -72,7 +72,6 @@ COMPANY_ROLES = {
     "Stalla":       STALLA_ROLE_ID,
     "Saloon":       SALOON_ROLE_ID,
     "Emporio":      EMPORIO_ROLE_ID,
-    "Officina":     OFFICINA_ROLE_ID,
     "Contrabbando": CONTRABBANDO_ID,
     "Diligenza":    DILIGENZA_ROLE_ID,
 }
@@ -187,16 +186,7 @@ async def sync(interaction: discord.Interaction):
         await interaction.response.send_message("❌ Solo i creatori del server possono usare questo comando.", ephemeral=True)
         return
 
-    current_time = time.time()
-    elapsed      = current_time - last_sync_time
-    if elapsed < SYNC_COOLDOWN:
-        remaining = int(SYNC_COOLDOWN - elapsed)
-        await interaction.response.send_message(
-            f"⏰ **Cooldown attivo!** Aspetta ancora **{remaining // 60}m {remaining % 60}s**.",
-            ephemeral=True
-        )
-        return
-
+    
     await interaction.response.defer(ephemeral=True)
     try:
         synced = await bot.tree.sync()

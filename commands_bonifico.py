@@ -5,9 +5,9 @@ import aiosqlite
 import database
 
 DATABASE_NAME = "economy_bot.db"
-LOG_CHANNEL_ID = 1415297578022604850
-LOG_CHANNEL_MONEY_ID = 1459209240450433094
-CHIAVE_ROLE_ID = 1414735564632231988
+LOG_CHANNEL_ID = 1479158931610931414
+LOG_CHANNEL_MONEY_ID = 1479158931610931414
+CHIAVE_ROLE_ID = 1404051860121456701
 
 def has_role(interaction: discord.Interaction, role_id: int) -> bool:
     if not isinstance(interaction.user, discord.Member):
@@ -28,11 +28,11 @@ async def log_command(bot, channel_id: int, message: str = None, embed: discord.
 
 def setup_bonifico_commands(bot: commands.Bot):
     
-    @bot.tree.command(name="bonifico", description="Invia denaro tramite bonifico bancario")
+    @bot.tree.command(name="paga", description="Invia denaro tramite pagamento fisico")
     @app_commands.describe(
-        utente="L'utente a cui inviare il denaro",
-        importo="La cifra da trasferire dal tuo conto bancario",
-        motivo="Il motivo del bonifico"
+        utente="L'utente a cui dare il denaro",
+        importo="La cifra da dare dal tuo conto bancario",
+        motivo="Il motivo del pagamento"
     )
     async def bonifico(interaction: discord.Interaction, utente: discord.Member, importo: int, motivo: str):
         

@@ -3,8 +3,8 @@ from discord import app_commands
 import database
 from datetime import datetime
 
-LOG_CHANNEL_ID = 1415297578022604850
-SCERIFFO_ROLES = [1415093546549248040]
+LOG_CHANNEL_ID = 1479158931610931414
+SCERIFFO_ROLES = 1404051875426467902
 
 def has_sceriffo(interaction: discord.Interaction) -> bool:
     if not isinstance(interaction.user, discord.Member):

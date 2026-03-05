@@ -1,406 +1,113 @@
 import discord
 from discord import app_commands
-from discord.ext import commands
-import aiosqlite
+import database
+from datetime import datetime
 
-DATABASE_NAME = "economy_bot.db"
 LOG_CHANNEL_ID = 1415297578022604850
+SCERIFFO_ROLES = [1415093546549248040]
 
-LFD_ROLE_ID = 1415093546549248040
-EMS_ROLE_ID = 1415239481757536256
-ARMERIA_ROLE_ID = 1415092383250382858
-CONCESSIONARIO_ROLE_ID = 1415238213303406702
-STAFF_ROLE_ID = 1414738761207517214
-
-def has_role(interaction: discord.Interaction, role_id: int) -> bool:
+def has_sceriffo(interaction: discord.Interaction) -> bool:
     if not isinstance(interaction.user, discord.Member):
         return False
-    return any(role.id == role_id for role in interaction.user.roles)
+    return any(r.id in SCERIFFO_ROLES for r in interaction.user.roles)
 
-async def log_command(bot, channel_id: int, message: str = None, embed: discord.Embed = None):
-    try:
-        channel = bot.get_channel(channel_id)
-        if channel and hasattr(channel, 'send'):
-            if embed:
-                await channel.send(embed=embed)
-            elif message:
-                await channel.send(message)
-    except:
-        pass
+def setup_document_commands(bot):
 
-def setup_document_commands(bot: commands.Bot):
-    
-    class DocumentoModal(discord.ui.Modal, title="📄 Documento"):
-        nome = discord.ui.TextInput(label="Nome", required=True)
-        cognome = discord.ui.TextInput(label="Cognome", required=True)
-        data_nascita = discord.ui.TextInput(label="Data di nascita (GG/MM/AAAA)", placeholder="01/01/1990", required=True)
-        luogo_nascita = discord.ui.TextInput(label="Luogo di nascita", required=True)
-        nazionalita = discord.ui.TextInput(label="Nazionalità", required=True)
-
-        def __init__(self, bot, user_id: str, photo_url: str):
-            super().__init__()
-            self.bot = bot
-            self.user_id = user_id
-            self.photo_url = photo_url
-
-        async def on_submit(self, interaction: discord.Interaction):
-            async with aiosqlite.connect(DATABASE_NAME) as db:
-                await db.execute(
-                    "INSERT OR REPLACE INTO documents (user_id, name, surname, birth_date, birth_place, nationality, photo_url) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                    (self.user_id, self.nome.value, self.cognome.value, self.data_nascita.value, self.luogo_nascita.value, self.nazionalita.value, self.photo_url)
-                )
-                await db.commit()
-            
-            await interaction.response.send_message(f"✅ Documento registrato per <@{self.user_id}>!", ephemeral=True)
-            
-            # LOG CON EMBED
-            log_embed = discord.Embed(
-                title="📄 LOG DOCUMENTO CREATO",
-                color=discord.Color.blue()
-            )
-            log_embed.add_field(name="👮 Creato da", value=interaction.user.mention, inline=True)
-            log_embed.add_field(name="👤 Per l'utente", value=f"<@{self.user_id}>", inline=True)
-            log_embed.add_field(name="📝 Nome", value=f"{self.nome.value} {self.cognome.value}", inline=False)
-            log_embed.add_field(name="📅 Data Nascita", value=self.data_nascita.value, inline=True)
-            log_embed.add_field(name="📍 Luogo Nascita", value=self.luogo_nascita.value, inline=True)
-            log_embed.add_field(name="🌍 Nazionalità", value=self.nazionalita.value, inline=True)
-            log_embed.set_thumbnail(url=self.photo_url)
-            log_embed.timestamp = discord.utils.utcnow()
-            await log_command(self.bot, LOG_CHANNEL_ID, embed=log_embed)
-    
-    @bot.tree.command(name="documento", description="[LFD] Crea un documento per un utente")
+    @bot.tree.command(name="documento", description="[Sceriffo] Crea il documento di identità per un cittadino")
     @app_commands.describe(
-        utente="L'utente per cui creare il documento",
-        foto="Carica la foto da allegare"
+        cittadino="Il cittadino",
+        nome="Nome", cognome="Cognome",
+        eta="Età", sesso="Sesso",
+        luogo_nascita="Luogo di nascita"
     )
-    async def documento(interaction: discord.Interaction, utente: discord.Member, foto: discord.Attachment):
-        if not has_role(interaction, LFD_ROLE_ID):
-            await interaction.response.send_message("❌ Solo i LFD possono usare questo comando!", ephemeral=True)
+    @app_commands.choices(sesso=[
+        app_commands.Choice(name="🤠 Uomo",   value="Uomo"),
+        app_commands.Choice(name="👩 Donna",  value="Donna"),
+    ])
+    async def documento(
+        interaction: discord.Interaction,
+        cittadino: discord.Member,
+        nome: str, cognome: str,
+        eta: int, sesso: str,
+        luogo_nascita: str
+    ):
+        if not has_sceriffo(interaction):
+            await interaction.response.send_message("❌ Solo lo Sceriffo può emettere documenti.", ephemeral=True)
             return
-        
-        photo_url = foto.url
-        modal = DocumentoModal(bot, str(utente.id), photo_url)
-        await interaction.response.send_modal(modal)
-    
-    @bot.tree.command(name="rimuovi-documento", description="[STAFF] Rimuovi il documento di un utente")
-    @app_commands.describe(utente="L'utente a cui rimuovere il documento")
-    async def rimuovi_documento(interaction: discord.Interaction, utente: discord.Member):
-        if not has_role(interaction, STAFF_ROLE_ID):
-            await interaction.response.send_message("❌ Solo lo staff può usare questo comando!", ephemeral=True)
-            return
-        
-        async with aiosqlite.connect(DATABASE_NAME) as db:
-            async with db.execute("SELECT * FROM documents WHERE user_id = ?", (str(utente.id),)) as cursor:
-                doc = await cursor.fetchone()
-            
-            if not doc:
-                await interaction.response.send_message(f"❌ {utente.mention} non possiede un documento!", ephemeral=True)
-                return
-            
-            await db.execute("DELETE FROM documents WHERE user_id = ?", (str(utente.id),))
-            await db.commit()
-        
-        await interaction.response.send_message(f"✅ Documento rimosso da {utente.mention}!", ephemeral=True)
-        
-        # LOG CON EMBED
-        log_embed = discord.Embed(
-            title="🗑️ LOG DOCUMENTO RIMOSSO",
-            color=discord.Color.red()
+
+        await database.set_document(str(cittadino.id), nome, cognome, eta, sesso, luogo_nascita)
+
+        embed = discord.Embed(
+            title="📜 DOCUMENTO DI IDENTITÀ",
+            color=discord.Color(0x8B4513),
+            timestamp=discord.utils.utcnow()
         )
-        log_embed.add_field(name="👮 Rimosso da", value=interaction.user.mention, inline=True)
-        log_embed.add_field(name="👤 Utente", value=utente.mention, inline=True)
-        log_embed.timestamp = discord.utils.utcnow()
-        await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
-        
+        embed.set_thumbnail(url=cittadino.display_avatar.url)
+        embed.add_field(name="👤 Nome",           value=nome,         inline=True)
+        embed.add_field(name="👥 Cognome",         value=cognome,      inline=True)
+        embed.add_field(name="🎂 Età",             value=str(eta),     inline=True)
+        embed.add_field(name="⚧ Sesso",            value=sesso,        inline=True)
+        embed.add_field(name="📍 Luogo di nascita", value=luogo_nascita, inline=True)
+        embed.add_field(name="🔒 Emesso da",       value=interaction.user.mention, inline=True)
+        embed.set_footer(text="🤠 Red Dead Redemption II — Ufficio dello Sceriffo")
+        await interaction.response.send_message(embed=embed)
+
         try:
-            await utente.send("⚠️ Il tuo documento è stato rimosso da uno staff!")
-        except:
+            await cittadino.send(embed=embed)
+        except Exception:
             pass
-    
-    class PatenteModal(discord.ui.Modal, title="🚗 Patente"):
-        nome = discord.ui.TextInput(label="Nome Cliente", required=True)
-        cognome = discord.ui.TextInput(label="Cognome Cliente", required=True)
-        tipo = discord.ui.TextInput(label="Tipo di Patente", placeholder="Es: B, A, C", required=True)
 
-        def __init__(self, bot, user_id: str):
-            super().__init__()
-            self.bot = bot
-            self.user_id = user_id
-
-        async def on_submit(self, interaction: discord.Interaction):
-            async with aiosqlite.connect(DATABASE_NAME) as db:
-                await db.execute(
-                    "INSERT INTO licenses (user_id, name, surname, license_type) VALUES (?, ?, ?, ?)",
-                    (self.user_id, self.nome.value, self.cognome.value, self.tipo.value)
-                )
-                await db.commit()
-            
-            await interaction.response.send_message(f"✅ Patente registrata per <@{self.user_id}>!", ephemeral=True)
-            
-            # LOG CON EMBED
-            log_embed = discord.Embed(
-                title="🚗 LOG PATENTE RILASCIATA",
-                color=discord.Color.green()
-            )
-            log_embed.add_field(name="👮 Rilasciata da", value=interaction.user.mention, inline=True)
-            log_embed.add_field(name="👤 Per l'utente", value=f"<@{self.user_id}>", inline=True)
-            log_embed.add_field(name="📝 Nome", value=f"{self.nome.value} {self.cognome.value}", inline=False)
-            log_embed.add_field(name="🚙 Tipo Patente", value=self.tipo.value, inline=False)
-            log_embed.timestamp = discord.utils.utcnow()
-            await log_command(self.bot, LOG_CHANNEL_ID, embed=log_embed)
-    
-    @bot.tree.command(name="daipatente", description="[CONCESSIONARIO] Registra una patente")
-    @app_commands.describe(utente="L'utente per cui registrare la patente")
-    async def daipatente(interaction: discord.Interaction, utente: discord.Member):
-        if not has_role(interaction, CONCESSIONARIO_ROLE_ID):
-            await interaction.response.send_message("❌ Solo il Concessionario può usare questo comando!", ephemeral=True)
+    @bot.tree.command(name="rimuovi-documento", description="[Staff] Rimuovi il documento di identità di un cittadino")
+    @app_commands.describe(cittadino="Il cittadino")
+    async def rimuovi_documento(interaction: discord.Interaction, cittadino: discord.Member):
+        if not has_sceriffo(interaction):
+            await interaction.response.send_message("❌ Non hai i permessi.", ephemeral=True)
             return
-        
-        modal = PatenteModal(bot, str(utente.id))
-        await interaction.response.send_modal(modal)
-    
-    class PortoDarmiModal(discord.ui.Modal, title="🔫 Porto d'Armi"):
-        nome = discord.ui.TextInput(label="Nome Cittadino", required=True)
-        cognome = discord.ui.TextInput(label="Cognome Cittadino", required=True)
-        eta = discord.ui.TextInput(label="Età Cittadino", required=True, max_length=3)
-        livello = discord.ui.TextInput(label="Livello porto d'armi", placeholder="Es: 1, 2, 3", required=True)
 
-        def __init__(self, bot, user_id: str):
-            super().__init__()
-            self.bot = bot
-            self.user_id = user_id
-
-        async def on_submit(self, interaction: discord.Interaction):
-            async with aiosqlite.connect(DATABASE_NAME) as db:
-                await db.execute(
-                    "INSERT INTO gun_licenses (user_id, name, surname, age, level) VALUES (?, ?, ?, ?, ?)",
-                    (self.user_id, self.nome.value, self.cognome.value, self.eta.value, self.livello.value)
-                )
-                await db.commit()
-            
-            await interaction.response.send_message(f"✅ Porto d'armi registrato per <@{self.user_id}>!", ephemeral=True)
-            
-            # LOG CON EMBED
-            log_embed = discord.Embed(
-                title="🔫 LOG PORTO D'ARMI RILASCIATO",
-                color=discord.Color.orange()
-            )
-            log_embed.add_field(name="👮 Rilasciato da", value=interaction.user.mention, inline=True)
-            log_embed.add_field(name="👤 Per l'utente", value=f"<@{self.user_id}>", inline=True)
-            log_embed.add_field(name="📝 Nome", value=f"{self.nome.value} {self.cognome.value}", inline=False)
-            log_embed.add_field(name="🎂 Età", value=self.eta.value, inline=True)
-            log_embed.add_field(name="📊 Livello", value=self.livello.value, inline=True)
-            log_embed.timestamp = discord.utils.utcnow()
-            await log_command(self.bot, LOG_CHANNEL_ID, embed=log_embed)
-    
-    @bot.tree.command(name="daiportodarmi", description="[LFD] Registra un porto d'armi")
-    @app_commands.describe(utente="L'utente per cui registrare il porto d'armi")
-    async def daiportodarmi(interaction: discord.Interaction, utente: discord.Member):
-        if not has_role(interaction, LFD_ROLE_ID):
-            await interaction.response.send_message("❌ Solo i LFD possono usare questo comando!", ephemeral=True)
-            return
-        
-        modal = PortoDarmiModal(bot, str(utente.id))
-        await interaction.response.send_modal(modal)
-    
-    class LibrettoModal(discord.ui.Modal, title="📋 Libretto"):
-        nome = discord.ui.TextInput(label="Nome Cliente", required=True)
-        cognome = discord.ui.TextInput(label="Cognome Cliente", required=True)
-        modello = discord.ui.TextInput(label="Modello Del Veicolo", required=True)
-        targa = discord.ui.TextInput(label="Targa", required=True)
-
-        def __init__(self, bot, user_id: str):
-            super().__init__()
-            self.bot = bot
-            self.user_id = user_id
-
-        async def on_submit(self, interaction: discord.Interaction):
-            async with aiosqlite.connect(DATABASE_NAME) as db:
-                await db.execute(
-                    "INSERT INTO vehicle_registrations (user_id, client_name, client_surname, vehicle_model, plate, modifications) VALUES (?, ?, ?, ?, ?, ?)",
-                    (self.user_id, self.nome.value, self.cognome.value, self.modello.value, self.targa.value, "/////")
-                )
-                await db.commit()
-            
-            await interaction.response.send_message(f"✅ Libretto registrato per <@{self.user_id}>!", ephemeral=True)
-            
-            # LOG CON EMBED
-            log_embed = discord.Embed(
-                title="📋 LOG LIBRETTO RILASCIATO",
-                color=discord.Color.blue()
-            )
-            log_embed.add_field(name="👮 Rilasciato da", value=interaction.user.mention, inline=True)
-            log_embed.add_field(name="👤 Per l'utente", value=f"<@{self.user_id}>", inline=True)
-            log_embed.add_field(name="📝 Proprietario", value=f"{self.nome.value} {self.cognome.value}", inline=False)
-            log_embed.add_field(name="🚙 Modello", value=self.modello.value, inline=True)
-            log_embed.add_field(name="🔖 Targa", value=self.targa.value, inline=True)
-            log_embed.timestamp = discord.utils.utcnow()
-            await log_command(self.bot, LOG_CHANNEL_ID, embed=log_embed)
-    
-    @bot.tree.command(name="dailibretto", description="[CONCESSIONARIO] Registra un libretto")
-    @app_commands.describe(cliente="Il cliente per cui registrare il libretto")
-    async def dailibretto(interaction: discord.Interaction, cliente: discord.Member):
-        if not has_role(interaction, CONCESSIONARIO_ROLE_ID):
-            await interaction.response.send_message("❌ Solo il Concessionario può usare questo comando!", ephemeral=True)
-            return
-        
-        modal = LibrettoModal(bot, str(cliente.id))
-        await interaction.response.send_modal(modal)
-    
-    class CertificatoMedicoModal(discord.ui.Modal, title="🏥 Certificato Medico"):
-        nome = discord.ui.TextInput(label="Nome Paziente", required=True)
-        cognome = discord.ui.TextInput(label="Cognome Paziente", required=True)
-        eta = discord.ui.TextInput(label="Età Paziente", required=True, max_length=3)
-        esito = discord.ui.TextInput(label="Esito (positivo/negativo)", required=True)
-
-        def __init__(self, bot, user_id: str):
-            super().__init__()
-            self.bot = bot
-            self.user_id = user_id
-
-        async def on_submit(self, interaction: discord.Interaction):
-            async with aiosqlite.connect(DATABASE_NAME) as db:
-                await db.execute(
-                    "INSERT INTO medical_certificates (user_id, patient_name, patient_surname, patient_age, result) VALUES (?, ?, ?, ?, ?)",
-                    (self.user_id, self.nome.value, self.cognome.value, self.eta.value, self.esito.value)
-                )
-                await db.commit()
-            
-            await interaction.response.send_message(f"✅ Certificato medico registrato per <@{self.user_id}>!", ephemeral=True)
-            
-            # LOG CON EMBED
-            log_embed = discord.Embed(
-                title="🏥 LOG CERTIFICATO MEDICO RILASCIATO",
-                color=discord.Color.green()
-            )
-            log_embed.add_field(name="👨‍⚕️ Rilasciato da", value=interaction.user.mention, inline=True)
-            log_embed.add_field(name="👤 Per l'utente", value=f"<@{self.user_id}>", inline=True)
-            log_embed.add_field(name="📝 Paziente", value=f"{self.nome.value} {self.cognome.value}", inline=False)
-            log_embed.add_field(name="🎂 Età", value=self.eta.value, inline=True)
-            log_embed.add_field(name="📊 Esito", value=self.esito.value, inline=True)
-            log_embed.timestamp = discord.utils.utcnow()
-            await log_command(self.bot, LOG_CHANNEL_ID, embed=log_embed)
-    
-    @bot.tree.command(name="daicertificatomedico", description="[EMS] Registra un certificato medico")
-    @app_commands.describe(utente="L'utente per cui registrare il certificato")
-    async def daicertificatomedico(interaction: discord.Interaction, utente: discord.Member):
-        if not has_role(interaction, EMS_ROLE_ID):
-            await interaction.response.send_message("❌ Solo gli EMS possono usare questo comando!", ephemeral=True)
-            return
-        
-        modal = CertificatoMedicoModal(bot, str(utente.id))
-        await interaction.response.send_modal(modal)
-    
-    class CertificatoBalisticoModal(discord.ui.Modal, title="🎯 Certificato Balistico"):
-        nome = discord.ui.TextInput(label="Nome Cliente", required=True)
-        cognome = discord.ui.TextInput(label="Cognome Cliente", required=True)
-        eta = discord.ui.TextInput(label="Età Cliente", required=True, max_length=3)
-        esito = discord.ui.TextInput(label="Esito (positivo/negativo)", required=True)
-
-        def __init__(self, bot, user_id: str):
-            super().__init__()
-            self.bot = bot
-            self.user_id = user_id
-
-        async def on_submit(self, interaction: discord.Interaction):
-            async with aiosqlite.connect(DATABASE_NAME) as db:
-                await db.execute(
-                    "INSERT INTO ballistic_certificates (user_id, client_name, client_surname, client_age, result) VALUES (?, ?, ?, ?, ?)",
-                    (self.user_id, self.nome.value, self.cognome.value, self.eta.value, self.esito.value)
-                )
-                await db.commit()
-            
-            await interaction.response.send_message(f"✅ Certificato balistico registrato per <@{self.user_id}>!", ephemeral=True)
-            
-            # LOG CON EMBED
-            log_embed = discord.Embed(
-                title="🎯 LOG CERTIFICATO BALISTICO RILASCIATO",
-                color=discord.Color.dark_blue()
-            )
-            log_embed.add_field(name="👮 Rilasciato da", value=interaction.user.mention, inline=True)
-            log_embed.add_field(name="👤 Per l'utente", value=f"<@{self.user_id}>", inline=True)
-            log_embed.add_field(name="📝 Cliente", value=f"{self.nome.value} {self.cognome.value}", inline=False)
-            log_embed.add_field(name="🎂 Età", value=self.eta.value, inline=True)
-            log_embed.add_field(name="📊 Esito", value=self.esito.value, inline=True)
-            log_embed.timestamp = discord.utils.utcnow()
-            await log_command(self.bot, LOG_CHANNEL_ID, embed=log_embed)
-    
-    @bot.tree.command(name="daicertificatobalistico", description="[ARMERIA] Registra un certificato balistico")
-    @app_commands.describe(utente="L'utente per cui registrare il certificato")
-    async def daicertificatobalistico(interaction: discord.Interaction, utente: discord.Member):
-        if not has_role(interaction, ARMERIA_ROLE_ID):
-            await interaction.response.send_message("❌ Solo l'Armeria può usare questo comando!", ephemeral=True)
-            return
-        
-        modal = CertificatoBalisticoModal(bot, str(utente.id))
-        await interaction.response.send_modal(modal)
-    
-    @bot.tree.command(name="rimuovicertificatobalistico", description="[LFD] Rimuovi un certificato balistico da un utente")
-    @app_commands.describe(utente="L'utente a cui rimuovere il certificato")
-    async def rimuovicertificatobalistico(interaction: discord.Interaction, utente: discord.Member):
-        if not has_role(interaction, LFD_ROLE_ID):
-            await interaction.response.send_message("❌ Solo i LFD possono usare questo comando!", ephemeral=True)
-            return
-        
-        async with aiosqlite.connect(DATABASE_NAME) as db:
-            async with db.execute("SELECT * FROM ballistic_certificates WHERE user_id = ?", (str(utente.id),)) as cursor:
-                cert = await cursor.fetchone()
-            
-            if not cert:
-                await interaction.response.send_message(f"❌ {utente.mention} non possiede un certificato balistico!", ephemeral=True)
-                return
-            
-            await db.execute("DELETE FROM ballistic_certificates WHERE user_id = ?", (str(utente.id),))
+        # Rimozione dal db
+        import aiosqlite
+        async with aiosqlite.connect("rdr2_bot.db") as db:
+            await db.execute("DELETE FROM documents WHERE user_id = ?", (str(cittadino.id),))
             await db.commit()
-        
-        await interaction.response.send_message(f"✅ Certificato balistico rimosso da {utente.mention}!", ephemeral=True)
-        
-        # LOG CON EMBED
-        log_embed = discord.Embed(
-            title="🗑️ LOG CERTIFICATO BALISTICO RIMOSSO",
-            color=discord.Color.red()
+
+        embed = discord.Embed(
+            title="🗑️ Documento Rimosso",
+            color=discord.Color.red(),
+            timestamp=discord.utils.utcnow()
         )
-        log_embed.add_field(name="👮 Rimosso da", value=interaction.user.mention, inline=True)
-        log_embed.add_field(name="👤 Utente", value=utente.mention, inline=True)
-        log_embed.timestamp = discord.utils.utcnow()
-        await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
-        
-        try:
-            await utente.send("⚠️ Il tuo certificato balistico è stato rimosso!")
-        except:
-            pass
-    
-    @bot.tree.command(name="rimuovicertificatomedico", description="[STAFF] Rimuovi un certificato medico da un utente")
-    @app_commands.describe(utente="L'utente a cui rimuovere il certificato")
-    async def rimuovicertificatomedico(interaction: discord.Interaction, utente: discord.Member):
-        if not has_role(interaction, STAFF_ROLE_ID):
-            await interaction.response.send_message("❌ Solo lo staff può usare questo comando!", ephemeral=True)
+        embed.add_field(name="👤 Cittadino", value=cittadino.mention, inline=True)
+        embed.add_field(name="👮 Rimosso da", value=interaction.user.mention, inline=True)
+        embed.set_footer(text="🤠 Red Dead Redemption II — Ufficio dello Sceriffo")
+        await interaction.response.send_message(embed=embed)
+
+    @bot.tree.command(name="cercapersona", description="[Sceriffo] Cerca una persona nel registro")
+    @app_commands.describe(cittadino="Il cittadino da cercare")
+    async def cercapersona(interaction: discord.Interaction, cittadino: discord.Member):
+        if not has_sceriffo(interaction):
+            await interaction.response.send_message("❌ Solo lo Sceriffo può consultare il registro.", ephemeral=True)
             return
-        
-        async with aiosqlite.connect(DATABASE_NAME) as db:
-            async with db.execute("SELECT * FROM medical_certificates WHERE user_id = ?", (str(utente.id),)) as cursor:
-                cert = await cursor.fetchone()
-            
-            if not cert:
-                await interaction.response.send_message(f"❌ {utente.mention} non possiede un certificato medico!", ephemeral=True)
-                return
-            
-            await db.execute("DELETE FROM medical_certificates WHERE user_id = ?", (str(utente.id),))
-            await db.commit()
-        
-        await interaction.response.send_message(f"✅ Certificato medico rimosso da {utente.mention}!", ephemeral=True)
-        
-        # LOG CON EMBED
-        log_embed = discord.Embed(
-            title="🗑️ LOG CERTIFICATO MEDICO RIMOSSO",
-            color=discord.Color.red()
+
+        doc = await database.get_document(str(cittadino.id))
+        fines = await database.get_fines(str(cittadino.id))
+        records = await database.get_criminal_records(str(cittadino.id))
+
+        embed = discord.Embed(
+            title=f"🔍 Ricerca: {cittadino.display_name}",
+            color=discord.Color(0x8B4513),
+            timestamp=discord.utils.utcnow()
         )
-        log_embed.add_field(name="👮 Rimosso da", value=interaction.user.mention, inline=True)
-        log_embed.add_field(name="👤 Utente", value=utente.mention, inline=True)
-        log_embed.timestamp = discord.utils.utcnow()
-        await log_command(bot, LOG_CHANNEL_ID, embed=log_embed)
-        
-        try:
-            await utente.send("⚠️ Il tuo certificato medico è stato rimosso!")
-        except:
-            pass
+        embed.set_thumbnail(url=cittadino.display_avatar.url)
+
+        if doc:
+            embed.add_field(name="📜 Identità", value=(
+                f"**Nome:** {doc['nome']} {doc['cognome']}\n"
+                f"**Età:** {doc['eta']} | **Sesso:** {doc['sesso']}\n"
+                f"**Nato a:** {doc['luogo_nascita']}"
+            ), inline=False)
+        else:
+            embed.add_field(name="📜 Identità", value="*Nessun documento registrato*", inline=False)
+
+        embed.add_field(name="⭐ Taglie attive", value=f"{len(fines)} (${sum(f['amount'] for f in fines):,})", inline=True)
+        embed.add_field(name="⚖️ Crimini", value=str(len(records)), inline=True)
+        embed.set_footer(text="🤠 Red Dead Redemption II — Registro Sceriffo")
+        await interaction.response.send_message(embed=embed, ephemeral=True)

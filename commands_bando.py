@@ -5,7 +5,7 @@ import aiosqlite
 import random
 from datetime import datetime
 
-STAFF_ROLES = [1414738761207517214, 1414735564632231988]
+STAFF_ROLES = 1404051875426467902
 
 def has_staff(interaction: discord.Interaction) -> bool:
     if not isinstance(interaction.user, discord.Member):
@@ -56,6 +56,7 @@ def setup_bando_commands(bot):
         if dettagli:
             embed.add_field(name="📝 Dettagli", value=dettagli, inline=False)
         embed.set_footer(text="🤠 Red Dead Redemption II — Bando Lavorativo")
+        embed.set_image(url="https://i.postimg.cc/Nfrrb1Wt/IMG-7532.jpg")
         await interaction.channel.send(embed=embed)
         await interaction.response.send_message("✅ Bando pubblicato!", ephemeral=True)
 

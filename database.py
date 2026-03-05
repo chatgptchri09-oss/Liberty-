@@ -124,11 +124,11 @@ async def get_user(user_id: str) -> dict:
             row = await c.fetchone()
             if row is None:
                 await db.execute(
-                    "INSERT INTO users (user_id,cash,bank,hunger,thirst) VALUES (?,0,0,100,100)",
+                    "INSERT INTO users (user_id,cash,bank,hunger,thirst) VALUES (?,50,0,100,100)",
                     (user_id,)
                 )
                 await db.commit()
-                return {"user_id": user_id, "cash": 0, "bank": 0, "hunger": 100, "thirst": 100}
+                return {"user_id": user_id, "cash": 50, "bank": 0, "hunger": 100, "thirst": 100}
             return dict(row)
 
 async def update_balance(user_id: str, cash: int = None, bank: int = None):
@@ -379,4 +379,5 @@ async def wipe_user(user_id: str):
     async with aiosqlite.connect(DATABASE_NAME) as db:
         for t in ("users","inventory","documents","fines","criminal_records","properties","arrests"):
             await db.execute(f"DELETE FROM {t} WHERE user_id=?", (user_id,))
+        await db.execute("INSERT INTO users (user_id,cash,bank,hunger,thirst) VALUES (?,50,0,100,100)", (user_id,))
         await db.commit()

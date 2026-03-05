@@ -5,18 +5,17 @@ import aiosqlite
 from datetime import datetime
 
 LOG_CHANNEL_ID = 1415297578022604850
-STAFF_ROLES    = [1414738761207517214, 1414735564632231988]
+STAFF_ROLES    = 1404051875426467902
 DATABASE_NAME  = "rdr2_bot.db"
 
 COMPANY_LOG_CHANNELS = {
-    "Sceriffo":     1424007218554208316,
-    "Dottore":      1424111086537281567,
-    "Armiere":      1424111403228205147,
-    "Stalla":       1424111522107490405,
-    "Emporio":      1424111628374511729,
-    "Officina":     1424111759559495760,
-    "Contrabbando": 1424111925360463882,
-    "Diligenza":    1424112194139984003,
+    "Sceriffo":     1404051916140449885,
+    "Dottore":      1420996354951479346,
+    "Armiere":      1404051953188733002,
+    "Stalla":       1404051942698913792,
+    "Emporio":      1404051971102740490,
+    "Contrabbando": 1404052032100368455,
+    "Diligenza":    [ 1421007310771191829, 1421007929301139626 ],
 }
 
 def has_staff(interaction: discord.Interaction) -> bool:

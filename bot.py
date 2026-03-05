@@ -1,4 +1,4 @@
-import discord 
+import discord
 from discord import app_commands
 from discord.ext import commands
 import os
@@ -7,18 +7,16 @@ import database
 import backup
 from aiohttp import web
 import asyncio
-import aiosqlite 
-from discord.ui import Modal, TextInput, View, Button 
+import aiosqlite
+from discord.ui import Modal, TextInput, View, Button
 import sys
 import time
 
-# FORZA IL FLUSH DEI LOG SUBITO
 sys.stdout.reconfigure(line_buffering=True)
-
 print("✅ Import base completati", flush=True)
 
 # ====================
-# CONFIGURAZIONE INIZIALE
+# CONFIGURAZIONE
 # ====================
 
 intents = discord.Intents.default()
@@ -27,77 +25,62 @@ intents.members = True
 intents.guilds = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
-
 print("✅ Bot inizializzato", flush=True)
 
 # ====================
 # VARIABILI GLOBALI
 # ====================
 last_sync_time = 0
-SYNC_COOLDOWN = 3600  # 1 ora in secondi
+SYNC_COOLDOWN  = 3600
 
 # ====================
-# COSTANTI
+# COSTANTI RDR2
 # ====================
-STAFF_ROLE_ID = 1414738761207517214
-LFD_ROLE_ID = 1415093546549248040
-EMS_ROLE_ID = 1415239481757536256
-ARMERIA_ROLE_ID = 1415092383250382858
-CONCESSIONARIO_ROLE_ID = 1415238213303406702
-VANILLA_ROLE_ID = 1415243266777157643
-MARKET_ROLE_ID = 1415242295153918123
-OFFICINA_ROLE_ID = 1415240071216500746
-AGENZIA_ROLE_ID = 1424381004944244828
-IMPORT_EXPORT_ROLE_ID = 1424004700608401428
-STATO_ROLE_ID = 1424005156558606466
-PEGASUS_ROLE_ID = 1415262517407645828
-CHIAVE_ROLE_ID = 1414735564632231988
+STAFF_ROLE_ID       = 1414738761207517214
+SCERIFFO_ROLE_ID    = 1415093546549248040
+DOTTORE_ROLE_ID     = 1415239481757536256
+ARMIERE_ROLE_ID     = 1415092383250382858
+STALLA_ROLE_ID      = 1415238213303406702
+SALOON_ROLE_ID      = 1415243266777157643
+EMPORIO_ROLE_ID     = 1415242295153918123
+OFFICINA_ROLE_ID    = 1415240071216500746
+CONTRABBANDO_ID     = 1424004700608401428
+STATO_ROLE_ID       = 1424005156558606466
+DILIGENZA_ROLE_ID   = 1415262517407645828
+CHIAVE_ROLE_ID      = 1414735564632231988
+BANKER_ROLE_ID      = 1404051937438994493
 
-LOG_CHANNEL_ID = 1415297578022604850
-DATABASE_NAME = "economy_bot.db"
+LOG_CHANNEL_ID      = 1415297578022604850
+BANK_CHANNEL_ID     = 1404052325609504798
+DATABASE_NAME       = "rdr2_bot.db"
 
 COMPANY_LOG_CHANNELS = {
-    "EMS": 1424111086537281567,
-    "Armeria": 1424111403228205147,
-    "Concessionario": 1424111522107490405,
-    "Market": 1424111628374511729,
-    "Officina": 1424111759559495760,
-    "Import/Export": 1424111925360463882,
-    "Pegasus Airlines": 1424112194139984003,
-    "L.F.D": 1424007218554208316
+    "Sceriffo":     1424007218554208316,
+    "Dottore":      1424111086537281567,
+    "Armiere":      1424111403228205147,
+    "Stalla":       1424111522107490405,
+    "Emporio":      1424111628374511729,
+    "Officina":     1424111759559495760,
+    "Contrabbando": 1424111925360463882,
+    "Diligenza":    1424112194139984003,
 }
 
 COMPANY_ROLES = {
-    "EMS": EMS_ROLE_ID,
-    "Armeria": ARMERIA_ROLE_ID,
-    "Concessionario": CONCESSIONARIO_ROLE_ID,
-    "Market": MARKET_ROLE_ID,
-    "Officina": OFFICINA_ROLE_ID,
-    "Import/Export": IMPORT_EXPORT_ROLE_ID,
-    "L.F.D": LFD_ROLE_ID,
-    "Pegasus Airlines": PEGASUS_ROLE_ID
+    "Sceriffo":     SCERIFFO_ROLE_ID,
+    "Dottore":      DOTTORE_ROLE_ID,
+    "Armiere":      ARMIERE_ROLE_ID,
+    "Stalla":       STALLA_ROLE_ID,
+    "Saloon":       SALOON_ROLE_ID,
+    "Emporio":      EMPORIO_ROLE_ID,
+    "Officina":     OFFICINA_ROLE_ID,
+    "Contrabbando": CONTRABBANDO_ID,
+    "Diligenza":    DILIGENZA_ROLE_ID,
 }
-
-ALL_COMPANY_ROLES = {
-    "EMS": EMS_ROLE_ID,
-    "Armeria": ARMERIA_ROLE_ID,
-    "Concessionario": CONCESSIONARIO_ROLE_ID,
-    "Vanilla Unicorn": VANILLA_ROLE_ID,
-    "Market": MARKET_ROLE_ID,
-    "Officina": OFFICINA_ROLE_ID,
-    "Agenzia Immobiliare": AGENZIA_ROLE_ID,
-    "Import/Export": IMPORT_EXPORT_ROLE_ID,
-    "Stato": STATO_ROLE_ID,
-    "L.F.D": LFD_ROLE_ID,
-    "Pegasus Airlines": PEGASUS_ROLE_ID
-}
-
-PORTAFOGLIO_IMAGE_URL = "https://i.imgur.com/placeholder.gif"
 
 print("✅ Costanti definite", flush=True)
 
 # ====================
-# FUNZIONI DI SUPPORTO
+# SUPPORTO
 # ====================
 
 def has_role(interaction: discord.Interaction, role_id: int) -> bool:
@@ -119,117 +102,6 @@ async def log_command(channel_id: int, message: str = None, embed: discord.Embed
 print("✅ Funzioni di supporto definite", flush=True)
 
 # ====================
-# CLASSI UI PER /BANCOMAT
-# ====================
-
-def create_bancomat_embed(user: dict, user_mention: str, discord_user: discord.Member = None) -> discord.Embed:
-    """Crea l'embed del bancomat."""
-    embed = discord.Embed(
-        title="<a:Bancomat:1431618497489666198> 𝐁𝐀𝐍𝐂𝐎𝐌𝐀𝐓 <a:cartadicreditoMacerto:1454052506962235560>",
-        color=discord.Color.blue()
-    )
-    embed.add_field(name="👤 𝐂𝐋𝐈𝐄𝐍𝐓𝐄", value=user_mention, inline=False)
-    embed.add_field(name="💸 𝐂𝐎𝐍𝐓𝐀𝐍𝐓𝐈", value=f"${user['cash']:,}", inline=False)
-    embed.add_field(name="💳 𝐁𝐀𝐍𝐂𝐀", value=f"${user['bank']:,}", inline=False)
-    embed.add_field(name="💰 𝐓𝐎𝐓𝐀𝐋𝐄", value=f"${user['cash'] + user['bank']:,}", inline=False)
-
-    if discord_user:
-        embed.set_thumbnail(url=discord_user.display_avatar.url)
-
-    return embed
-
-
-class MoneyTransferModal(Modal, title="Trasferimento di Denaro"):
-    amount_input = TextInput(label="Importo", placeholder="La cifra da trasferire (solo numeri)", required=True)
-
-    def __init__(self, action: str):
-        super().__init__()
-        self.action = action
-        self.title = "💸 Preleva Contanti" if action == 'preleva' else "🏦 Deposita Denaro"
-        self.amount_input.label = f"Importo da {action.capitalize()}"
-
-    async def on_submit(self, interaction: discord.Interaction):
-        user_id = str(interaction.user.id)
-
-        await interaction.response.defer(ephemeral=True, thinking=True)
-
-        try:
-            amount_str = self.amount_input.value.replace(',', '').replace('$', '').strip()
-            amount = int(amount_str)
-
-            if amount <= 0:
-                await interaction.followup.send("❌ L'importo deve essere maggiore di zero!", ephemeral=True)
-                return
-        except ValueError:
-            await interaction.followup.send("❌ Importo non valido! Inserisci solo numeri interi.", ephemeral=True)
-            return
-
-        user = await database.get_user(user_id)
-        current_cash = user['cash']
-        current_bank = user['bank']
-
-        new_cash = current_cash
-        new_bank = current_bank
-        error_message = None
-
-        if self.action == 'preleva':
-            if amount > current_bank:
-                error_message = f"❌ Non hai abbastanza soldi in banca per prelevare **${amount:,}**! (Disponibile: ${current_bank:,})"
-            else:
-                new_cash = current_cash + amount
-                new_bank = current_bank - amount
-
-        elif self.action == 'deposita':
-            if amount > current_cash:
-                error_message = f"❌ Non hai abbastanza contanti per depositare **${amount:,}**! (Disponibile: ${current_cash:,})"
-            else:
-                new_cash = current_cash - amount
-                new_bank = current_bank + amount
-
-        if error_message:
-            await interaction.followup.send(error_message, ephemeral=True)
-            return
-
-        await database.update_balance(user_id, cash=new_cash, bank=new_bank)
-
-        updated_user = await database.get_user(user_id)
-        updated_embed = create_bancomat_embed(updated_user, interaction.user.mention, interaction.user)
-
-        action_text = "prelevati" if self.action == 'preleva' else "depositati"
-        view = BancomatView(user_id)
-
-        await interaction.followup.send(
-            content=f"✅ Hai **{action_text}** **${amount:,}** con successo! Ecco il tuo nuovo saldo:",
-            embed=updated_embed,
-            view=view,
-            ephemeral=True
-        )
-
-
-class BancomatView(View):
-    def __init__(self, user_id: str):
-        super().__init__(timeout=None)
-        self.user_id = user_id
-
-    async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        if str(interaction.user.id) != self.user_id:
-            await interaction.response.send_message("❌ Questo non è il tuo bancomat!", ephemeral=True)
-            return False
-        return True
-
-    @discord.ui.button(label="Preleva", style=discord.ButtonStyle.green, emoji="💸")
-    async def preleva_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        modal = MoneyTransferModal(action='preleva')
-        await interaction.response.send_modal(modal)
-
-    @discord.ui.button(label="Deposita", style=discord.ButtonStyle.blurple, emoji="🏦")
-    async def deposita_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        modal = MoneyTransferModal(action='deposita')
-        await interaction.response.send_modal(modal)
-
-print("✅ Classi UI definite", flush=True)
-
-# ====================
 # EVENT HANDLERS
 # ====================
 
@@ -237,21 +109,14 @@ print("✅ Classi UI definite", flush=True)
 async def on_ready():
     print(f"✅ Logged in as {bot.user}", flush=True)
     print(f"✅ Bot ID: {bot.user.id}", flush=True)
-    print(f"✅ Bot online su {len(bot.guilds)} server", flush=True)
-
+    print(f"✅ Presente in {len(bot.guilds)} server", flush=True)
     await database.init_db()
+    print("✅ Bot RDR2 pronto! 🤠", flush=True)
 
-    try:
-        await setup_marijuana_database()
-    except Exception:
-        print("⚠️ Setup marijuana database fallito", flush=True)
-
-    print("✅ Bot pronto! Usa /sync manualmente se necessario (max 1 volta all'ora)", flush=True)
-
-print("✅ Event handlers registrati", flush=True)
+print("✅ Event handler registrato", flush=True)
 
 # ====================
-# IMPORTAZIONE COMANDI
+# IMPORT COMANDI
 # ====================
 
 _imports = [
@@ -261,8 +126,6 @@ _imports = [
     ("commands_wallet",          "setup_wallet_commands"),
     ("commands_inventory",       "setup_inventory_commands"),
     ("commands_rp",              "setup_rp_commands"),
-    ("commands_vehicle",         "setup_vehicle_commands"),
-    ("commands_bonifico",        "setup_bonifico_commands"),
     ("commands_admin",           "setup_admin_commands"),
     ("commands_bando",           "setup_bando_commands"),
     ("commands_rp_status",       "setup_rpoff_commands"),
@@ -270,11 +133,12 @@ _imports = [
     ("commands_criminal_record", "setup_criminal_record_commands"),
     ("commands_properties",      "setup_property_commands"),
     ("commands_wipepg",          "setup_wipepg_commands"),
-    ("commands_deposits",        "setup_deposit_commands"),
     ("commands_robbery",         "setup_robbery_commands"),
     ("commands_theft",           "setup_theft_commands"),
     ("commands_scoop",           "setup_scoop_commands"),
     ("commands_fondocassa",      "setup_fondocassa_commands"),
+    ("commands_bonifico",        "setup_bonifico_commands"),
+    ("commands_deposits",        "setup_deposit_commands"),
 ]
 
 _loaded_setups = {}
@@ -288,7 +152,6 @@ for _module_name, _func_name in _imports:
     except Exception as e:
         print(f"❌ ERRORE in {_module_name}: {e}", flush=True)
 
-# Marijuana ha due funzioni da importare
 try:
     print("📦 Import commands_marijuana...", flush=True)
     from commands_marijuana import setup_marijuana_commands, setup_marijuana_database
@@ -296,295 +159,154 @@ try:
     print("✅ commands_marijuana OK", flush=True)
 except Exception as e:
     print(f"❌ ERRORE in commands_marijuana: {e}", flush=True)
-    setup_marijuana_database = None
+    async def setup_marijuana_database(): pass
 
-print("✅ Tutti gli import completati!", flush=True)
+print("✅ Import completati!", flush=True)
 
 # ====================
 # SETUP COMANDI
 # ====================
 
-print("🔧 Setup comandi in corso...", flush=True)
-
+print("🔧 Setup comandi...", flush=True)
 for _func_name, _func in _loaded_setups.items():
     try:
         _func(bot)
         print(f"✅ {_func_name}", flush=True)
     except Exception as e:
         print(f"❌ {_func_name}: {e}", flush=True)
-
-print("✅ Setup comandi completato!", flush=True)
+print("✅ Setup completato!", flush=True)
 
 # ====================
-# COMANDI APP
+# COMANDO SYNC
 # ====================
 
-@bot.tree.command(name="bancomat", description="Visualizza il saldo del tuo bancomat")
-async def bancomat(interaction: discord.Interaction):
-    user = await database.get_user(str(interaction.user.id))
-    user_id = str(interaction.user.id)
-    user_mention = interaction.user.mention
-
-    embed = create_bancomat_embed(user, user_mention, interaction.user)
-    view = BancomatView(user_id)
-
-    await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
-
-
-@bot.tree.command(name="sync", description="[STAFF] Sincronizza i comandi")
+@bot.tree.command(name="sync", description="[Staff] Sincronizza i comandi slash")
 async def sync(interaction: discord.Interaction):
     global last_sync_time
-
     if not has_role(interaction, CHIAVE_ROLE_ID):
-        await interaction.response.send_message(
-            "❌ Solo i creatori del server possono usare questo comando!",
-            ephemeral=True
-        )
+        await interaction.response.send_message("❌ Solo i creatori del server possono usare questo comando.", ephemeral=True)
         return
 
     current_time = time.time()
-    time_since_last_sync = current_time - last_sync_time
-
-    if time_since_last_sync < SYNC_COOLDOWN:
-        remaining_time = int(SYNC_COOLDOWN - time_since_last_sync)
-        minutes = remaining_time // 60
-        seconds = remaining_time % 60
+    elapsed      = current_time - last_sync_time
+    if elapsed < SYNC_COOLDOWN:
+        remaining = int(SYNC_COOLDOWN - elapsed)
         await interaction.response.send_message(
-            f"⏰ **COOLDOWN ATTIVO!**\n\n"
-            f"Devi aspettare ancora **{minutes}m {seconds}s** prima di sincronizzare di nuovo!\n\n"
-            f"_Questo limite esiste per evitare il rate limit da Discord._",
+            f"⏰ **Cooldown attivo!** Aspetta ancora **{remaining // 60}m {remaining % 60}s**.",
             ephemeral=True
         )
         return
 
     await interaction.response.defer(ephemeral=True)
-
     try:
         synced = await bot.tree.sync()
         last_sync_time = time.time()
-
         await interaction.followup.send(
-            f"✅ **Sincronizzati {len(synced)} comandi!**\n\n"
-            f"🔄 Ricarica Discord (Ctrl+R o Cmd+R) per vederli.\n\n"
-            f"⏰ Prossima sincronizzazione disponibile tra **1 ora**.",
+            f"✅ **{len(synced)} comandi sincronizzati!**\n🔄 Ricarica Discord per vederli.\n⏰ Prossima sync disponibile tra **1 ora**.",
             ephemeral=True
         )
-        print(f"✅ Comandi sincronizzati da {interaction.user} ({len(synced)} comandi)", flush=True)
-
+        print(f"✅ Sync: {len(synced)} comandi — da {interaction.user}", flush=True)
     except discord.HTTPException as e:
         if e.status == 429:
-            await interaction.followup.send(
-                "❌ **RATE LIMITED!**\n\n"
-                "Discord ha bloccato temporaneamente le sincronizzazioni.\n"
-                "Aspetta almeno **2-3 ore** prima di riprovare!",
-                ephemeral=True
-            )
+            await interaction.followup.send("❌ **Rate limited da Discord.** Aspetta 2-3 ore.", ephemeral=True)
         else:
             await interaction.followup.send(f"❌ Errore: {e}", ephemeral=True)
 
-
-@bot.tree.command(name="controlla-bancomat", description="Visualizza il saldo del bancomat di un altro utente e invia una notifica.")
-@app_commands.describe(utente="L'utente di cui controllare il bancomat")
-async def controlla_bancomat(interaction: discord.Interaction, utente: discord.Member):
-    checker_member = interaction.user
-
-    if utente.bot:
-        await interaction.response.send_message("❌ Non puoi controllare il bancomat di un bot.", ephemeral=True)
-        return
-
-    if utente.id == checker_member.id:
-        await interaction.response.send_message("❌ Usa il comando `/bancomat` per vedere il tuo saldo.", ephemeral=True)
-        return
-
-    await interaction.response.defer(ephemeral=True, thinking=True)
-
-    try:
-        user_data = await database.get_user(str(utente.id))
-
-        embed = create_bancomat_embed(user_data, utente.mention, utente)
-        embed.title = f"🔍 SALDO VISTO: {utente.display_name}"
-        embed.color = discord.Color.gold()
-        embed.set_footer(text=f"Visualizzato da: {checker_member.display_name}")
-
-        try:
-            notification_embed = discord.Embed(
-                title="🚨 ATTENZIONE ❗",
-                description=f"{checker_member.mention} ha visualizzato il tuo conto bancario❗",
-                color=discord.Color.red()
-            )
-            await utente.send(embed=notification_embed)
-            dm_status = "Notifica DM inviata all'utente."
-        except Exception:
-            dm_status = "Notifica DM non inviabile (DM bloccati)."
-
-        await interaction.followup.send(
-            content=f"✅ Visualizzazione completata. ({dm_status})",
-            embed=embed,
-            ephemeral=True
-        )
-
-        log_embed = discord.Embed(title="👁️ LOG CONTROLLO BANCOMAT", color=discord.Color.gold())
-        log_embed.add_field(name="👮 Controllato da", value=checker_member.mention, inline=True)
-        log_embed.add_field(name="👤 Utente Controllato", value=utente.mention, inline=True)
-        log_embed.add_field(name="💵 Contanti", value=f"${user_data['cash']:,}", inline=False)
-        log_embed.add_field(name="🏦 Banca", value=f"${user_data['bank']:,}", inline=False)
-        log_embed.timestamp = discord.utils.utcnow()
-        await log_command(LOG_CHANNEL_ID, embed=log_embed)
-
-    except Exception as e:
-        print(f"Errore in /controlla-bancomat: {e}", flush=True)
-        await interaction.followup.send("❌ Si è verificato un errore nel controllo del bancomat.", ephemeral=True)
-
-
 # ====================
-# SISTEMA LISTA COMANDI CON SELECT MENU
+# LISTA COMANDI
 # ====================
 
 class CommandCategorySelect(discord.ui.Select):
     def __init__(self):
         options = [
-            discord.SelectOption(
-                label="🗽 Comandi Staff",
-                description="Mostra i comandi utilizzabili solamente dagli staff",
-                value="staff"
-            ),
-            discord.SelectOption(
-                label="👮‍♂️ Comandi Polizia",
-                description="Mostra i comandi utilizzabili solamente dai poliziotti",
-                value="polizia"
-            ),
-            discord.SelectOption(
-                label="💸 Comandi Economia",
-                description="Mostra i comandi dell'economia",
-                value="economia"
-            ),
-            discord.SelectOption(
-                label="🐬 Comandi Roleplay",
-                description="Mostra i comandi del Roleplay",
-                value="roleplay"
-            )
+            discord.SelectOption(label="⭐ Comandi Staff",    description="Comandi riservati allo staff",       value="staff"),
+            discord.SelectOption(label="🔫 Comandi Sceriffo", description="Comandi dello Sceriffo e dei lawman", value="sceriffo"),
+            discord.SelectOption(label="💰 Comandi Economia", description="Banca, fatture, fondo cassa",         value="economia"),
+            discord.SelectOption(label="🤠 Comandi Roleplay", description="Azioni, caccia, pesca, crafting",     value="roleplay"),
         ]
-        super().__init__(placeholder="Seleziona una categoria di comandi...", options=options)
+        super().__init__(placeholder="Seleziona una categoria...", options=options)
 
     async def callback(self, interaction: discord.Interaction):
         category = self.values[0]
 
         if category == "staff":
-            embed = discord.Embed(
-                title="🗽 𝑪𝑶𝑴𝑨𝑵𝑫𝑰 𝑺𝑻𝑨𝑭𝑭",
-                description="Ecco tutti i comandi utilizzabili dagli staff:",
-                color=discord.Color.red()
-            )
-            commands_list = [
-                "`/crea-item` - Crea un nuovo item nel sistema",
-                "`/annuncio` - Invia un annuncio pubblico nel server",
-                "`/bando` - Comunica l'apertura o la chiusura di un bando lavorativo",
-                "`/add-money` - Aggiungi denaro a un utente",
-                "`/esito-bando` - Comunica l'esito di un bando",
-                "`/paga-stipendio` - Paga lo stipendio a un utente",
-                "`/eliminaitem` - Elimina un item dal sistema",
-                "`/give-item` - Dai un item a un utente",
-                "`/remove-money` - Rimuovi denaro da un utente",
-                "`/rimuovi-documento` - Rimuovi un documento a un utente",
-                "`/wipe-pg` - Resetta completamente il personaggio di un utente",
-                "`/rpon` - Attiva la modalità Roleplay",
-                "`/rpoff` - Disattiva la modalità Roleplay",
-                "`/sondaggiorp` - Crea un sondaggio roleplay",
-                "`/rimuovizaino` - Rimuovi lo zaino di un utente",
-                "`/take-item` - Rimuovi un item da un utente",
-                "`/rimuovicertificatomedico` - Rimuovi il certificato medico a un utente",
-                "`/whitelister` - Dai l'esito di una whitelist o di un background PG",
-                "`/status-whitelist` - Indica se i servizi whitelist sono offline o online",
-                "`/add-fondocassa` - Aggiungi soldi al fondocassa di un'azienda",
-                "`/wipe-item` - Rimuovi a tutti gli utenti i propri item e gli zaini"
+            embed = discord.Embed(title="⭐ COMANDI STAFF", color=discord.Color.red())
+            cmds = [
+                "`/crea-item` — Crea un item nell'emporio",
+                "`/eliminaitem` — Elimina un item dall'emporio",
+                "`/give-item` — Dai un item a un giocatore",
+                "`/take-item` — Rimuovi un item da un giocatore",
+                "`/add-money` — Aggiungi denaro a un giocatore",
+                "`/remove-money` — Rimuovi denaro da un giocatore",
+                "`/paga-stipendio` — Paga lo stipendio",
+                "`/annuncio` — Invia un annuncio pubblico",
+                "`/bando` — Apri/chiudi un bando lavorativo",
+                "`/esito-bando` — Comunica l'esito di un bando",
+                "`/rpon` — Attiva il Roleplay",
+                "`/rpoff` — Disattiva il Roleplay",
+                "`/sondaggiorp` — Crea un sondaggio RP",
+                "`/rimuovibisaccia` — Rimuovi la bisaccia di un giocatore",
+                "`/wipe-pg` — Resetta completamente un personaggio",
+                "`/wipe-item` — Svuota tutte le bisacce",
+                "`/whitelister` — Dai l'esito di una whitelist",
+                "`/status-whitelist` — Stato servizi whitelist",
+                "`/add-fondocassa` — Aggiungi al fondo cassa",
+                "`/daiproprieta` — Registra una proprietà",
             ]
-
-        elif category == "polizia":
-            embed = discord.Embed(
-                title="👮‍♂️ 𝑪𝑶𝑴𝑨𝑵𝑫𝑰 𝑷𝑶𝑳𝑰𝒁𝑰𝑨",
-                description="Ecco tutti i comandi utilizzabili dai poliziotti:",
-                color=discord.Color.blue()
-            )
-            commands_list = [
-                "`/documento` - Crea il documento ad un cittadino",
-                "`/ammanetto` - Ammanetta un sospetto",
-                "`/multa` - Emetti una multa a un cittadino",
-                "`/rimuovicertificatobalistico` - Rimuovi il certificato balistico",
-                "`/sequestraveicolo` - Sequestra un veicolo",
-                "`/controllatarga` - Controlla la targa di un veicolo",
-                "`/controllomulta` - Verifica le multe di un cittadino",
-                "`/daiportodarmi` - Rilascia il porto d'armi",
-                "`/dissequestraveicolo` - Dissequestra un veicolo",
-                "`/revoca-patente` - Revoca la patente di guida",
-                "`/rimuovilibretto` - Rimuovi il libretto di un veicolo",
-                "`/modulo-arresto` - Compila un modulo di arresto",
-                "`/cercapersona` - Cerca una persona nel database",
-                "`/puliziafedinapenale` - Pulisci la fedina penale di un cittadino",
-                "`/denuncia` - Compila una denuncia ufficiale"
+        elif category == "sceriffo":
+            embed = discord.Embed(title="🔫 COMANDI SCERIFFO", color=discord.Color.blue())
+            cmds = [
+                "`/documento` — Emetti un documento di identità",
+                "`/rimuovi-documento` — Rimuovi un documento",
+                "`/cercapersona` — Cerca una persona nel registro",
+                "`/ammanetto` — Ammanetta un sospettato",
+                "`/taglia` — Emetti una taglia su un fuorilegge",
+                "`/controlla-taglia` — Verifica le taglie di un giocatore",
+                "`/modulo-arresto` — Compila un modulo di arresto",
+                "`/denuncia` — Compila una denuncia ufficiale",
+                "`/puliziafedinapenale` — Pulisci la fedina penale",
             ]
-
         elif category == "economia":
-            embed = discord.Embed(
-                title="💸 𝑪𝑶𝑴𝑨𝑵𝑫𝑰 𝑬𝑪𝑶𝑵𝑶𝑴𝑰𝑨",
-                description="Ecco tutti i comandi dell'economia:",
-                color=discord.Color.green()
-            )
-            commands_list = [
-                "`/bancomat` - Visualizza il tuo saldo e gestisci il tuo conto",
-                "`/bonifico` - Invia denaro a un altro utente",
-                "`/controlla-bancomat` - Visualizza il saldo di un altro utente",
-                "`/fattura` - Emetti una fattura per un servizio",
-                "`/pagafattura` - Paga una fattura ricevuta",
-                "`/pagamulta` - Paga una multa ricevuta",
-                "`/portafoglio` - Visualizza il tuo portafoglio con tutti i tuoi beni",
-                "`/fondocassa` - Visualizza il fondo cassa di un'azienda per cui lavori"
+            embed = discord.Embed(title="💰 COMANDI ECONOMIA", color=discord.Color.green())
+            cmds = [
+                "`/banca` — Accedi al tuo conto bancario",
+                "`/portafoglio` — Visualizza i tuoi averi",
+                "`/controlla-conto` — Controlla il conto di un altro giocatore",
+                "`/fattura` — Emetti una fattura",
+                "`/pagafattura` — Paga una fattura ricevuta",
+                "`/paga-taglia` — Paga le taglie sulla tua testa",
+                "`/fondocassa` — Visualizza il fondo cassa della tua compagnia",
             ]
-
         elif category == "roleplay":
-            embed = discord.Embed(
-                title="🐬 𝑪𝑶𝑴𝑨𝑵𝑫𝑰 𝑹𝑶𝑳𝑬𝑷𝑳𝑨𝒀",
-                description="Ecco tutti i comandi del Roleplay:",
-                color=discord.Color.purple()
-            )
-            commands_list = [
-                "`/anonimo` - Invia un messaggio anonimo",
-                "`/assicurazione` - Gestisci l'assicurazione di un veicolo",
-                "`/cura` - Cura un cittadino",
-                "`/dai-item` - Dai un item a un altro giocatore",
-                "`/daicertificato` - Rilascia un certificato",
-                "`/daicertificatomedico` - Rilascia un certificato medico",
-                "`/dailibretto` - Rilascia il libretto di un veicolo",
-                "`/daipatente` - Rilascia la patente di guida",
-                "`/daiproprieta` - Registra una proprietà ad un cittadino",
-                "`/depositi` - Visualizza i tuoi depositi",
-                "`/inizio-turno` - Inizia il tuo turno di lavoro",
-                "`/fine-turno` - Termina il tuo turno di lavoro",
-                "`/furto` - Commetti un furto (azione illegale)",
-                "`/rapina` - Commetti una rapina (azione illegale)",
-                "`/invzaino` - Visualizza il contenuto del tuo zaino",
-                "`/item-sell` - Compra uno o più item dal negozio",
-                "`/itemshop` - Visualizza il negozio degli item",
-                "`/me` - Esegui un'azione roleplay",
-                "`/mettidep` - Metti degli item nel deposito",
-                "`/miafedinapenale` - Visualizza la tua fedina penale",
-                "`/mie-proprieta` - Visualizza le tue proprietà",
-                "`/modificaveicolo` - Modifica un veicolo",
-                "`/nascondo` - Nascondi un oggetto",
-                "`/raccolta-cocaina` - Raccogli cocaina (azione illegale)",
-                "`/raccolta-marijuana` - Raccogli marijuana (azione illegale)",
-                "`/scoop` - Pubblica uno scoop giornalistico",
-                "`/slotmachine` - Gioca alla slot machine",
-                "`/smantellaauto` - Smantella un'auto rubata (azione illegale)",
-                "`/utilizza-item` - Utilizza un item dal tuo inventario",
-                "`/vendizaino` - Vendi uno zaino",
-                "`/dailibrettoillegale` - Registra un libretto illegale"
+            embed = discord.Embed(title="🤠 COMANDI ROLEPLAY", color=discord.Color.purple())
+            cmds = [
+                "`/me` — Esegui un'azione RP (Fame & Sete calano!)",
+                "`/mangia` — Mangia dalla tua bisaccia",
+                "`/bevi` — Bevi dalla tua bisaccia",
+                "`/bisaccia` — Visualizza la tua bisaccia",
+                "`/dai-item` — Dai un item a un altro giocatore",
+                "`/utilizza-item` — Utilizza un item",
+                "`/itemshop` — Visualizza l'emporio",
+                "`/item-sell` — Acquista dall'emporio",
+                "`/anonimo` — Invia un messaggio anonimo",
+                "`/sondaggiorp` — Crea un sondaggio RP",
+                "`/nascondo` — Nascondi un oggetto",
+                "`/campeggio` — Monta/smonta il tuo accampamento",
+                "`/caccia` — Descrivi una battuta di caccia",
+                "`/pesca` — Descrivi una sessione di pesca",
+                "`/rapina` — Tenta una rapina (illegale)",
+                "`/furto` — Tenta un furto (illegale)",
+                "`/raccolta-marijuana` — Raccogli erba selvatica (illegale)",
+                "`/raccolta-cocaina` — Raccogli piante rare (illegale)",
+                "`/scoop` — Pubblica sul giornale",
+                "`/miafedinapenale` — Visualizza la tua fedina penale",
+                "`/mie-proprieta` — Visualizza le tue proprietà",
             ]
         else:
             return
 
-        embed.description += "\n\n" + "\n".join(commands_list)
-        embed.set_footer(text="Usa il menu a tendina per cambiare categoria")
-
+        embed.description = "**Comandi disponibili:**\n\n" + "\n".join(cmds)
+        embed.set_footer(text="🤠 Red Dead Redemption II — Lista Comandi")
         view = CommandCategoryView()
         await interaction.response.edit_message(embed=embed, view=view)
 
@@ -595,16 +317,19 @@ class CommandCategoryView(discord.ui.View):
         self.add_item(CommandCategorySelect())
 
 
-@bot.tree.command(name="lista-comandi", description="Visualizza tutti i comandi disponibili del bot")
+@bot.tree.command(name="lista-comandi", description="Visualizza tutti i comandi disponibili")
 async def lista_comandi(interaction: discord.Interaction):
     embed = discord.Embed(
-        title="📋 𝑳𝑰𝑺𝑻𝑨 𝑪𝑶𝑴𝑨𝑵𝑫𝑰",
-        description="Seleziona dal menu a tendina qui sotto il tipo di comandi per il quale vuoi visualizzare i diversi comandi disponibili.",
-        color=discord.Color.gold()
+        title="📜 LISTA COMANDI — RED DEAD REDEMPTION II",
+        description=(
+            "Benvenuto, cowboy! Seleziona una categoria dal menu qui sotto\n"
+            "per visualizzare i comandi disponibili."
+        ),
+        color=discord.Color(0xDAA520),
+        timestamp=discord.utils.utcnow()
     )
     embed.set_thumbnail(url=interaction.user.display_avatar.url)
-    embed.set_footer(text="Liberty Roleplay • Sistema Comandi")
-
+    embed.set_footer(text="🤠 Red Dead Redemption II RP")
     view = CommandCategoryView()
     await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
@@ -615,7 +340,7 @@ print("✅ Comandi app registrati", flush=True)
 # ====================
 
 async def handle(request):
-    return web.Response(text="✅ Il bot è attivo e funzionante!")
+    return web.Response(text="🤠 Red Dead Redemption II Bot — Online!")
 
 async def start_webserver():
     app = web.Application()
@@ -626,10 +351,10 @@ async def start_webserver():
     port = int(os.environ.get("PORT", 10000))
     site = web.TCPSite(runner, "0.0.0.0", port)
     await site.start()
-    print(f"🌐 Server web avviato su porta {port}", flush=True)
+    print(f"🌐 Webserver avviato su porta {port}", flush=True)
 
 # ====================
-# ENTRY POINT PRINCIPALE
+# ENTRY POINT
 # ====================
 
 async def main():
@@ -638,27 +363,22 @@ async def main():
         await start_webserver()
 
         TOKEN = os.getenv("DISCORD_TOKEN")
-
         if not TOKEN:
-            print("❌ ERRORE: DISCORD_TOKEN non trovato!", flush=True)
+            print("❌ DISCORD_TOKEN non trovato!", flush=True)
             return
 
-        print("🔄 Connessione a Discord in corso...", flush=True)
-
-        # Avvia il sistema di backup automatico ogni 6 ore
+        print("🔄 Connessione a Discord...", flush=True)
         asyncio.create_task(backup.backup_database())
-        print("✅ Sistema di backup automatico attivato (ogni 6 ore)", flush=True)
+        print("✅ Backup automatico attivato (ogni 6 ore)", flush=True)
 
         await bot.start(TOKEN)
 
     except discord.LoginFailure:
-        print("❌ ERRORE: Token Discord non valido!", flush=True)
-        print("❌ Vai su https://discord.com/developers/applications", flush=True)
-        print("❌ Resetta il token e aggiornalo su Render", flush=True)
+        print("❌ Token Discord non valido!", flush=True)
     except discord.HTTPException as e:
         print(f"❌ ERRORE HTTP Discord: {e}", flush=True)
         if e.status == 429:
-            print("⚠️ Rate limited da Discord. Riprova tra 30 minuti.", flush=True)
+            print("⚠️ Rate limited. Riprova tra 30 minuti.", flush=True)
     except Exception as e:
         print(f"❌ ERRORE FATALE: {e}", flush=True)
         import traceback
@@ -667,15 +387,13 @@ async def main():
 if __name__ == "__main__":
     from dotenv import load_dotenv
     load_dotenv()
-
-    print("🚀 Avvio bot Liberty...", flush=True)
-    print(f"🐍 Python version: {sys.version}", flush=True)
-
+    print("🚀 Avvio Red Dead Redemption II Bot...", flush=True)
+    print(f"🐍 Python: {sys.version}", flush=True)
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
         print("🛑 Bot spento manualmente.", flush=True)
     except Exception as e:
-        print(f"❌ Errore durante l'avvio: {e}", flush=True)
+        print(f"❌ Errore avvio: {e}", flush=True)
         import traceback
         traceback.print_exc()

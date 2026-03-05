@@ -1,202 +1,83 @@
 import discord
 from discord import app_commands
-from discord.ext import commands
-import asyncio
-from datetime import datetime
+import database
 import random
 
-POLICE_ROLE_ID = 1415093546549248040
+LOG_CHANNEL_ID = 1415297578022604850
 
-# Lista di auto GTA V
-GTA_CARS = [
-    "Torero XO",
-    "Zentorno",
-    "Adder",
-    "Entity XXR",
-    "T20",
-    "Osiris",
-    "Reaper",
-    "Turismo R",
-    "Infernus",
-    "Vacca",
-    "Bullet",
-    "Banshee 900R",
-    "Itali GTO",
-    "Krieger",
-    "Emerus",
-    "Vagner",
-    "XA-21",
-    "Tempesta",
-    "Nero Custom",
-    "Tyrus",
-    "GP1",
-    "811",
-    "Pfister Neon",
-    "Autarch",
-    "Visione",
-    "Taipan",
-    "Tezeract",
-    "Thrax",
-    "Deveste Eight",
-    "S80RR"
-]
+def setup_theft_commands(bot):
 
-# Configurazione furti
-THEFTS = {
-    "Auto": {
-        "emoji": "🚗",
-        "title": "Furto Auto",
-        "actions": [
-            "Scasso",
-            "Ingresso",
-            "Collega i fili",
-            "Fuga"
-        ],
-        "action_emoji": "🔧",
-        "color": discord.Color.blue()
-    },
-    "Appartamento": {
-        "emoji": "🏠",
-        "title": "Furto Appartamento",
-        "actions": [
-            "Scasso",
-            "Ingresso",
-            "Perlustrazione",
-            "Raccolta",
-            "Fuga"
-        ],
-        "loot": [
-            "💻 | Laptop Da Gaming",
-            "🍺 | Vaso Di Cristallo Di Murano (Illegale)",
-            "💍 | Collana D'oro (Illegale)"
-        ],
-        "action_emoji": "🔧",
-        "color": discord.Color.orange()
-    },
-    "Villa": {
-        "emoji": "🏡",
-        "title": "Furto Villa",
-        "actions": [
-            "Scasso",
-            "Ingresso",
-            "Perlustrazione",
-            "Raccolta",
-            "Fuga"
-        ],
-        "loot": [
-            "🖼️ | Quadro D'autore",
-            "💎 | Diamanti",
-            "⌚ | Rolex",
-            "💰 | Cassaforte con 50.000$"
-        ],
-        "action_emoji": "🔧",
-        "color": discord.Color.purple()
-    }
-}
+    @bot.tree.command(name="furto", description="Tenta un furto furtivo nel Far West (azione illegale)")
+    @app_commands.describe(bersaglio="Cosa vuoi rubare", luogo="Dove")
+    async def furto(interaction: discord.Interaction, bersaglio: str, luogo: str):
+        successo = random.random() < 0.65
+        bottino  = random.randint(20, 200) if successo else 0
 
-
-def setup_theft_commands(bot: commands.Bot):
-    
-    async def theft_autocomplete(
-        interaction: discord.Interaction,
-        current: str,
-    ) -> list[app_commands.Choice[str]]:
-        choices = [
-            app_commands.Choice(name="🚗 Furto Auto", value="Auto"),
-            app_commands.Choice(name="🏠 Furto Appartamento", value="Appartamento"),
-            app_commands.Choice(name="🏡 Furto Villa", value="Villa")
-        ]
-        
-        if current:
-            return [choice for choice in choices if current.lower() in choice.name.lower()]
-        return choices
-    
-    @bot.tree.command(name="furto", description="Esegui un furto")
-    @app_commands.describe(tipo="Seleziona il tipo di furto")
-    @app_commands.autocomplete(tipo=theft_autocomplete)
-    async def furto(interaction: discord.Interaction, tipo: str):
-        
-        if tipo not in THEFTS:
-            await interaction.response.send_message("❌ Tipo di furto non valido!", ephemeral=True)
-            return
-        
-        await interaction.response.defer()
-        
-        theft_data = THEFTS[tipo]
-        
-        # Tag ruolo polizia
-        police_role = interaction.guild.get_role(POLICE_ROLE_ID)
-        police_mention = police_role.mention if police_role else f"<@&{POLICE_ROLE_ID}>"
-        
-        # Per ogni azione, crea un embed
-        total_actions = len(theft_data["actions"])
-        
-        for idx, action in enumerate(theft_data["actions"], 1):
-            now = datetime.now()
-            timestamp = now.strftime("%d/%m/%y, %H:%M")
-            
-            action_embed = discord.Embed(
-                title="🛠️ Sistema Furti Liberty",
-                color=theft_data["color"]
+        if successo:
+            user = await database.get_user(str(interaction.user.id))
+            await database.update_balance(str(interaction.user.id), cash=user["cash"] + bottino)
+            color = discord.Color(0x556B2F)
+            titolo = "🤫 Furto Riuscito"
+            desc = (
+                f"*{interaction.user.display_name} ruba furtivamente **{bersaglio}** a **{luogo}**.*\n\n"
+                f"**Guadagno: ${bottino:,}**"
             )
-            action_embed.add_field(
-                name=f"{theft_data['action_emoji']} {interaction.user.mention} esegue: **{action}...** ({idx}/{total_actions})",
-                value="\u200b",
-                inline=False
+        else:
+            color = discord.Color.red()
+            titolo = "❌ Furto Fallito"
+            desc = (
+                f"*{interaction.user.display_name} tenta di rubare **{bersaglio}** a **{luogo}**...*\n\n"
+                f"*Qualcuno ti vede. Ti dileguhi nel nulla senza nulla.*"
             )
-            action_embed.set_footer(text=timestamp)
-            
-            # Se è il primo embed, aggiungi il tag polizia
-            if idx == 1:
-                await interaction.followup.send(content=police_mention, embed=action_embed)
-            else:
-                await interaction.channel.send(embed=action_embed)
-            
-            # Aspetta 1 minuto tra ogni azione
-            if idx < total_actions:
-                await asyncio.sleep(60)
-        
-        # Aspetta 1 minuto prima dell'embed finale
-        await asyncio.sleep(60)
-        
-        # EMBED FINALE - Furto Completato
-        now = datetime.now()
-        timestamp = now.strftime("%d/%m/%y, %H:%M")
-        
-        complete_embed = discord.Embed(
-            color=discord.Color.green()
+
+        embed = discord.Embed(title=titolo, description=desc, color=color, timestamp=discord.utils.utcnow())
+        embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
+        embed.set_footer(text="🤠 Red Dead Redemption II — Crimine")
+        await interaction.response.send_message(embed=embed)
+
+    @bot.tree.command(name="raccolta-marijuana", description="Raccogli erba selvatica nel Far West (azione illegale)")
+    @app_commands.describe(luogo="Dove raccogli")
+    async def raccolta_marijuana(interaction: discord.Interaction, luogo: str):
+        quantita = random.randint(1, 5)
+        user = await database.get_user(str(interaction.user.id))
+
+        # Calo fame/sete per la fatica
+        new_h = max(0, user["hunger"] - random.randint(4, 8))
+        new_t = max(0, user["thirst"] - random.randint(4, 8))
+        await database.update_hunger_thirst(str(interaction.user.id), hunger=new_h, thirst=new_t)
+        await database.add_item(str(interaction.user.id), "🌿 • Erba Selvatica", quantita)
+
+        embed = discord.Embed(
+            title="🌿 Raccolta Completata",
+            description=f"*{interaction.user.display_name} raccoglie erba selvatica a **{luogo}**.*",
+            color=discord.Color(0x556B2F),
+            timestamp=discord.utils.utcnow()
         )
-        
-        # Diversifica in base al tipo di furto
-        if tipo == "Auto":
-            # Scegli una macchina casuale
-            stolen_car = random.choice(GTA_CARS)
-            complete_embed.title = "🚗 Furto Auto Completato"
-            complete_embed.add_field(
-                name="Hai rubato:",
-                value=f"• 🚗 | {stolen_car}",
-                inline=False
-            )
-        
-        elif tipo == "Appartamento":
-            complete_embed.title = "🏠 Furto Appartamento Completato"
-            loot_text = "\n".join([f"• {item}" for item in theft_data["loot"]])
-            complete_embed.add_field(
-                name="Hai rubato:",
-                value=loot_text,
-                inline=False
-            )
-        
-        elif tipo == "Villa":
-            complete_embed.title = "🏡 Furto Villa Completato"
-            loot_text = "\n".join([f"• {item}" for item in theft_data["loot"]])
-            complete_embed.add_field(
-                name="Hai rubato:",
-                value=loot_text,
-                inline=False
-            )
-        
-        complete_embed.set_footer(text=timestamp)
-        
-        # Tag utente sopra l'embed finale
-        await interaction.channel.send(content=interaction.user.mention, embed=complete_embed)
+        embed.add_field(name="📦 Raccolto", value=f"🌿 • Erba Selvatica x{quantita}", inline=True)
+        embed.add_field(name="🍔 Fame",     value=f"**{new_h}%**",                     inline=True)
+        embed.add_field(name="💦 Sete",     value=f"**{new_t}%**",                     inline=True)
+        embed.set_footer(text="🤠 Red Dead Redemption II — Raccolta")
+        await interaction.response.send_message(embed=embed)
+
+    @bot.tree.command(name="raccolta-cocaina", description="Raccogli piante rare nel Far West (azione illegale)")
+    @app_commands.describe(luogo="Dove raccogli")
+    async def raccolta_cocaina(interaction: discord.Interaction, luogo: str):
+        quantita = random.randint(1, 3)
+        user = await database.get_user(str(interaction.user.id))
+
+        new_h = max(0, user["hunger"] - random.randint(5, 10))
+        new_t = max(0, user["thirst"] - random.randint(5, 10))
+        await database.update_hunger_thirst(str(interaction.user.id), hunger=new_h, thirst=new_t)
+        await database.add_item(str(interaction.user.id), "🪴 • Pianta Rara", quantita)
+
+        embed = discord.Embed(
+            title="🪴 Raccolta Completata",
+            description=f"*{interaction.user.display_name} raccoglie piante rare a **{luogo}**.*",
+            color=discord.Color(0x556B2F),
+            timestamp=discord.utils.utcnow()
+        )
+        embed.add_field(name="📦 Raccolto", value=f"🪴 • Pianta Rara x{quantita}", inline=True)
+        embed.add_field(name="🍔 Fame",     value=f"**{new_h}%**",                  inline=True)
+        embed.add_field(name="💦 Sete",     value=f"**{new_t}%**",                  inline=True)
+        embed.set_footer(text="🤠 Red Dead Redemption II — Raccolta")
+        await interaction.response.send_message(embed=embed)

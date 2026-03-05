@@ -3,7 +3,7 @@ from discord import app_commands
 import database
 from datetime import datetime
 
-SCERIFFO_ROLES = [1415093546549248040]
+SCERIFFO_ROLES = 1404051916140449885
 
 def has_sceriffo(interaction: discord.Interaction) -> bool:
     if not isinstance(interaction.user, discord.Member):
@@ -16,7 +16,7 @@ def setup_criminal_record_commands(bot):
     async def mia_fedina(interaction: discord.Interaction):
         records = await database.get_criminal_records(str(interaction.user.id))
         embed = discord.Embed(
-            title=f"⚖️ Fedina Penale di {interaction.user.display_name}",
+            title=f"⚖️ Fedina Penale di {interaction.user.mention}",
             color=discord.Color(0x8B4513),
             timestamp=discord.utils.utcnow()
         )

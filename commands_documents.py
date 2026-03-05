@@ -3,8 +3,8 @@ from discord import app_commands
 import database
 from datetime import datetime
 
-LOG_CHANNEL_ID = 1415297578022604850
-SCERIFFO_ROLES = [1415093546549248040]
+LOG_CHANNEL_ID = 1479158931610931414
+SCERIFFO_ROLES = 1404051912197931109
 
 def has_sceriffo(interaction: discord.Interaction) -> bool:
     if not isinstance(interaction.user, discord.Member):
@@ -13,7 +13,7 @@ def has_sceriffo(interaction: discord.Interaction) -> bool:
 
 def setup_document_commands(bot):
 
-    @bot.tree.command(name="documento", description="[Sceriffo] Crea il documento di identità per un cittadino")
+    @bot.tree.command(name="documento", description="[MUNICIPIO] Crea il documento di identità per un cittadino")
     @app_commands.describe(
         cittadino="Il cittadino",
         nome="Nome", cognome="Cognome",

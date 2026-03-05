@@ -6,9 +6,9 @@ import asyncio
 # ====================
 # COSTANTI
 # ====================
-AUTHORIZED_ROLE_ID = 1414753824463126611  # Ruolo autorizzato per /rpoff e /rpon
-CITIZEN_ROLE_ID = 1414752091607535727  # Ruolo cittadino da menzionare
-LOG_CHANNEL_ID = 1415297578022604850  # Canale di log
+AUTHORIZED_ROLE_ID = 1404051877212979302  # Ruolo autorizzato per /rpoff e /rpon
+CITIZEN_ROLE_ID = 1404052056028872775  # Ruolo cittadino da menzionare
+LOG_CHANNEL_ID = 1479158931610931414  # Canale di log
 
 # ====================
 # FUNZIONI DI SUPPORTO
@@ -55,14 +55,14 @@ def setup_rpoff_commands(bot: commands.Bot):
             description=(
                 "<a:offline:1459628872197738641> La sessione di **roleplay è terminata**!\n\n"
                 "📌 • Ricorda di eseguire il comando `/fine-turno` per ricevere lo stipendio della giornata lavorativa.\n\n"
-                "🙏 Grazie per aver giocato con noi su **Liberty RP**!"
+                "🙏 Grazie per aver giocato con noi su **Colorado Full RP**!"
             ),
             color=discord.Color.red()
         )
         
         # Aggiungi immagine (sostituisci con il tuo URL)
         embed.set_image(url="https://cdn.discordapp.com/attachments/1235599658928308264/1250595400226963527/ServerOff.gif?ex=6918667a&is=691714fa&hm=be7932a6069a0f969d08a7d17d61584ba0a23c3ce21c6399e56355909bf56a1e&")
-        embed.set_footer(text="Liberty RP")
+        embed.set_footer(text="Colorado RP")
         embed.timestamp = discord.utils.utcnow()
         
         # Invia l'embed
@@ -73,13 +73,13 @@ def setup_rpoff_commands(bot: commands.Bot):
         
         # Invia i messaggi successivi con delay
         await asyncio.sleep(1)
-        await channel.send("<@&1414752091607535727> LA SESSIONE È STATA CHIUSA GRAZIE A TUTTI PER AVER GIOCATO")
+        await channel.send("<@&1404052056028872775> LA SESSIONE È STATA CHIUSA GRAZIE A TUTTI PER AVER GIOCATO")
         
         await asyncio.sleep(1)
-        await channel.send("<@&1414752091607535727> TI ASPETTIAMO NELLA PROSSIMA SESSIONE!")
+        await channel.send("<@&1404052056028872775> TI ASPETTIAMO NELLA PROSSIMA SESSIONE!")
         
         await asyncio.sleep(1)
-        await channel.send("<@&1414752091607535727> NON PERDETEVI IL TURNO! TERMINA IL TUO CON `/fine-turno`")
+        await channel.send("<@&1404052056028872775> NON PERDETEVI IL TURNO! TERMINA IL TUO CON `/fine-turno`")
         
 
     @bot.tree.command(name="rpon", description="Avvia la sessione di roleplay")
@@ -99,8 +99,6 @@ def setup_rpoff_commands(bot: commands.Bot):
             description=(
                 "💬 La roleplay è **UFFICIALMENTE ON!**\n\n"
                 "💃🕺 **DIAMO IL VIA ALLE DANZE!**\n\n"
-                "💊 Unisciti alla nostra crew:\n"
-                "[Social Club Liberty RP](https://socialclub.rockstargames.com/crew/liberty_full_rp_ps4/hierarchy)\n\n"
                 "<a:Online:1431599470897922069> ⏱️ *Avvia il tuo turno con* `/inizio-turno`"
             ),
             color=discord.Color.green()
@@ -108,7 +106,7 @@ def setup_rpoff_commands(bot: commands.Bot):
         
         # Aggiungi immagine ROLEPLAY ON (sostituisci con il tuo URL)
         embed.set_image(url="https://cdn.discordapp.com/attachments/1235599658928308264/1250595400616771614/ServerOn.gif?ex=6918667a&is=691714fa&hm=040de693ddd56f45ef5ee93116185cad03061f91bf9a02b04b5eda504779cd22&")
-        embed.set_footer(text="Liberty RP")
+        embed.set_footer(text="Colorado RP")
         embed.timestamp = discord.utils.utcnow()
         
         # Invia l'embed
@@ -121,12 +119,7 @@ def setup_rpoff_commands(bot: commands.Bot):
         await asyncio.sleep(1)
         await channel.send(f"<@&{CITIZEN_ROLE_ID}> Unisciti alla sessione di Roleplay! ID PS4: **{idps4}**")
         
-        # Secondo messaggio: segui il link e unisciti
-        await asyncio.sleep(1)
-        await channel.send(
-            f"<@&{CITIZEN_ROLE_ID}> SEGUI IL LINK E UNISCITI A NOI: "
-            "https://socialclub.rockstargames.com/crew/liberty_full_rp_ps4/hierarchy"
-        )
+        
         
         
         
@@ -164,7 +157,7 @@ def setup_rpoff_commands(bot: commands.Bot):
         embed.timestamp = discord.utils.utcnow()
         
         # Invia l'embed DIRETTAMENTE come risposta al comando (così si vede chi lo usa)
-        await interaction.response.send_message(content="<@&1414752091607535727>", embed=embed)
+        await interaction.response.send_message(content="<@&1404052056028872775>", embed=embed)
         
         # Recupera il messaggio per aggiungere le reazioni
         message = await interaction.original_response()

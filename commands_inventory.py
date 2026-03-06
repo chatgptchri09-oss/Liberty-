@@ -114,14 +114,12 @@ def setup_inventory_commands(bot):
     @bot.tree.command(name="crea-item", description="[Staff] Crea un nuovo item nell'emporio")
     @app_commands.describe(
         nome="Nome item (es: 🥃 • Whisky)",
-        prezzo="Prezzo in $",
         descrizione="Descrizione breve",
         ruolo_richiesto="Ruolo Discord richiesto per acquistare (lascia vuoto = tutti)"
     )
     async def crea_item(
         interaction: discord.Interaction,
         nome: str,
-        prezzo: int,
         descrizione: str,
         ruolo_richiesto: discord.Role = None
     ):
@@ -138,7 +136,6 @@ def setup_inventory_commands(bot):
         embed = discord.Embed(title="✅ 𝐈𝐭𝐞𝐦 𝐂𝐫𝐞𝐚𝐭𝐨/𝐀𝐠𝐠𝐢𝐨𝐫𝐧𝐚𝐭𝐨", color=discord.Color.green(),
                               timestamp=discord.utils.utcnow())
         embed.add_field(name="📦 Nome",        value=nome,           inline=True)
-        embed.add_field(name="💵 Prezzo",      value=f"${prezzo:,}", inline=True)
         embed.add_field(name="📝 Descrizione", value=descrizione,    inline=False)
         if role_id:
             embed.add_field(name="🔑 Ruolo Richiesto", value=f"<@&{role_id}>", inline=True)

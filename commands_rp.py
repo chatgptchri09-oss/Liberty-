@@ -3,7 +3,34 @@ from discord import app_commands
 import database
 import random
 import aiosqlite
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+
+# Timezone Italia (UTC+1 inverno, UTC+2 estate — gestione automatica)
+try:
+    from zoneinfo import ZoneInfo
+    TZ_ITALIA = ZoneInfo("Europe/Rome")
+except ImportError:
+    TZ_ITALIA = None
+
+def _ora_italia(dt: datetime) -> str:
+    """Converte un datetime UTC in orario italiano formattato."""
+    if TZ_ITALIA:
+        return dt.astimezone(TZ_ITALIA).strftime("%H:%M")
+    # Fallback manuale: controlla se siamo in ora legale (ultima domenica marzo - ultima domenica ottobre)
+    # Usa UTC+2 da fine marzo a fine ottobre, UTC+1 altrimenti
+    month = dt.month
+    if 4 <= month <= 9:
+        offset = 2
+    elif month == 3:
+        # Ultima domenica di marzo
+        last_sun = max(d for d in range(25, 32) if datetime(dt.year, 3, d).weekday() == 6)
+        offset = 2 if dt.day >= last_sun else 1
+    elif month == 10:
+        last_sun = max(d for d in range(25, 32) if datetime(dt.year, 10, d).weekday() == 6)
+        offset = 1 if dt.day >= last_sun else 2
+    else:
+        offset = 1
+    return (dt + timedelta(hours=offset)).strftime("%H:%M")
 import math
 from constants import (
     LOG_CHANNEL_ID, DATABASE_NAME, STAFF_ROLES, STAFF_ROLE_ID,
@@ -174,7 +201,7 @@ def setup_rp_commands(bot):
         new_h = min(100, old_h + rip)
         await database.update_hunger_thirst(uid, hunger=new_h)
         await database.remove_item(uid, cibo, 1)
-        embed = discord.Embed(title="🍖 Pasto consumato", color=discord.Color(0x8B4513), timestamp=discord.utils.utcnow())
+        embed = discord.Embed(title="🍖 𝐏𝐚𝐬𝐭𝐨 𝐜𝐨𝐧𝐬𝐮𝐦𝐚𝐭𝐨", color=discord.Color(0x8B4513), timestamp=discord.utils.utcnow())
         embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
         embed.add_field(name="🥘 Cibo",     value=cibo,                               inline=False)
         embed.add_field(name="🍔 Fame",     value=f"{_bar(old_h)}  →  {_bar(new_h)}", inline=False)
@@ -209,7 +236,7 @@ def setup_rp_commands(bot):
             new_h = max(0, user["hunger"] - 5)
             await database.update_hunger_thirst(uid, hunger=new_h)
             note = "\n⚠️ *L'alcol ti ha tolto un po' di appetito...*"
-        embed = discord.Embed(title="💧 Bevanda consumata", color=discord.Color(0x4682B4), timestamp=discord.utils.utcnow())
+        embed = discord.Embed(title="💧 𝐁𝐞𝐯𝐚𝐧𝐝𝐚 𝐜𝐨𝐧𝐬𝐮𝐦𝐚𝐭𝐚", color=discord.Color(0x4682B4), timestamp=discord.utils.utcnow())
         embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
         embed.add_field(name="🥃 Bevanda", value=bevanda,                                    inline=False)
         embed.add_field(name="💦 Sete",    value=f"{_bar(old_t)}  →  {_bar(new_t)}" + note, inline=False)
@@ -245,7 +272,7 @@ def setup_rp_commands(bot):
             try:
                 ch = bot.get_channel(LOG_CHANNEL_ID)
                 if ch:
-                    log = discord.Embed(title="👁️ LOG — Bisaccia Controllata", color=discord.Color(0x8B4513))
+                    log = discord.Embed(title="👁️ 𝐋𝐎𝐆 — 𝐁𝐢𝐬𝐚𝐜𝐜𝐢𝐚 𝐂𝐨𝐧𝐭𝐫𝐨𝐥𝐥𝐚𝐭𝐚", color=discord.Color(0x8B4513))
                     log.add_field(name="👮 Chi ha guardato", value=interaction.user.mention, inline=True)
                     log.add_field(name="👤 Bisaccia di",     value=target.mention,           inline=True)
                     await ch.send(embed=log)
@@ -274,7 +301,7 @@ def setup_rp_commands(bot):
             await db.execute("DELETE FROM inventory WHERE user_id=?", (str(interaction.user.id),))
             await db.commit()
         contenuto = "\n".join(f"• {i['item_name']} x{i['quantity']}" for i in items)
-        embed = discord.Embed(title="🤝 Bisaccia Venduta", color=discord.Color(0x8B4513), timestamp=discord.utils.utcnow())
+        embed = discord.Embed(title="🤝 𝐁𝐢𝐬𝐚𝐜𝐜𝐢𝐚 𝐕𝐞𝐧𝐝𝐮𝐭𝐚", color=discord.Color(0x8B4513), timestamp=discord.utils.utcnow())
         embed.add_field(name="💰 Prezzo",    value=f"${prezzo:,}",           inline=True)
         embed.add_field(name="👤 Venditore", value=interaction.user.mention, inline=True)
         embed.add_field(name="🎯 Acquirente",value=acquirente.mention,        inline=True)
@@ -293,7 +320,7 @@ def setup_rp_commands(bot):
         if not await database.remove_item(str(interaction.user.id), item, quantita):
             await interaction.response.send_message(f"❌ Non hai abbastanza **{item}**.", ephemeral=True); return
         await database.add_item(str(giocatore.id), item, quantita)
-        embed = discord.Embed(title="🤝 Item Consegnato", color=discord.Color(0x8B4513), timestamp=discord.utils.utcnow())
+        embed = discord.Embed(title="🤝 𝐈𝐭𝐞𝐦 𝐂𝐨𝐧𝐬𝐞𝐠𝐧𝐚𝐭𝐨", color=discord.Color(0x8B4513), timestamp=discord.utils.utcnow())
         embed.add_field(name="📦 Item",     value=item,                     inline=True)
         embed.add_field(name="🔢 Quantità", value=str(quantita),            inline=True)
         embed.add_field(name="👤 Da",       value=interaction.user.mention, inline=True)
@@ -308,7 +335,7 @@ def setup_rp_commands(bot):
         if not await database.remove_item(str(interaction.user.id), item, 1):
             await interaction.response.send_message(f"❌ Non hai **{item}** nella bisaccia.", ephemeral=True); return
         embed = discord.Embed(
-            title="✅ Item Utilizzato",
+            title="✅ 𝐈𝐭𝐞𝐦 𝐔𝐭𝐢𝐥𝐢𝐳𝐳𝐚𝐭𝐨",
             description=f"*{interaction.user.display_name} utilizza **{item}**.*",
             color=discord.Color(0x8B4513), timestamp=discord.utils.utcnow()
         )
@@ -331,7 +358,7 @@ def setup_rp_commands(bot):
             t = _turni_attivi[uid]
             await interaction.response.send_message(
                 f"❌ Hai già un turno attivo come **{t['role'].name}** iniziato alle "
-                f"**{t['inizio'].strftime('%H:%M')} UTC**.\n"
+                f"**{_ora_italia(t['inizio'])}**.\n"
                 f"Usa `/fine-turno` prima di iniziarne un altro.",
                 ephemeral=True
             )
@@ -357,7 +384,7 @@ def setup_rp_commands(bot):
         }
 
         embed = discord.Embed(
-            title="<a:online:1459627385702973572> TURNO INIZIATO <a:online:1459627385702973572>",
+            title="🟢 𝐓𝐔𝐑𝐍𝐎 𝐈𝐍𝐈𝐙𝐈𝐀𝐓𝐎",
             color=discord.Color.green(),
             timestamp=discord.utils.utcnow()
         )
@@ -365,7 +392,7 @@ def setup_rp_commands(bot):
         embed.add_field(name="🤠 Dipendente",    value=interaction.user.mention, inline=False)
         embed.add_field(name="💼 Lavoro",        value=lavoro.mention,           inline=False)
         embed.add_field(name="💵 Stipendio/ora", value=f"${stipendio:,}",        inline=False)
-        embed.add_field(name="🕐 Inizio turno",  value=now.strftime("%H:%M UTC"), inline=False)
+        embed.add_field(name="🕐 Inizio turno",  value=_ora_italia(now), inline=False)
         embed.set_footer(text="🤠 Red Dead Redemption II — Turno di Lavoro")
         await interaction.response.send_message(embed=embed)
 
@@ -400,7 +427,7 @@ def setup_rp_commands(bot):
         inizio       = turno["inizio"]
         durata_s     = (now - inizio).total_seconds()
         ore_esatte   = durata_s / 3600
-        ore_fatturate = max(1, math.ceil(ore_esatte))   # minimo 1 ora, arrotonda per eccesso
+        ore_fatturate = max(1, round(ore_esatte))   # >=30min per eccesso, <30min per difetto (minimo 1h)
 
         stipendio_totale = turno["stipendio"] * ore_fatturate
 
@@ -412,17 +439,21 @@ def setup_rp_commands(bot):
 
         # ── Embed fine turno (nel canale corrente) ───────────────────────────
         embed_fine = discord.Embed(
-            title="<a:offline:1459628872197738641> TURNO TERMINATO <a:offline:1459628872197738641>",
+            title="🔴 𝐓𝐔𝐑𝐍𝐎 𝐓𝐄𝐑𝐌𝐈𝐍𝐀𝐓𝐎",
             color=discord.Color.red(),
             timestamp=discord.utils.utcnow()
         )
         embed_fine.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
         embed_fine.add_field(name="🤠 Dipendente",       value=interaction.user.mention,               inline=False)
+        embed_fine.add_field(name="200b", value="200b", inline=False)
         embed_fine.add_field(name="💼 Lavoro",           value=lavoro.mention,                         inline=False)
-        embed_fine.add_field(name="🕐 Inizio",           value=inizio.strftime("%H:%M UTC"),           inline=True)
-        embed_fine.add_field(name="🕑 Fine",             value=now.strftime("%H:%M UTC"),              inline=True)
+        embed_fine.add_field(name="200b", value="200b", inline=False)
+        embed_fine.add_field(name="🕐 Inizio",           value=_ora_italia(inizio),           inline=True)
+        embed_fine.add_field(name="🕑 Fine",             value=_ora_italia(now),              inline=True)
+        embed_fine.add_field(name="200b", value="200b", inline=False)
         embed_fine.add_field(name="⏱️ Durata reale",     value=durata_str,                             inline=True)
-        embed_fine.add_field(name="📋 Ore fatturate",    value=f"{ore_fatturate}h (arrot. eccesso)",   inline=True)
+        embed_fine.add_field(name="📋 Ore fatturate",    value=f"{ore_fatturate}h (arrot. mezz'ora)",  inline=True)
+        embed_fine.add_field(name="200b", value="200b", inline=False)
         embed_fine.add_field(name="💵 Stipendio/ora",    value=f"${turno['stipendio']:,}",             inline=True)
         embed_fine.add_field(name="💰 Totale da pagare", value=f"**${stipendio_totale:,}**",           inline=True)
         embed_fine.set_footer(text="🤠 Red Dead Redemption II — Turno di Lavoro")
@@ -436,17 +467,21 @@ def setup_rp_commands(bot):
 
         # ── Embed notifica staff (canale stipendi) ───────────────────────────
         embed_staff = discord.Embed(
-            title="💼 RICHIESTA PAGAMENTO STIPENDIO",
+            title="💼 𝐑𝐈𝐂𝐇𝐈𝐄𝐒𝐓𝐀 𝐏𝐀𝐆𝐀𝐌𝐄𝐍𝐓𝐎 𝐒𝐓𝐈𝐏𝐄𝐍𝐃𝐈𝐎",
             color=discord.Color(0xDAA520),
             timestamp=discord.utils.utcnow()
         )
         embed_staff.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
         embed_staff.add_field(name="🤠 Dipendente",       value=interaction.user.mention,               inline=False)
+        embed_staff.add_field(name="200b", value="200b", inline=False)
         embed_staff.add_field(name="💼 Ruolo",            value=lavoro.mention,                         inline=False)
-        embed_staff.add_field(name="🕐 Inizio turno",     value=inizio.strftime("%H:%M UTC"),           inline=True)
-        embed_staff.add_field(name="🕑 Fine turno",       value=now.strftime("%H:%M UTC"),              inline=True
+        embed_staff.add_field(name="200b", value="200b", inline=False)
+        embed_staff.add_field(name="🕐 Inizio turno",     value=_ora_italia(inizio),           inline=True)
+        embed_staff.add_field(name="🕑 Fine turno",       value=_ora_italia(now),              inline=True)
+        embed_staff.add_field(name="200b", value="200b", inline=False)
         embed_staff.add_field(name="⏱️ Durata",           value=durata_str,                             inline=True)
         embed_staff.add_field(name="📋 Ore fatturate",    value=f"{ore_fatturate}h",                    inline=True)
+        embed_staff.add_field(name="200b", value="200b", inline=False)
         embed_staff.add_field(name="💵 Stipendio/ora",    value=f"${turno['stipendio']:,}",             inline=True)
         embed_staff.add_field(name="💰 Da pagare",        value=f"**${stipendio_totale:,}**",           inline=True)
         embed_staff.set_footer(text="🤠 Red Dead Redemption II — Usa /paga-stipendio per pagare")
@@ -488,7 +523,7 @@ def setup_rp_commands(bot):
         app_commands.Choice(name="⭐⭐⭐ Perfetta", value="Perfetta ⭐⭐⭐"),
     ])
     async def caccia(interaction: discord.Interaction, preda: str, luogo: str, qualita: str = "Buona ⭐⭐"):
-        embed = discord.Embed(title="🎯 Battuta di Caccia", color=discord.Color(0x556B2F), timestamp=discord.utils.utcnow())
+        embed = discord.Embed(title="🎯 𝐁𝐚𝐭𝐭𝐮𝐭𝐚 𝐝𝐢 𝐂𝐚𝐜𝐜𝐢𝐚", color=discord.Color(0x556B2F), timestamp=discord.utils.utcnow())
         embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
         embed.add_field(name="🤠 Cacciatore", value=interaction.user.mention, inline=False)
         embed.add_field(name="🦌 Preda",      value=preda,                    inline=False)
@@ -501,7 +536,7 @@ def setup_rp_commands(bot):
     @bot.tree.command(name="pesca", description="Descrivi una sessione di pesca")
     @app_commands.describe(pesce="Il pesce catturato", luogo="Dove hai pescato", peso="Peso (es: 2.5 kg, opzionale)")
     async def pesca(interaction: discord.Interaction, pesce: str, luogo: str, peso: str = ""):
-        embed = discord.Embed(title="🎣 Sessione di Pesca", color=discord.Color(0x4682B4), timestamp=discord.utils.utcnow())
+        embed = discord.Embed(title="🎣 𝐒𝐞𝐬𝐬𝐢𝐨𝐧𝐞 𝐝𝐢 𝐏𝐞𝐬𝐜𝐚", color=discord.Color(0x4682B4), timestamp=discord.utils.utcnow())
         embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
         embed.add_field(name="🤠 Pescatore", value=interaction.user.mention, inline=False)
         embed.add_field(name="🐟 Pesce",     value=pesce,                    inline=False)
@@ -515,17 +550,50 @@ def setup_rp_commands(bot):
     @bot.tree.command(name="anonimo", description="Invia un messaggio anonimo nel canale")
     @app_commands.describe(messaggio="Il messaggio anonimo")
     async def anonimo(interaction: discord.Interaction, messaggio: str):
+        import re as _re
+
+        # Rileva menzioni ruoli (<@&ID>) e utenti (<@ID> o <@!ID>)
+        role_ids  = _re.findall(r'<@&(\d+)>',  messaggio)
+        user_ids  = _re.findall(r'<@!?(\d+)>', messaggio)
+
+        # Costruisce le mention string per il contenuto sopra l'embed
+        guild = interaction.guild
+        role_mentions  = []
+        member_mentions = []
+
+        if guild:
+            for rid in role_ids:
+                role = guild.get_role(int(rid))
+                if role:
+                    role_mentions.append(role.mention)
+            for uid in user_ids:
+                member = guild.get_member(int(uid))
+                if member:
+                    member_mentions.append(member.mention)
+
+        # Testo di avviso sopra l'embed
+        avviso = ""
+        if role_mentions and member_mentions:
+            avviso = f"📝 In questo messaggio sono stati menzionati i ruoli e i membri: {' '.join(role_mentions)} {' '.join(member_mentions)}"
+        elif role_mentions:
+            avviso = f"📝 In questo messaggio sono stati menzionati i ruoli: {' '.join(role_mentions)}"
+        elif member_mentions:
+            avviso = f"📝 In questo messaggio sono stati menzionati i membri: {' '.join(member_mentions)}"
+
         embed = discord.Embed(description=f"*\"{messaggio}\"*", color=discord.Color(0x2C2C2C), timestamp=discord.utils.utcnow())
-        embed.set_author(name="🎭 Messaggio Anonimo")
+        embed.set_author(name="🎭 𝐌𝐞𝐬𝐬𝐚𝐠𝐠𝐢𝐨 𝐀𝐧𝐨𝐧𝐢𝐦𝐨")
         embed.set_footer(text="🤠 Red Dead Redemption II — Anonimo")
         await interaction.response.send_message("✅ Messaggio inviato anonimamente.", ephemeral=True)
-        await interaction.channel.send(embed=embed)
+        if avviso:
+            await interaction.channel.send(content=avviso, embed=embed)
+        else:
+            await interaction.channel.send(embed=embed)
 
     # ── /nascondo ────────────────────────────────────────────────────────────
     @bot.tree.command(name="nascondo", description="Nascondi un oggetto in un luogo segreto")
     @app_commands.describe(oggetto="L'oggetto", luogo="Il luogo segreto")
     async def nascondo(interaction: discord.Interaction, oggetto: str, luogo: str):
-        embed = discord.Embed(title="🙈 Oggetto Nascosto", color=discord.Color(0x556B2F), timestamp=discord.utils.utcnow())
+        embed = discord.Embed(title="🙈 𝐎𝐠𝐠𝐞𝐭𝐭𝐨 𝐍𝐚𝐬𝐜𝐨𝐬𝐭𝐨", color=discord.Color(0x556B2F), timestamp=discord.utils.utcnow())
         embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
         embed.add_field(name="📦 Oggetto", value=oggetto, inline=False)
         embed.add_field(name="📍 Luogo",   value=luogo,   inline=False)
@@ -539,7 +607,7 @@ def setup_rp_commands(bot):
         if not isinstance(interaction.user, discord.Member) or \
            not any(r.id in STAFF_ROLES for r in interaction.user.roles):
             await interaction.response.send_message("❌ Non hai i permessi.", ephemeral=True); return
-        embed = discord.Embed(title="📜 Sondaggio Roleplay", description=f"**{domanda}**",
+        embed = discord.Embed(title="📜 𝐒𝐨𝐧𝐝𝐚𝐠𝐠𝐢𝐨 𝐑𝐨𝐥𝐞𝐩𝐥𝐚𝐲", description=f"**{domanda}**",
                               color=discord.Color(0xDAA520), timestamp=discord.utils.utcnow())
         embed.add_field(name="1️⃣ Opzione A", value=opzione1, inline=False)
         embed.add_field(name="2️⃣ Opzione B", value=opzione2, inline=False)
@@ -560,7 +628,7 @@ def setup_rp_commands(bot):
             await interaction.response.send_message("❌ Non puoi inviare una lettera a un bot.", ephemeral=True)
             return
 
-        class LetteraModal(discord.ui.Modal, title="✉️ Scrivi la tua lettera"):
+        class LetteraModal(discord.ui.Modal, title="✉️ 𝐒𝐜𝐫𝐢𝐯𝐢 𝐥𝐚 𝐭𝐮𝐚 𝐥𝐞𝐭𝐭𝐞𝐫𝐚"):
             contenuto = discord.ui.TextInput(
                 label="Contenuto della lettera",
                 style=discord.TextStyle.long,
@@ -580,7 +648,7 @@ def setup_rp_commands(bot):
                 COLOR_AVORIO = 0xF5F0DC
 
                 embed_dm = discord.Embed(
-                    title="✉️ Hai ricevuto una lettera",
+                    title="✉️ 𝐇𝐚𝐢 𝐫𝐢𝐜𝐞𝐯𝐮𝐭𝐨 𝐮𝐧𝐚 𝐥𝐞𝐭𝐭𝐞𝐫𝐚",
                     color=COLOR_AVORIO,
                     timestamp=discord.utils.utcnow()
                 )
@@ -612,7 +680,7 @@ def setup_rp_commands(bot):
                     ch = bot.get_channel(LOG_CHANNEL_ID)
                     if ch:
                         embed_log = discord.Embed(
-                            title="✉️ LOG — Lettera Inviata",
+                            title="✉️ 𝐋𝐎𝐆 — 𝐋𝐞𝐭𝐭𝐞𝐫𝐚 𝐈𝐧𝐯𝐢𝐚𝐭𝐚",
                             color=COLOR_AVORIO,
                             timestamp=discord.utils.utcnow()
                         )

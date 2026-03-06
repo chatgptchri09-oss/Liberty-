@@ -133,22 +133,6 @@ def setup_admin_commands(bot):
         await interaction.channel.send(content="@everyone", embed=embed)
         await interaction.response.send_message("✅ Annuncio inviato!", ephemeral=True)
 
-    # ── /rimuovibisaccia ──────────────────────────────────────────────────────
-    @bot.tree.command(name="rimuovibisaccia", description="[Staff] Rimuovi la bisaccia di un giocatore")
-    @app_commands.describe(giocatore="Il giocatore")
-    async def rimuovi_bisaccia(interaction: discord.Interaction, giocatore: discord.Member):
-        if not has_staff(interaction):
-            await interaction.response.send_message("❌ Non hai i permessi.", ephemeral=True); return
-        async with aiosqlite.connect(DATABASE_NAME) as db:
-            await db.execute("DELETE FROM inventory WHERE user_id=?", (str(giocatore.id),))
-            await db.commit()
-        embed = discord.Embed(title="🗑️ Bisaccia Rimossa", color=discord.Color.red(), timestamp=discord.utils.utcnow())
-        embed.add_field(name="👤 Giocatore", value=giocatore.mention,        inline=True)
-        embed.add_field(name="👮 Staff",     value=interaction.user.mention, inline=True)
-        embed.set_footer(text="🤠 Red Dead Redemption II — Admin")
-        await interaction.response.send_message(embed=embed)
-        await _log(bot, embed)
-
     # ── /wipe-item ────────────────────────────────────────────────────────────
     @bot.tree.command(name="wipe-item", description="[Staff] Svuota le bisacce di tutti i giocatori")
     async def wipe_item(interaction: discord.Interaction):

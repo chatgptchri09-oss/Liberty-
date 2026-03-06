@@ -10,7 +10,7 @@ def setup_arrest_commands(bot):
     async def ammanetto(interaction: discord.Interaction, sospettato: discord.Member, motivo: str):
         if not has_sceriffo(interaction):
             await interaction.response.send_message("❌ Solo lo Sceriffo può ammanettare.", ephemeral=True); return
-        embed = discord.Embed(title="⛓️ AMMANETTATO", color=discord.Color.red(), timestamp=discord.utils.utcnow())
+        embed = discord.Embed(title="<a:manette:1431626831076921507> AMMANETTAMENTO", color=discord.Color.red(), timestamp=discord.utils.utcnow())
         embed.set_thumbnail(url=sospettato.display_avatar.url)
         embed.add_field(name="🤠 Sospettato", value=sospettato.mention,        inline=True)
         embed.add_field(name="📋 Motivo",     value=motivo,                    inline=False)

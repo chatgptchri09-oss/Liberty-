@@ -137,7 +137,7 @@ def setup_document_commands(bot):
         records = await database.get_criminal_records(str(cittadino.id))
 
         embed = discord.Embed(
-            title=f"🔍 𝐑𝐢𝐜𝐞𝐫𝐜𝐚: {𝐜𝐢𝐭𝐭𝐚𝐝𝐢𝐧𝐨.𝐝𝐢𝐬𝐩𝐥𝐚𝐲_𝐧𝐚𝐦𝐞}",
+            title=f"🔍 𝐑𝐢𝐜𝐞𝐫𝐜𝐚: {cittadino.user.mention}",
             color=discord.Color(0x8B4513),
             timestamp=discord.utils.utcnow()
         )

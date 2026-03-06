@@ -61,7 +61,7 @@ def setup_document_commands(bot):
         )
 
         embed = discord.Embed(
-            title="📜 DOCUMENTO D'IDENTITÀ UFFICIALE",
+            title="📜 𝐃𝐎𝐂𝐔𝐌𝐄𝐍𝐓𝐎 𝐃'𝐈𝐃𝐄𝐍𝐓𝐈𝐓À 𝐔𝐅𝐅𝐈𝐂𝐈𝐀𝐋𝐄",
             color=discord.Color(0x8B4513),
             timestamp=discord.utils.utcnow()
         )
@@ -113,7 +113,7 @@ def setup_document_commands(bot):
             await db.commit()
 
         embed = discord.Embed(
-            title="🗑️ Documento Rimosso",
+            title="🗑️ 𝐃𝐨𝐜𝐮𝐦𝐞𝐧𝐭𝐨 𝐑𝐢𝐦𝐨𝐬𝐬𝐨",
             color=discord.Color.red(),
             timestamp=discord.utils.utcnow()
         )
@@ -137,7 +137,7 @@ def setup_document_commands(bot):
         records = await database.get_criminal_records(str(cittadino.id))
 
         embed = discord.Embed(
-            title=f"🔍 Ricerca: {cittadino.display_name}",
+            title=f"🔍 𝐑𝐢𝐜𝐞𝐫𝐜𝐚: {𝐜𝐢𝐭𝐭𝐚𝐝𝐢𝐧𝐨.𝐝𝐢𝐬𝐩𝐥𝐚𝐲_𝐧𝐚𝐦𝐞}",
             color=discord.Color(0x8B4513),
             timestamp=discord.utils.utcnow()
         )

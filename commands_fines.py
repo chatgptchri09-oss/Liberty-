@@ -56,7 +56,7 @@ def setup_fine_commands(bot):
         if not has_sceriffo(interaction):
             await interaction.response.send_message("❌ Non hai i permessi.", ephemeral=True); return
         fines = await database.get_fines(str(giocatore.id))
-        embed = discord.Embed(title=f"⭐ 𝐓𝐚𝐠𝐥𝐢𝐞 𝐝𝐢 {𝐠𝐢𝐨𝐜𝐚𝐭𝐨𝐫𝐞.𝐝𝐢𝐬𝐩𝐥𝐚𝐲_𝐧𝐚𝐦𝐞}",
+        embed = discord.Embed(title=f"⭐ 𝐓𝐚𝐠𝐥𝐢𝐞 𝐝𝐢 {giocatore.user.mention}",
                               color=discord.Color(0xDAA520), timestamp=discord.utils.utcnow())
         embed.set_thumbnail(url=giocatore.display_avatar.url)
         if not fines:

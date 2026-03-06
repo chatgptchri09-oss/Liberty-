@@ -28,7 +28,7 @@ def setup_inventory_commands(bot):
         items = await database.get_shop_items()
 
         embed = discord.Embed(
-            title="🏪 Emporio del Far West",
+            title="🏪 𝐄𝐦𝐩𝐨𝐫𝐢𝐨 𝐝𝐞𝐥 𝐅𝐚𝐫 𝐖𝐞𝐬𝐭",
             description="Benvenuto, cowboy! Acquista con `/item-sell`.",
             color=discord.Color(0xDAA520),
             timestamp=discord.utils.utcnow()
@@ -101,7 +101,7 @@ def setup_inventory_commands(bot):
         await database.update_balance(str(interaction.user.id), cash=user["cash"] - totale)
         await database.add_item(str(interaction.user.id), shop_item["item_name"], quantita)
 
-        embed = discord.Embed(title="🛒 Acquisto Completato", color=discord.Color(0x8B4513),
+        embed = discord.Embed(title="🛒 𝐀𝐜𝐪𝐮𝐢𝐬𝐭𝐨 𝐂𝐨𝐦𝐩𝐥𝐞𝐭𝐚𝐭𝐨", color=discord.Color(0x8B4513),
                               timestamp=discord.utils.utcnow())
         embed.add_field(name="📦 Item",     value=shop_item["item_name"], inline=True)
         embed.add_field(name="🔢 Quantità", value=str(quantita),          inline=True)
@@ -135,7 +135,7 @@ def setup_inventory_commands(bot):
         role_id = ruolo_richiesto.id if ruolo_richiesto else None
         await database.upsert_shop_item(nome, prezzo, descrizione, role_id)
 
-        embed = discord.Embed(title="✅ Item Creato/Aggiornato", color=discord.Color.green(),
+        embed = discord.Embed(title="✅ 𝐈𝐭𝐞𝐦 𝐂𝐫𝐞𝐚𝐭𝐨/𝐀𝐠𝐠𝐢𝐨𝐫𝐧𝐚𝐭𝐨", color=discord.Color.green(),
                               timestamp=discord.utils.utcnow())
         embed.add_field(name="📦 Nome",        value=nome,           inline=True)
         embed.add_field(name="💵 Prezzo",      value=f"${prezzo:,}", inline=True)
@@ -168,7 +168,7 @@ def setup_inventory_commands(bot):
         async with aiosqlite.connect(DATABASE_NAME) as db:
             await db.execute("DELETE FROM inventory WHERE user_id=?", (str(giocatore.id),))
             await db.commit()
-        embed = discord.Embed(title="🗑️ Bisaccia Rimossa", color=discord.Color.red(),
+        embed = discord.Embed(title="🗑️ 𝐁𝐢𝐬𝐚𝐜𝐜𝐢𝐚 𝐑𝐢𝐦𝐨𝐬𝐬𝐚", color=discord.Color.red(),
                               timestamp=discord.utils.utcnow())
         embed.add_field(name="👤 Giocatore", value=giocatore.mention,        inline=True)
         embed.add_field(name="👮 Staff",     value=interaction.user.mention, inline=True)

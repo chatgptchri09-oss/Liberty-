@@ -577,7 +577,7 @@ def setup_rp_commands(bot):
         await interaction.response.send_message("✅ Sondaggio creato!", ephemeral=True)
 
     # ── /lettera ─────────────────────────────────────────────────────────────
-    @bot.tree.command(name="lettera", description="Invia una lettera privata a un altro giocatore")
+       @bot.tree.command(name="lettera", description="Invia una lettera privata a un altro giocatore")
     @app_commands.describe(
         destinatario="Il giocatore a cui inviare la lettera",
         contenuto_lettera="Il contenuto della lettera",
@@ -590,54 +590,49 @@ def setup_rp_commands(bot):
         mittente: str
     ):
         if destinatario.id == interaction.user.id:
-            await interaction.response.send_message("❌ Non puoi inviare una lettera a te stesso.", ephemeral=True); return
+            await interaction.response.send_message("❌ Non puoi inviare una lettera a te stesso.", ephemeral=True)
+            return
         if destinatario.bot:
-            await interaction.response.send_message("❌ Non puoi inviare una lettera a un bot.", ephemeral=True); return
+            await interaction.response.send_message("❌ Non puoi inviare una lettera a un bot.", ephemeral=True)
+            return
 
         COLOR_AVORIO = 0xF5F0DC
 
+        # Creazione Embed per il destinatario
         embed_dm = discord.Embed(
             title="✉️ Hai ricevuto una lettera",
             color=COLOR_AVORIO,
             timestamp=discord.utils.utcnow()
         )
         embed_dm.add_field(name="📤 Mittente",          value=interaction.user.mention, inline=False)
-        embed.add_field(name="\u200b", value="\u200b", inline=False)
         embed_dm.add_field(name="📬 Destinatario",      value=destinatario.mention,     inline=False)
-        embed.add_field(name="\u200b", value="\u200b", inline=False)
         embed_dm.add_field(name="📜 Contenuto lettera", value=contenuto_lettera,        inline=False)
-        embed.add_field(name="\u200b", value="\u200b", inline=False)
         embed_dm.add_field(name="🖊️ Firma mittente",   value=f"__{mittente}__",        inline=False)
         embed_dm.set_footer(text="🤠 Red Dead Redemption II — Posta del Far West")
 
-        inviata = False
         try:
             await destinatario.send(embed=embed_dm)
-            inviata = True
-        except discord.Forbidden:
-            pass
-
-        if inviata:
+            # Rispondi subito all'utente per evitare il timeout di Discord
             await interaction.response.send_message(
                 f"✅ Lettera inviata a {destinatario.mention} via DM.", ephemeral=True
             )
-        else:
+            
+            # Solo dopo l'invio riuscito, gestiamo il Log
+            ch = bot.get_channel(LOG_CHANNEL_ID)
+            if ch:
+                embed_log = discord.Embed(title="✉️ LOG — Lettera Inviata", color=COLOR_AVORIO, timestamp=discord.utils.utcnow())
+                embed_log.add_field(name="📤 Mittente Discord", value=interaction.user.mention, inline=True)
+                embed_log.add_field(name="📬 Destinatario",      value=destinatario.mention,     inline=True)
+                embed_log.add_field(name="🖊️ Firma RP",         value=mittente,                 inline=False)
+                embed_log.add_field(name="📜 Contenuto",         value=contenuto_lettera,        inline=False)
+                await ch.send(embed=embed_log)
+
+        except discord.Forbidden:
             await interaction.response.send_message(
                 f"⚠️ Non è stato possibile consegnare la lettera: {destinatario.mention} ha i DM disabilitati.",
                 ephemeral=True
             )
-
-        # Log
-        try:
-            ch = bot.get_channel(LOG_CHANNEL_ID)
-            if ch:
-                embed_log = discord.Embed(title="✉️ LOG — Lettera Inviata", color=COLOR_AVORIO, timestamp=discord.utils.utcnow())
-                embed_log.add_field(name="📤 Mittente",          value=interaction.user.mention, inline=False)
-                embed.add_field(name="\u200b", value="\u200b", inline=False)
-                embed_log.add_field(name="📬 Destinatario",      value=destinatario.mention,     inline=False)
-                embed.add_field(name="\u200b", value="\u200b", inline=False)
-                embed_log.add_field(name="📜 Contenuto lettera", value=contenuto_lettera,        inline=False)
-                embed.add_field(name="\u200b", value="\u200b", inline=False)
-                embed_log.add_field(name="🖊️ Firma mittente",   value=f"__{mittente}__",        inline=False)
-                await ch.send(embed=embed_log)
-        except Exception: pass
+        except Exception as e:
+            print(f"Errore: {e}")
+            if not interaction.response.is_done():
+                await interaction.response.send_message("❌ Si è verificato un errore imprevisto.", ephemeral=True)

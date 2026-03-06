@@ -113,9 +113,6 @@ def _color(h: int, t: int) -> discord.Color:
     if h < 50 or t < 50: return discord.Color.orange()
     return discord.Color(0x8B4513)
 
-def _sp() -> tuple:
-    """Ritorna una coppia (nome, valore) per un campo vuoto separatore."""
-    return "\u200b", "\u200b"
 
 def _fuzzy(query: str, candidates: list) -> list:
     q = query.lower().strip()
@@ -180,9 +177,7 @@ def setup_rp_commands(bot):
         embed = discord.Embed(title="🍖 Pasto consumato", color=discord.Color(0x8B4513), timestamp=discord.utils.utcnow())
         embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
         embed.add_field(name="🥘 Cibo",     value=cibo,                               inline=False)
-        embed.add_field(name="​", value="​", inline=False)
         embed.add_field(name="🍔 Fame",     value=f"{_bar(old_h)}  →  {_bar(new_h)}", inline=False)
-        embed.add_field(name="​", value="​", inline=False)
         embed.add_field(name="➕ Recupero", value=f"+{rip}%",                          inline=False)
         embed.set_footer(text="🤠 Red Dead Redemption II — Bisaccia")
         await interaction.response.send_message(embed=embed)
@@ -217,9 +212,7 @@ def setup_rp_commands(bot):
         embed = discord.Embed(title="💧 Bevanda consumata", color=discord.Color(0x4682B4), timestamp=discord.utils.utcnow())
         embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
         embed.add_field(name="🥃 Bevanda", value=bevanda,                                    inline=False)
-        embed.add_field(name="​", value="​", inline=False)
         embed.add_field(name="💦 Sete",    value=f"{_bar(old_t)}  →  {_bar(new_t)}" + note, inline=False)
-        embed.add_field(name="​", value="​", inline=False)
         embed.add_field(name="➕ Recupero",value=f"+{rip}%",                                 inline=False)
         embed.set_footer(text="🤠 Red Dead Redemption II — Bisaccia")
         await interaction.response.send_message(embed=embed)
@@ -241,7 +234,6 @@ def setup_rp_commands(bot):
         embed.set_thumbnail(url=target.display_avatar.url)
         embed.add_field(name="🍔 Fame", value=_bar(user["hunger"]), inline=True)
         embed.add_field(name="💦 Sete", value=_bar(user["thirst"]), inline=True)
-        embed.add_field(name="​", value="​", inline=False)
         if not items:
             embed.add_field(name="📦 Contenuto", value="*Bisaccia vuota.*", inline=False)
         else:
@@ -286,7 +278,6 @@ def setup_rp_commands(bot):
         embed.add_field(name="💰 Prezzo",    value=f"${prezzo:,}",           inline=True)
         embed.add_field(name="👤 Venditore", value=interaction.user.mention, inline=True)
         embed.add_field(name="🎯 Acquirente",value=acquirente.mention,        inline=True)
-        embed.add_field(name="​", value="​", inline=False)
         embed.add_field(name="📦 Contenuto", value=contenuto or "—",         inline=False)
         embed.set_footer(text="🤠 Red Dead Redemption II — Scambio")
         await interaction.response.send_message(embed=embed)
@@ -305,7 +296,6 @@ def setup_rp_commands(bot):
         embed = discord.Embed(title="🤝 Item Consegnato", color=discord.Color(0x8B4513), timestamp=discord.utils.utcnow())
         embed.add_field(name="📦 Item",     value=item,                     inline=True)
         embed.add_field(name="🔢 Quantità", value=str(quantita),            inline=True)
-        embed.add_field(name="​", value="​", inline=False)
         embed.add_field(name="👤 Da",       value=interaction.user.mention, inline=True)
         embed.add_field(name="🎯 A",        value=giocatore.mention,        inline=True)
         embed.set_footer(text="🤠 Red Dead Redemption II — Scambio")
@@ -373,11 +363,8 @@ def setup_rp_commands(bot):
         )
         embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
         embed.add_field(name="🤠 Dipendente",    value=interaction.user.mention, inline=False)
-        embed.add_field(name="​", value="​", inline=False)
         embed.add_field(name="💼 Lavoro",        value=lavoro.mention,           inline=False)
-        embed.add_field(name="​", value="​", inline=False)
         embed.add_field(name="💵 Stipendio/ora", value=f"${stipendio:,}",        inline=False)
-        embed.add_field(name="​", value="​", inline=False)
         embed.add_field(name="🕐 Inizio turno",  value=now.strftime("%H:%M UTC"), inline=False)
         embed.set_footer(text="🤠 Red Dead Redemption II — Turno di Lavoro")
         await interaction.response.send_message(embed=embed)
@@ -512,11 +499,8 @@ def setup_rp_commands(bot):
         embed = discord.Embed(title="🎯 Battuta di Caccia", color=discord.Color(0x556B2F), timestamp=discord.utils.utcnow())
         embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
         embed.add_field(name="🤠 Cacciatore", value=interaction.user.mention, inline=False)
-        embed.add_field(name="​", value="​", inline=False)
         embed.add_field(name="🦌 Preda",      value=preda,                    inline=False)
-        embed.add_field(name="​", value="​", inline=False)
         embed.add_field(name="📍 Zona",       value=luogo,                    inline=False)
-        embed.add_field(name="​", value="​", inline=False)
         embed.add_field(name="⭐ Qualità",    value=qualita,                  inline=False)
         embed.set_footer(text="🤠 Red Dead Redemption II — Caccia")
         await interaction.response.send_message(embed=embed)
@@ -528,12 +512,9 @@ def setup_rp_commands(bot):
         embed = discord.Embed(title="🎣 Sessione di Pesca", color=discord.Color(0x4682B4), timestamp=discord.utils.utcnow())
         embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
         embed.add_field(name="🤠 Pescatore", value=interaction.user.mention, inline=False)
-        embed.add_field(name="​", value="​", inline=False)
         embed.add_field(name="🐟 Pesce",     value=pesce,                    inline=False)
-        embed.add_field(name="​", value="​", inline=False)
         embed.add_field(name="📍 Zona",      value=luogo,                    inline=False)
         if peso:
-            embed.add_field(name="​", value="​", inline=False)
             embed.add_field(name="⚖️ Peso",  value=peso,                     inline=False)
         embed.set_footer(text="🤠 Red Dead Redemption II — Pesca")
         await interaction.response.send_message(embed=embed)
@@ -555,7 +536,6 @@ def setup_rp_commands(bot):
         embed = discord.Embed(title="🙈 Oggetto Nascosto", color=discord.Color(0x556B2F), timestamp=discord.utils.utcnow())
         embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
         embed.add_field(name="📦 Oggetto", value=oggetto, inline=False)
-        embed.add_field(name="​", value="​", inline=False)
         embed.add_field(name="📍 Luogo",   value=luogo,   inline=False)
         embed.set_footer(text="🤠 Red Dead Redemption II — Nascosto")
         await interaction.response.send_message(embed=embed)
@@ -570,7 +550,6 @@ def setup_rp_commands(bot):
         embed = discord.Embed(title="📜 Sondaggio Roleplay", description=f"**{domanda}**",
                               color=discord.Color(0xDAA520), timestamp=discord.utils.utcnow())
         embed.add_field(name="1️⃣ Opzione A", value=opzione1, inline=False)
-        embed.add_field(name="​", value="​", inline=False)
         embed.add_field(name="2️⃣ Opzione B", value=opzione2, inline=False)
         embed.set_footer(text="🤠 Red Dead Redemption II — Sondaggio RP")
         msg = await interaction.channel.send(embed=embed)
@@ -580,66 +559,77 @@ def setup_rp_commands(bot):
 
     # ── /lettera ─────────────────────────────────────────────────────────────
     @bot.tree.command(name="lettera", description="Invia una lettera privata a un altro giocatore")
-    @app_commands.describe(
-        destinatario="Il giocatore a cui inviare la lettera",
-        contenuto_lettera="Il contenuto della lettera",
-        mittente="Il tuo nome e cognome RP (es: Arthur Morgan)"
-    )
-    async def lettera(
-        interaction: discord.Interaction,
-        destinatario: discord.Member,
-        contenuto_lettera: str,
-        mittente: str
-    ):
+    @app_commands.describe(destinatario="Il giocatore che riceverà la lettera")
+    async def lettera(interaction: discord.Interaction, destinatario: discord.Member):
         if destinatario.id == interaction.user.id:
-            await interaction.response.send_message("❌ Non puoi inviare una lettera a te stesso.", ephemeral=True); return
+            await interaction.response.send_message("❌ Non puoi inviare una lettera a te stesso.", ephemeral=True)
+            return
         if destinatario.bot:
-            await interaction.response.send_message("❌ Non puoi inviare una lettera a un bot.", ephemeral=True); return
+            await interaction.response.send_message("❌ Non puoi inviare una lettera a un bot.", ephemeral=True)
+            return
 
-        COLOR_AVORIO = 0xF5F0DC
-
-        embed_dm = discord.Embed(
-            title="✉️ Hai ricevuto una lettera",
-            color=COLOR_AVORIO,
-            timestamp=discord.utils.utcnow()
-        )
-        embed_dm.add_field(name="📤 Mittente",          value=interaction.user.mention, inline=False)
-        embed_dm.add_field(name="200b", value="200b", inline=False)
-        embed_dm.add_field(name="📬 Destinatario",      value=destinatario.mention,     inline=False)
-        embed_dm.add_field(name="200b", value="200b", inline=False)
-        embed_dm.add_field(name="📜 Contenuto lettera", value=contenuto_lettera,        inline=False)
-        embed_dm.add_field(name="200b", value="200b", inline=False)
-        embed_dm.add_field(name="🖊️ Firma mittente",   value=f"__{mittente}__",        inline=False)
-        embed_dm.set_footer(text="🤠 Red Dead Redemption II — Posta del Far West")
-
-        inviata = False
-        try:
-            await destinatario.send(embed=embed_dm)
-            inviata = True
-        except discord.Forbidden:
-            pass
-
-        if inviata:
-            await interaction.response.send_message(
-                f"✅ Lettera inviata a {destinatario.mention} via DM.", ephemeral=True
+        class LetteraModal(discord.ui.Modal, title="✉️ Scrivi la tua lettera"):
+            contenuto = discord.ui.TextInput(
+                label="Contenuto della lettera",
+                style=discord.TextStyle.long,
+                placeholder="Scrivi qui il contenuto della lettera...",
+                required=True,
+                max_length=1800
             )
-        else:
-            await interaction.response.send_message(
-                f"⚠️ Non è stato possibile consegnare la lettera: {destinatario.mention} ha i DM disabilitati.",
-                ephemeral=True
+            mittente = discord.ui.TextInput(
+                label="Mittente",
+                style=discord.TextStyle.short,
+                placeholder="Es: Arthur Morgan",
+                required=True,
+                max_length=100
             )
 
-        # Log
-        try:
-            ch = bot.get_channel(LOG_CHANNEL_ID)
-            if ch:
-                embed_log = discord.Embed(title="✉️ LOG — Lettera Inviata", color=COLOR_AVORIO, timestamp=discord.utils.utcnow())
-                embed_log.add_field(name="📤 Mittente",          value=interaction.user.mention, inline=False)
-                embed_log.add_field(name="200b", value="200b", inline=False)
-                embed_log.add_field(name="📬 Destinatario",      value=destinatario.mention,     inline=False)
-                embed_log.add_field(name="200b", value="200b", inline=False)
-                embed_log.add_field(name="📜 Contenuto lettera", value=contenuto_lettera,        inline=False)
-                embed_log.add_field(name="200b", value="200b", inline=False)
-                embed_log.add_field(name="🖊️ Firma mittente",   value=f"__{mittente}__",        inline=False)
-                await ch.send(embed=embed_log)
-        except Exception: pass
+            async def on_submit(self, modal_interaction: discord.Interaction):
+                COLOR_AVORIO = 0xF5F0DC
+
+                embed_dm = discord.Embed(
+                    title="✉️ Hai ricevuto una lettera",
+                    color=COLOR_AVORIO,
+                    timestamp=discord.utils.utcnow()
+                )
+                embed_dm.add_field(name="📤 Mittente",          value=interaction.user.mention,  inline=False)
+                embed_dm.add_field(name="📬 Destinatario",      value=destinatario.mention,      inline=False)
+                embed_dm.add_field(name="📜 Contenuto lettera", value=self.contenuto.value,      inline=False)
+                embed_dm.add_field(name="🖊️ Firma",            value=f"__{self.mittente.value}__", inline=False)
+                embed_dm.set_footer(text="🤠 Red Dead Redemption II — Posta del Far West")
+
+                inviata = False
+                try:
+                    await destinatario.send(embed=embed_dm)
+                    inviata = True
+                except discord.Forbidden:
+                    pass
+
+                if inviata:
+                    await modal_interaction.response.send_message(
+                        f"✅ Lettera consegnata a {destinatario.mention} via DM.", ephemeral=True
+                    )
+                else:
+                    await modal_interaction.response.send_message(
+                        f"⚠️ Impossibile consegnare la lettera: {destinatario.mention} ha i DM disabilitati.",
+                        ephemeral=True
+                    )
+
+                # Log
+                try:
+                    ch = bot.get_channel(LOG_CHANNEL_ID)
+                    if ch:
+                        embed_log = discord.Embed(
+                            title="✉️ LOG — Lettera Inviata",
+                            color=COLOR_AVORIO,
+                            timestamp=discord.utils.utcnow()
+                        )
+                        embed_log.add_field(name="📤 Mittente",          value=interaction.user.mention,    inline=False)
+                        embed_log.add_field(name="📬 Destinatario",      value=destinatario.mention,        inline=False)
+                        embed_log.add_field(name="📜 Contenuto lettera", value=self.contenuto.value,        inline=False)
+                        embed_log.add_field(name="🖊️ Firma",            value=f"__{self.mittente.value}__", inline=False)
+                        await ch.send(embed=embed_log)
+                except Exception:
+                    pass
+
+        await interaction.response.send_modal(LetteraModal())

@@ -13,7 +13,7 @@ def setup_fine_commands(bot):
         if importo <= 0:
             await interaction.response.send_message("❌ Importo non valido.", ephemeral=True); return
         await database.add_fine(str(fuorilegge.id), importo, motivo, interaction.user.display_name)
-        embed = discord.Embed(title="⭐ TAGLIA EMESSA", color=discord.Color(0xDAA520), timestamp=discord.utils.utcnow())
+        embed = discord.Embed(title="⭐ 𝐓𝐀𝐆𝐋𝐈𝐀 𝐄𝐌𝐄𝐒𝐒𝐀", color=discord.Color(0xDAA520), timestamp=discord.utils.utcnow())
         embed.set_thumbnail(url=fuorilegge.display_avatar.url)
         embed.add_field(name="🤠 Fuorilegge", value=fuorilegge.mention,        inline=True)
         embed.add_field(name="💰 Taglia",     value=f"${importo:,}",           inline=True)
@@ -22,7 +22,7 @@ def setup_fine_commands(bot):
         embed.set_footer(text="🤠 Red Dead Redemption II — Ufficio dello Sceriffo")
         await interaction.response.send_message(embed=embed)
         try: await fuorilegge.send(embed=discord.Embed(
-            title="⭐ Hai una taglia sulla testa!",
+            title="⭐ 𝐇𝐚𝐢 𝐮𝐧𝐚 𝐭𝐚𝐠𝐥𝐢𝐚 𝐬𝐮𝐥𝐥𝐚 𝐭𝐞𝐬𝐭𝐚!",
             description=f"Lo Sceriffo **{interaction.user.display_name}** ha messo una taglia di **${importo:,}** su di te.\n**Motivo:** {motivo}",
             color=discord.Color.red()))
         except Exception: pass
@@ -44,7 +44,7 @@ def setup_fine_commands(bot):
                 f"❌ Contanti insufficienti.\nTotale taglie: **${totale:,}** — Tuoi: **${user['cash']:,}**", ephemeral=True); return
         await database.update_balance(uid, cash=user["cash"] - totale)
         for f in fines: await database.pay_fine(f["id"])
-        embed = discord.Embed(title="✅ Taglie Saldate",
+        embed = discord.Embed(title="✅ 𝐓𝐚𝐠𝐥𝐢𝐞 𝐒𝐚𝐥𝐝𝐚𝐭𝐞",
                               description=f"Hai pagato **${totale:,}**. Sei tornato un uomo libero.",
                               color=discord.Color.green(), timestamp=discord.utils.utcnow())
         embed.set_footer(text="🤠 Red Dead Redemption II — Sceriffo")
@@ -56,7 +56,7 @@ def setup_fine_commands(bot):
         if not has_sceriffo(interaction):
             await interaction.response.send_message("❌ Non hai i permessi.", ephemeral=True); return
         fines = await database.get_fines(str(giocatore.id))
-        embed = discord.Embed(title=f"⭐ Taglie di {giocatore.display_name}",
+        embed = discord.Embed(title=f"⭐ 𝐓𝐚𝐠𝐥𝐢𝐞 𝐝𝐢 {𝐠𝐢𝐨𝐜𝐚𝐭𝐨𝐫𝐞.𝐝𝐢𝐬𝐩𝐥𝐚𝐲_𝐧𝐚𝐦𝐞}",
                               color=discord.Color(0xDAA520), timestamp=discord.utils.utcnow())
         embed.set_thumbnail(url=giocatore.display_avatar.url)
         if not fines:

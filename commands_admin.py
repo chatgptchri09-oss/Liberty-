@@ -30,7 +30,7 @@ def setup_admin_commands(bot):
         else:
             await database.update_balance(str(giocatore.id), bank=user["bank"] + importo)
         label = "Contanti" if dove == "cash" else "Banca"
-        embed = discord.Embed(title="💰 Denaro Aggiunto", color=discord.Color.green(), timestamp=discord.utils.utcnow())
+        embed = discord.Embed(title="💰 𝐃𝐞𝐧𝐚𝐫𝐨 𝐀𝐠𝐠𝐢𝐮𝐧𝐭𝐨", color=discord.Color.green(), timestamp=discord.utils.utcnow())
         embed.add_field(name="👤 Giocatore", value=giocatore.mention, inline=True)
         embed.add_field(name="💵 Importo",   value=f"${importo:,}",   inline=True)
         embed.add_field(name="📋 Dove",      value=label,              inline=True)
@@ -55,7 +55,7 @@ def setup_admin_commands(bot):
         else:
             await database.update_balance(str(giocatore.id), bank=max(0, user["bank"] - importo))
         label = "Contanti" if dove == "cash" else "Banca"
-        embed = discord.Embed(title="💸 Denaro Rimosso", color=discord.Color.red(), timestamp=discord.utils.utcnow())
+        embed = discord.Embed(title="💸 𝐃𝐞𝐧𝐚𝐫𝐨 𝐑𝐢𝐦𝐨𝐬𝐬𝐨", color=discord.Color.red(), timestamp=discord.utils.utcnow())
         embed.add_field(name="👤 Giocatore", value=giocatore.mention, inline=True)
         embed.add_field(name="💵 Importo",   value=f"${importo:,}",   inline=True)
         embed.add_field(name="📋 Da",        value=label,              inline=True)
@@ -71,7 +71,7 @@ def setup_admin_commands(bot):
         if not has_staff(interaction):
             await interaction.response.send_message("❌ Non hai i permessi.", ephemeral=True); return
         await database.add_item(str(giocatore.id), item, quantita)
-        embed = discord.Embed(title="🎁 Item Consegnato", color=discord.Color.green(), timestamp=discord.utils.utcnow())
+        embed = discord.Embed(title="🎁 𝐈𝐭𝐞𝐦 𝐂𝐨𝐧𝐬𝐞𝐠𝐧𝐚𝐭𝐨", color=discord.Color.green(), timestamp=discord.utils.utcnow())
         embed.add_field(name="👤 Ricevuto da", value=giocatore.mention, inline=True)
         embed.add_field(name="📦 Item",        value=item,              inline=True)
         embed.add_field(name="🔢 Quantità",    value=str(quantita),     inline=True)
@@ -88,7 +88,7 @@ def setup_admin_commands(bot):
             await interaction.response.send_message("❌ Non hai i permessi.", ephemeral=True); return
         if not await database.remove_item(str(giocatore.id), item, quantita):
             await interaction.response.send_message(f"❌ Il giocatore non ha abbastanza **{item}**.", ephemeral=True); return
-        embed = discord.Embed(title="📦 Item Rimosso", color=discord.Color.orange(), timestamp=discord.utils.utcnow())
+        embed = discord.Embed(title="📦 𝐈𝐭𝐞𝐦 𝐑𝐢𝐦𝐨𝐬𝐬𝐨", color=discord.Color.orange(), timestamp=discord.utils.utcnow())
         embed.add_field(name="👤 Giocatore", value=giocatore.mention, inline=True)
         embed.add_field(name="📦 Item",      value=item,              inline=True)
         embed.add_field(name="🔢 Quantità",  value=str(quantita),     inline=True)
@@ -105,7 +105,7 @@ def setup_admin_commands(bot):
             await interaction.response.send_message("❌ Non hai i permessi.", ephemeral=True); return
         user = await database.get_user(str(giocatore.id))
         await database.update_balance(str(giocatore.id), cash=user["cash"] + importo)
-        embed = discord.Embed(title="💼 Stipendio Pagato", color=discord.Color(0xDAA520), timestamp=discord.utils.utcnow())
+        embed = discord.Embed(title="💼 𝐒𝐭𝐢𝐩𝐞𝐧𝐝𝐢𝐨 𝐏𝐚𝐠𝐚𝐭𝐨", color=discord.Color(0xDAA520), timestamp=discord.utils.utcnow())
         embed.set_thumbnail(url=giocatore.display_avatar.url)
         embed.add_field(name="👤 Giocatore", value=giocatore.mention,  inline=True)
         embed.add_field(name="💵 Stipendio", value=f"${importo:,}",    inline=True)
@@ -115,7 +115,7 @@ def setup_admin_commands(bot):
         await interaction.response.send_message(embed=embed)
         await _log(bot, embed)
         try:
-            dm = discord.Embed(title="💵 Hai ricevuto lo stipendio!",
+            dm = discord.Embed(title="💵 𝐇𝐚𝐢 𝐫𝐢𝐜𝐞𝐯𝐮𝐭𝐨 𝐥𝐨 𝐬𝐭𝐢𝐩𝐞𝐧𝐝𝐢𝐨!",
                                description=f"Hai ricevuto **${importo:,}** per il tuo lavoro da **{ruolo}**.",
                                color=discord.Color.green())
             await giocatore.send(embed=dm)
@@ -127,7 +127,7 @@ def setup_admin_commands(bot):
     async def annuncio(interaction: discord.Interaction, titolo: str, messaggio: str):
         if not has_staff(interaction):
             await interaction.response.send_message("❌ Non hai i permessi.", ephemeral=True); return
-        embed = discord.Embed(title=f"📜 {titolo}", description=messaggio,
+        embed = discord.Embed(title=f"📜 {𝐭𝐢𝐭𝐨𝐥𝐨}", description=messaggio,
                               color=discord.Color(0xDAA520), timestamp=discord.utils.utcnow())
         embed.set_footer(text=f"Annuncio di {interaction.user.display_name} • 🤠 Red Dead Redemption II")
         await interaction.channel.send(content="@everyone", embed=embed)
@@ -141,7 +141,7 @@ def setup_admin_commands(bot):
         async with aiosqlite.connect(DATABASE_NAME) as db:
             await db.execute("DELETE FROM inventory")
             await db.commit()
-        embed = discord.Embed(title="🗑️ Wipe Item Completato", color=discord.Color.red(), timestamp=discord.utils.utcnow())
+        embed = discord.Embed(title="🗑️ 𝐖𝐢𝐩𝐞 𝐈𝐭𝐞𝐦 𝐂𝐨𝐦𝐩𝐥𝐞𝐭𝐚𝐭𝐨", color=discord.Color.red(), timestamp=discord.utils.utcnow())
         embed.add_field(name="👮 Eseguito da", value=interaction.user.mention, inline=True)
         embed.set_footer(text="🤠 Red Dead Redemption II — Admin")
         await interaction.response.send_message(embed=embed)
@@ -159,7 +159,7 @@ def setup_admin_commands(bot):
             await interaction.response.send_message("❌ Non hai i permessi.", ephemeral=True); return
         color = discord.Color.green() if esito == "approvato" else discord.Color.red()
         emoji = "✅" if esito == "approvato" else "❌"
-        embed = discord.Embed(title=f"{emoji} Whitelist — {esito.capitalize()}", color=color, timestamp=discord.utils.utcnow())
+        embed = discord.Embed(title=f"{𝐞𝐦𝐨𝐣𝐢} 𝐖𝐡𝐢𝐭𝐞𝐥𝐢𝐬𝐭 — {𝐞𝐬𝐢𝐭𝐨.𝐜𝐚𝐩𝐢𝐭𝐚𝐥𝐢𝐳𝐞()}", color=color, timestamp=discord.utils.utcnow())
         embed.set_thumbnail(url=giocatore.display_avatar.url)
         embed.add_field(name="👤 Giocatore", value=giocatore.mention,       inline=True)
         embed.add_field(name="📋 Esito",     value=esito.capitalize(),       inline=True)
@@ -180,8 +180,8 @@ def setup_admin_commands(bot):
         if not has_staff(interaction):
             await interaction.response.send_message("❌ Non hai i permessi.", ephemeral=True); return
         color = discord.Color.green() if stato == "online" else discord.Color.red()
-        emoji = "<a:online:1459627385702973572>" if stato == "online" else "<a:offline:1459628872197738641>"
-        embed = discord.Embed(title=f"{emoji} Servizi Whitelist — {stato.upper()}", color=color, timestamp=discord.utils.utcnow())
+        emoji = "🟢" if stato == "online" else "🔴"
+        embed = discord.Embed(title=f"{𝐞𝐦𝐨𝐣𝐢} 𝐒𝐞𝐫𝐯𝐢𝐳𝐢 𝐖𝐡𝐢𝐭𝐞𝐥𝐢𝐬𝐭 — {𝐬𝐭𝐚𝐭𝐨.𝐮𝐩𝐩𝐞𝐫()}", color=color, timestamp=discord.utils.utcnow())
         embed.set_footer(text="🤠 Red Dead Redemption II")
         await interaction.channel.send(embed=embed)
         await interaction.response.send_message("✅ Stato aggiornato!", ephemeral=True)
@@ -204,7 +204,7 @@ def setup_admin_commands(bot):
             await interaction.response.send_message("❌ Non hai i permessi.", ephemeral=True); return
         current = await database.get_fondocassa(compagnia)
         await database.update_fondocassa(compagnia, current + importo)
-        embed = discord.Embed(title="💼 Fondo Cassa Aggiornato", color=discord.Color.green(), timestamp=discord.utils.utcnow())
+        embed = discord.Embed(title="💼 𝐅𝐨𝐧𝐝𝐨 𝐂𝐚𝐬𝐬𝐚 𝐀𝐠𝐠𝐢𝐨𝐫𝐧𝐚𝐭𝐨", color=discord.Color.green(), timestamp=discord.utils.utcnow())
         embed.add_field(name="🏢 Compagnia",    value=compagnia,                  inline=True)
         embed.add_field(name="💵 Aggiunto",     value=f"${importo:,}",            inline=True)
         embed.add_field(name="💰 Nuovo totale", value=f"${current+importo:,}",   inline=True)
@@ -231,7 +231,7 @@ def setup_admin_commands(bot):
         if not has_staff(interaction):
             await interaction.response.send_message("❌ Non hai i permessi.", ephemeral=True); return
         await database.add_property(str(cittadino.id), nome, tipo, luogo)
-        embed = discord.Embed(title="🏡 Proprietà Registrata", color=discord.Color(0x8B4513), timestamp=discord.utils.utcnow())
+        embed = discord.Embed(title="🏡 𝐏𝐫𝐨𝐩𝐫𝐢𝐞𝐭à 𝐑𝐞𝐠𝐢𝐬𝐭𝐫𝐚𝐭𝐚", color=discord.Color(0x8B4513), timestamp=discord.utils.utcnow())
         embed.set_thumbnail(url=cittadino.display_avatar.url)
         embed.add_field(name="👤 Proprietario", value=cittadino.mention, inline=True)
         embed.add_field(name="🏠 Nome",         value=nome,              inline=True)
@@ -242,7 +242,7 @@ def setup_admin_commands(bot):
         await interaction.response.send_message(embed=embed)
         await _log(bot, embed)
         try:
-            dm = discord.Embed(title="🏡 Nuova Proprietà!",
+            dm = discord.Embed(title="🏡 𝐍𝐮𝐨𝐯𝐚 𝐏𝐫𝐨𝐩𝐫𝐢𝐞𝐭à!",
                                description=f"Sei proprietario di **{nome}** ({tipo}) a **{luogo}**!",
                                color=discord.Color(0x8B4513))
             await cittadino.send(embed=dm)

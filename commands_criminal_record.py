@@ -12,7 +12,7 @@ def setup_criminal_record_commands(bot):
                               color=discord.Color(0x8B4513), timestamp=discord.utils.utcnow())
         embed.set_thumbnail(url=interaction.user.display_avatar.url)
         if not records:
-            embed.description = "✅ *Nessun crimine registrato. Sei un uomo onesto, cowboy.*"
+            embed.description = "<a:conferma:1451983464764014733> *Nessun crimine registrato. Sei un uomo onesto, cowboy.*"
         else:
             for r in records[:8]:
                 embed.add_field(name=f"⚖️ {r['crime']}",
@@ -26,13 +26,13 @@ def setup_criminal_record_commands(bot):
         if not has_sceriffo(interaction):
             await interaction.response.send_message("❌ Solo lo Sceriffo.", ephemeral=True); return
         await database.clear_criminal_record(str(cittadino.id))
-        embed = discord.Embed(title="✅ Fedina Penale Pulita", color=discord.Color.green(), timestamp=discord.utils.utcnow())
+        embed = discord.Embed(title="<a:conferma:1451983464764014733> Fedina Penale Pulita", color=discord.Color.green(), timestamp=discord.utils.utcnow())
         embed.add_field(name="👤 Cittadino", value=cittadino.mention,        inline=True)
         embed.add_field(name="⭐ Sceriffo",  value=interaction.user.mention, inline=True)
         embed.set_footer(text="🤠 Red Dead Redemption II — Sceriffo")
         await interaction.response.send_message(embed=embed)
         try: await cittadino.send(embed=discord.Embed(
-            title="✅ Fedina Penale Pulita",
+            title="<a:conferma:1451983464764014733> Fedina Penale Pulita",
             description="La tua fedina penale è stata pulita. Sei libero da ogni accusa.",
             color=discord.Color.green()))
         except Exception: pass

@@ -30,8 +30,8 @@ def setup_bando_commands(bot):
         if not has_staff(interaction):
             await interaction.response.send_message("❌ Non hai i permessi.", ephemeral=True); return
         color = discord.Color.green() if stato == "aperto" else discord.Color.red()
-        emoji = "🟢" if stato == "aperto" else "🔴"
-        embed = discord.Embed(title=f"📜 BANDO LAVORATIVO — {emoji} {stato.upper()}",
+        emoji = "<a:online:1459627385702973572>" if stato == "aperto" else "<a:offline:1459628872197738641>"
+        embed = discord.Embed(title=f"{emoji} BANDO {stato.upper()}",
                               color=color, timestamp=discord.utils.utcnow())
         embed.add_field(name="🤠 Lavoro",        value=lavoro,                   inline=True)
         embed.add_field(name="📋 Stato",         value=stato.capitalize(),       inline=True)

@@ -51,12 +51,7 @@ _modules = [
     ("commands_fines",           "setup_fine_commands"),
     ("commands_arrests",         "setup_arrest_commands"),
     ("commands_criminal_record", "setup_criminal_record_commands"),
-    # commands_misc contiene: rp_status, wipepg, fondocassa, invoice, properties
-    ("commands_misc",            "setup_rpoff_commands"),
-    ("commands_misc",            "setup_wipepg_commands"),
-    ("commands_misc",            "setup_fondocassa_commands"),
-    ("commands_misc",            "setup_invoice_commands"),
-    ("commands_misc",            "setup_property_commands"),
+    ("commands_fondocassa",      "setup_fondocassa_commands"),
 ]
 
 _loaded = {}

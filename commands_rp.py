@@ -357,7 +357,7 @@ def setup_rp_commands(bot):
         }
 
         embed = discord.Embed(
-            title="🟢 TURNO INIZIATO",
+            title="<a:online:1459627385702973572> TURNO INIZIATO <a:online:1459627385702973572>",
             color=discord.Color.green(),
             timestamp=discord.utils.utcnow()
         )
@@ -412,21 +412,17 @@ def setup_rp_commands(bot):
 
         # ── Embed fine turno (nel canale corrente) ───────────────────────────
         embed_fine = discord.Embed(
-            title="🔴 TURNO TERMINATO",
+            title="<a:offline:1459628872197738641> TURNO TERMINATO <a:offline:1459628872197738641>",
             color=discord.Color.red(),
             timestamp=discord.utils.utcnow()
         )
         embed_fine.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
         embed_fine.add_field(name="🤠 Dipendente",       value=interaction.user.mention,               inline=False)
-        embed_fine.add_field(name="200b", value="200b", inline=False)
         embed_fine.add_field(name="💼 Lavoro",           value=lavoro.mention,                         inline=False)
-        embed_fine.add_field(name="200b", value="200b", inline=False)
         embed_fine.add_field(name="🕐 Inizio",           value=inizio.strftime("%H:%M UTC"),           inline=True)
         embed_fine.add_field(name="🕑 Fine",             value=now.strftime("%H:%M UTC"),              inline=True)
-        embed_fine.add_field(name="200b", value="200b", inline=False)
         embed_fine.add_field(name="⏱️ Durata reale",     value=durata_str,                             inline=True)
         embed_fine.add_field(name="📋 Ore fatturate",    value=f"{ore_fatturate}h (arrot. eccesso)",   inline=True)
-        embed_fine.add_field(name="200b", value="200b", inline=False)
         embed_fine.add_field(name="💵 Stipendio/ora",    value=f"${turno['stipendio']:,}",             inline=True)
         embed_fine.add_field(name="💰 Totale da pagare", value=f"**${stipendio_totale:,}**",           inline=True)
         embed_fine.set_footer(text="🤠 Red Dead Redemption II — Turno di Lavoro")
@@ -446,15 +442,11 @@ def setup_rp_commands(bot):
         )
         embed_staff.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
         embed_staff.add_field(name="🤠 Dipendente",       value=interaction.user.mention,               inline=False)
-        embed_staff.add_field(name="200b", value="200b", inline=False)
         embed_staff.add_field(name="💼 Ruolo",            value=lavoro.mention,                         inline=False)
-        embed_staff.add_field(name="200b", value="200b", inline=False)
         embed_staff.add_field(name="🕐 Inizio turno",     value=inizio.strftime("%H:%M UTC"),           inline=True)
-        embed_staff.add_field(name="🕑 Fine turno",       value=now.strftime("%H:%M UTC"),              inline=True)
-        embed_staff.add_field(name="200b", value="200b", inline=False)
+        embed_staff.add_field(name="🕑 Fine turno",       value=now.strftime("%H:%M UTC"),              inline=True
         embed_staff.add_field(name="⏱️ Durata",           value=durata_str,                             inline=True)
         embed_staff.add_field(name="📋 Ore fatturate",    value=f"{ore_fatturate}h",                    inline=True)
-        embed_staff.add_field(name="200b", value="200b", inline=False)
         embed_staff.add_field(name="💵 Stipendio/ora",    value=f"${turno['stipendio']:,}",             inline=True)
         embed_staff.add_field(name="💰 Da pagare",        value=f"**${stipendio_totale:,}**",           inline=True)
         embed_staff.set_footer(text="🤠 Red Dead Redemption II — Usa /paga-stipendio per pagare")

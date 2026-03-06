@@ -150,7 +150,7 @@ def setup_rp_commands(bot):
         if new_h < 20: warns.append("⚠️ **Sei affamato!** Mangia qualcosa.")
         if new_t < 20: warns.append("⚠️ **Sei assetato!** Bevi qualcosa.")
         if warns:
-            embed.add_field(name=*_sp(), inline=False)
+            embed.add_field(name="\u200b", value="\u200b", inline=False)
             embed.add_field(name="⚡ Avviso", value="\n".join(warns), inline=False)
         embed.set_footer(text="🤠 Red Dead Redemption II — Azione RP")
         await interaction.response.send_message(embed=embed)

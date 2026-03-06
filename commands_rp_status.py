@@ -99,7 +99,7 @@ def setup_rpoff_commands(bot: commands.Bot):
             description=(
                 "💬 La roleplay è **UFFICIALMENTE ON!**\n\n"
                 "💃🕺 **DIAMO IL VIA ALLE DANZE!**\n\n"
-                "<a:Online:1431599470897922069> ⏱️ *Avvia il tuo turno con* `/inizio-turno`"
+                "<a:online:1459627385702973572> ⏱️ *Avvia il tuo turno con* `/inizio-turno`"
             ),
             color=discord.Color.green()
         )

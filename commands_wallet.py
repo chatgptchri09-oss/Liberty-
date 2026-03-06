@@ -43,7 +43,7 @@ class PortafoglioSelect(discord.ui.Select):
         if val == "documento":
             doc = await database.get_document(user_id)
             embed = discord.Embed(
-                title="📜 Documento d'Identità",
+                title="📜 𝐃𝐨𝐜𝐮𝐦𝐞𝐧𝐭𝐨 𝐝'𝐈𝐝𝐞𝐧𝐭𝐢𝐭à",
                 color=discord.Color(0x8B4513),
                 timestamp=discord.utils.utcnow()
             )
@@ -65,7 +65,7 @@ class PortafoglioSelect(discord.ui.Select):
             items = await database.get_inventory(user_id)
             user  = await database.get_user(user_id)
             embed = discord.Embed(
-                title="🎒 La tua Bisaccia",
+                title="🎒 𝐋𝐚 𝐭𝐮𝐚 𝐁𝐢𝐬𝐚𝐜𝐜𝐢𝐚",
                 color=discord.Color(0x8B4513),
                 timestamp=discord.utils.utcnow()
             )
@@ -82,7 +82,7 @@ class PortafoglioSelect(discord.ui.Select):
         elif val == "proprieta":
             props = await database.get_properties(user_id)
             embed = discord.Embed(
-                title="🏡 Le tue Proprietà",
+                title="🏡 𝐋𝐞 𝐭𝐮𝐞 𝐏𝐫𝐨𝐩𝐫𝐢𝐞𝐭à",
                 color=discord.Color(0x8B4513),
                 timestamp=discord.utils.utcnow()
             )
@@ -101,7 +101,7 @@ class PortafoglioSelect(discord.ui.Select):
         elif val == "fedina":
             records = await database.get_criminal_records(user_id)
             embed = discord.Embed(
-                title="⚖️ Fedina Penale",
+                title="⚖️ 𝐅𝐞𝐝𝐢𝐧𝐚 𝐏𝐞𝐧𝐚𝐥𝐞",
                 color=discord.Color(0x8B4513),
                 timestamp=discord.utils.utcnow()
             )
@@ -170,7 +170,7 @@ class BancaModal(discord.ui.Modal):
 
         label = "Prelievo" if self.action == "preleva" else "Deposito"
         embed = discord.Embed(
-            title=f"🏦 Richiesta di {label}",
+            title=f"🏦 𝐑𝐢𝐜𝐡𝐢𝐞𝐬𝐭𝐚 𝐝𝐢 {𝐥𝐚𝐛𝐞𝐥}",
             color=discord.Color(0xDAA520),
             timestamp=discord.utils.utcnow()
         )
@@ -233,7 +233,7 @@ class ConfermaOperazioneView(discord.ui.View):
         member = guild.get_member(int(self.user_id))
         if member:
             try:
-                dm = discord.Embed(title="🏦 Operazione Bancaria Approvata", description=esito,
+                dm = discord.Embed(title="🏦 𝐎𝐩𝐞𝐫𝐚𝐳𝐢𝐨𝐧𝐞 𝐁𝐚𝐧𝐜𝐚𝐫𝐢𝐚 𝐀𝐩𝐩𝐫𝐨𝐯𝐚𝐭𝐚", description=esito,
                                    color=discord.Color.green(), timestamp=discord.utils.utcnow())
                 dm.set_footer(text="🤠 Red Dead Redemption II — Banca")
                 await member.send(embed=dm)
@@ -252,7 +252,7 @@ class ConfermaOperazioneView(discord.ui.View):
             try:
                 label = "prelievo" if self.action == "preleva" else "deposito"
                 dm = discord.Embed(
-                    title="🏦 Operazione Bancaria Rifiutata",
+                    title="🏦 𝐎𝐩𝐞𝐫𝐚𝐳𝐢𝐨𝐧𝐞 𝐁𝐚𝐧𝐜𝐚𝐫𝐢𝐚 𝐑𝐢𝐟𝐢𝐮𝐭𝐚𝐭𝐚",
                     description=f"La tua richiesta di **{label}** di **${self.amount:,}** è stata **rifiutata** dal Banchiere.",
                     color=discord.Color.red(), timestamp=discord.utils.utcnow()
                 )
@@ -292,7 +292,7 @@ def setup_wallet_commands(bot):
     @bot.tree.command(name="portafoglio", description="Apri il tuo portafoglio personale")
     async def portafoglio(interaction: discord.Interaction):
         embed = discord.Embed(
-            title=f"<a:Portafoglio:1462442004569919629> Portafoglio di {interaction.user.mention}",
+            title=f"👜 𝐏𝐨𝐫𝐭𝐚𝐟𝐨𝐠𝐥𝐢𝐨 𝐝𝐢 {𝐢𝐧𝐭𝐞𝐫𝐚𝐜𝐭𝐢𝐨𝐧.𝐮𝐬𝐞𝐫.𝐝𝐢𝐬𝐩𝐥𝐚𝐲_𝐧𝐚𝐦𝐞}",
             description=(
                 "Seleziona una sezione dal menu qui sotto per visualizzare\n"
                 "le tue informazioni personali nel Far West."
@@ -310,7 +310,7 @@ def setup_wallet_commands(bot):
     async def banca(interaction: discord.Interaction):
         user = await database.get_user(str(interaction.user.id))
         embed = discord.Embed(
-            title="🏦 Banca del Far West",
+            title="🏦 𝐁𝐚𝐧𝐜𝐚 𝐝𝐞𝐥 𝐅𝐚𝐫 𝐖𝐞𝐬𝐭",
             color=discord.Color(0xDAA520),
             timestamp=discord.utils.utcnow()
         )
@@ -354,7 +354,7 @@ def setup_wallet_commands(bot):
         await database.update_balance(str(giocatore.id),        cash=destinatario["cash"] + importo)
 
         embed = discord.Embed(
-            title="💸 Pagamento Effettuato",
+            title="💸 𝐏𝐚𝐠𝐚𝐦𝐞𝐧𝐭𝐨 𝐄𝐟𝐟𝐞𝐭𝐭𝐮𝐚𝐭𝐨",
             color=discord.Color(0xDAA520),
             timestamp=discord.utils.utcnow()
         )
@@ -369,7 +369,7 @@ def setup_wallet_commands(bot):
         # DM al destinatario
         try:
             dm = discord.Embed(
-                title="💵 Hai ricevuto un pagamento!",
+                title="💵 𝐇𝐚𝐢 𝐫𝐢𝐜𝐞𝐯𝐮𝐭𝐨 𝐮𝐧 𝐩𝐚𝐠𝐚𝐦𝐞𝐧𝐭𝐨!",
                 description=(
                     f"**{interaction.user.display_name}** ti ha pagato **${importo:,}** in contanti."
                     + (f"\n📋 **Causale:** {causale}" if causale else "")

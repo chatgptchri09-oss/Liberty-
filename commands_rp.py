@@ -440,7 +440,7 @@ def setup_rp_commands(bot):
         # ── Embed fine turno (nel canale corrente) ───────────────────────────
         embed_fine = discord.Embed(
             title="<a:offline:1459628872197738641> 𝐓𝐔𝐑𝐍𝐎 𝐓𝐄𝐑𝐌𝐈𝐍𝐀𝐓𝐎 <a:offline:1459628872197738641> ",
-            color=discord.Color.red()
+            color=discord.Color.red(),
             timestamp=discord.utils.utcnow()
         )
         embed_fine.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)

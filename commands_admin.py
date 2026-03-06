@@ -180,7 +180,7 @@ def setup_admin_commands(bot):
         if not has_staff(interaction):
             await interaction.response.send_message("❌ Non hai i permessi.", ephemeral=True); return
         color = discord.Color.green() if stato == "online" else discord.Color.red()
-        emoji = "🟢" if stato == "online" else "🔴"
+        emoji = "<a:online:1459627385702973572>" if stato == "online" else "<a:offline:1459628872197738641>"
         embed = discord.Embed(title=f"{emoji} Servizi Whitelist — {stato.upper()}", color=color, timestamp=discord.utils.utcnow())
         embed.set_footer(text="🤠 Red Dead Redemption II")
         await interaction.channel.send(embed=embed)

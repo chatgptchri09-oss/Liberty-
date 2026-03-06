@@ -637,7 +637,7 @@ def setup_rp_commands(bot):
                 embed_log.add_field(name="📬 Destinatario",      value=destinatario.mention,     inline=False)
                 embed.add_field(name="\u200b", value="\u200b", inline=False)
                 embed_log.add_field(name="📜 Contenuto lettera", value=contenuto_lettera,        inline=False)
-                embed.add_field(name="\u200b", value="\u200b", inline=False)                 inline=False)
+                embed.add_field(name="\u200b", value="\u200b", inline=False)
                 embed_log.add_field(name="🖊️ Firma mittente",   value=f"__{mittente}__",        inline=False)
                 await ch.send(embed=embed_log)
         except Exception: pass

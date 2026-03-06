@@ -600,23 +600,7 @@ def setup_rp_commands(bot):
         embed.set_footer(text="🤠 Red Dead Redemption II — Nascosto")
         await interaction.response.send_message(embed=embed)
 
-    # ── /sondaggiorp ─────────────────────────────────────────────────────────
-    @bot.tree.command(name="sondaggiorp", description="[Staff] Crea un sondaggio roleplay")
-    @app_commands.describe(domanda="La domanda", opzione1="Prima opzione", opzione2="Seconda opzione")
-    async def sondaggiorp(interaction: discord.Interaction, domanda: str, opzione1: str, opzione2: str):
-        if not isinstance(interaction.user, discord.Member) or \
-           not any(r.id in STAFF_ROLES for r in interaction.user.roles):
-            await interaction.response.send_message("❌ Non hai i permessi.", ephemeral=True); return
-        embed = discord.Embed(title="📜 𝐒𝐨𝐧𝐝𝐚𝐠𝐠𝐢𝐨 𝐑𝐨𝐥𝐞𝐩𝐥𝐚𝐲", description=f"**{domanda}**",
-                              color=discord.Color(0xDAA520), timestamp=discord.utils.utcnow())
-        embed.add_field(name="1️⃣ Opzione A", value=opzione1, inline=False)
-        embed.add_field(name="2️⃣ Opzione B", value=opzione2, inline=False)
-        embed.set_footer(text="🤠 Red Dead Redemption II — Sondaggio RP")
-        msg = await interaction.channel.send(embed=embed)
-        await msg.add_reaction("1️⃣")
-        await msg.add_reaction("2️⃣")
-        await interaction.response.send_message("✅ Sondaggio creato!", ephemeral=True)
-
+    
     # ── /lettera ─────────────────────────────────────────────────────────────
     @bot.tree.command(name="lettera", description="Invia una lettera privata a un altro giocatore")
     @app_commands.describe(destinatario="Il giocatore che riceverà la lettera")

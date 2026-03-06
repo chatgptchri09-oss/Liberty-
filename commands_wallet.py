@@ -292,7 +292,7 @@ def setup_wallet_commands(bot):
     @bot.tree.command(name="portafoglio", description="Apri il tuo portafoglio personale")
     async def portafoglio(interaction: discord.Interaction):
         embed = discord.Embed(
-            title=f"👜 Portafoglio di {interaction.user.display_name}",
+            title=f"<a:Portafoglio:1462442004569919629> Portafoglio di {interaction.user.mention}",
             description=(
                 "Seleziona una sezione dal menu qui sotto per visualizzare\n"
                 "le tue informazioni personali nel Far West."

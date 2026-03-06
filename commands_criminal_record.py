@@ -8,7 +8,7 @@ def setup_criminal_record_commands(bot):
     @bot.tree.command(name="miafedinapenale", description="Visualizza la tua fedina penale")
     async def mia_fedina(interaction: discord.Interaction):
         records = await database.get_criminal_records(str(interaction.user.id))
-        embed = discord.Embed(title=f"⚖️ 𝐅𝐞𝐝𝐢𝐧𝐚 𝐏𝐞𝐧𝐚𝐥𝐞 𝐝𝐢 {𝐢𝐧𝐭𝐞𝐫𝐚𝐜𝐭𝐢𝐨𝐧.𝐮𝐬𝐞𝐫.𝐝𝐢𝐬𝐩𝐥𝐚𝐲_𝐧𝐚𝐦𝐞}",
+        embed = discord.Embed(title=f"⚖️ 𝐅𝐞𝐝𝐢𝐧𝐚 𝐏𝐞𝐧𝐚𝐥𝐞 𝐝𝐢 {interaction.user.mention}",
                               color=discord.Color(0x8B4513), timestamp=discord.utils.utcnow())
         embed.set_thumbnail(url=interaction.user.display_avatar.url)
         if not records:

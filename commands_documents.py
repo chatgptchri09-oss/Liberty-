@@ -2,16 +2,33 @@ import discord
 from discord import app_commands
 import database
 import aiosqlite
-import json
 from constants import STATO_ROLE_ID, LOG_CHANNEL_ID, has_sceriffo, DATABASE_NAME
 
-# ── UTILITY PERMESSI ─────────────────────────────────────────────────────────
+
 def has_stato(interaction) -> bool:
     if not isinstance(interaction.user, discord.Member):
         return False
     return any(r.id == STATO_ROLE_ID for r in interaction.user.roles)
 
-# ── COSTRUZIONE EMBED (Grafica Originale) ────────────────────────────────────
+
+# ── View con tasto "Mostra" ──────────────────────────────────────────────────
+class MostraDocumentoView(discord.ui.View):
+    def __init__(self, embed: discord.Embed, richiedente: discord.Member):
+        super().__init__(timeout=300)
+        self.embed       = embed
+        self.richiedente = richiedente
+
+    @discord.ui.button(label="📢 Mostra", style=discord.ButtonStyle.primary)
+    async def mostra(self, interaction: discord.Interaction, button: discord.ui.Button):
+        button.disabled = True
+        await interaction.response.edit_message(view=self)
+        await interaction.channel.send(
+            content=f"📜 Questo documento è stato mostrato da {self.richiedente.mention}",
+            embed=self.embed
+        )
+
+
+# ── Costruisce l'embed del documento ─────────────────────────────────────────
 def _build_doc_embed(cittadino, emittente, data: dict, foto_url):
     embed = discord.Embed(
         title="<a:documento:1458563773546893541> 𝐃𝐎𝐂𝐔𝐌𝐄𝐍𝐓𝐎 𝐃'𝐈𝐃𝐄𝐍𝐓𝐈𝐓À 𝐔𝐅𝐅𝐈𝐂𝐈𝐀𝐋𝐄",
@@ -30,8 +47,8 @@ def _build_doc_embed(cittadino, emittente, data: dict, foto_url):
     embed.add_field(name="🌍 Nazionalità",       value=data.get("nazionalita", "—"),   inline=True)
     embed.add_field(name="⚧ Sesso",              value=data.get("sesso", "—"),         inline=True)
     embed.add_field(name="\u200b",               value="\u200b",                       inline=False)
-    embed.add_field(name="💇 Capelli",           value=data.get("capelli", "—"),       inline=True)
-    embed.add_field(name="👁️ Occhi",             value=data.get("occhi", "—"),         inline=True)
+    embed.add_field(name="💇 Colore Capelli",    value=data.get("capelli", "—"),       inline=True)
+    embed.add_field(name="👁️ Colore Occhi",      value=data.get("occhi", "—"),         inline=True)
     embed.add_field(name="🎨 Carnagione",        value=data.get("carnagione", "—"),    inline=True)
     embed.add_field(name="🔍 Segni Particolari", value=data.get("segni", "—"),         inline=True)
     if foto_url:
@@ -40,158 +57,262 @@ def _build_doc_embed(cittadino, emittente, data: dict, foto_url):
     embed.set_footer(text="🤠 Red Dead Redemption II — Documento Ufficiale")
     return embed
 
-# ── VIEW PER PUBBLICARE IL DOCUMENTO ─────────────────────────────────────────
-class MostraDocumentoView(discord.ui.View):
-    def __init__(self, embed: discord.Embed, richiedente: discord.Member):
-        super().__init__(timeout=None)
-        self.embed = embed
-        self.richiedente = richiedente
 
-    @discord.ui.button(label="📢 Mostra a tutti", style=discord.ButtonStyle.primary)
-    async def mostra(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.channel.send(
-            content=f"📜 {self.richiedente.mention} ha mostrato il suo documento:",
-            embed=self.embed
-        )
-        if not interaction.response.is_done():
-            await interaction.response.send_message("Documento mostrato!", ephemeral=True)
+# ─────────────────────────────────────────────────────────────────────────────
+#  View STEP 2 — apre modal parte 2 (bottone iniziale dopo step 1)
+# ─────────────────────────────────────────────────────────────────────────────
+class Step2View(discord.ui.View):
+    def __init__(self, bot, cittadino, foto_url, emittente, data1):
+        super().__init__(timeout=300)
+        self.bot        = bot
+        self.cittadino  = cittadino
+        self.foto_url   = foto_url
+        self.emittente  = emittente
+        self.data1      = data1
 
-# ── MODAL UNICO (VERSIONE DEFINITIVA) ────────────────────────────────────────
-class DocumentoModal(discord.ui.Modal, title="📒 Creazione Documento"):
-    linea1 = discord.ui.TextInput(label="PSN ID - Nome - Cognome", placeholder="Es: PSN_123 - Arthur - Morgan", required=True)
-    linea2 = discord.ui.TextInput(label="Data Nascita - Età", placeholder="Es: 15/05/1890 - 35", required=True)
-    linea3 = discord.ui.TextInput(label="Residenza - Nazionalità - Sesso", placeholder="Es: Rhodes - Americana - Uomo", required=True)
-    linea4 = discord.ui.TextInput(label="Capelli - Occhi - Carnagione", placeholder="Es: Neri - Blu - Chiara", required=True)
-    linea5 = discord.ui.TextInput(label="Segni Particolari", placeholder="Es: Cicatrice o Nessuno", required=False)
+    @discord.ui.button(label="➡️ Continua — Parte 2", style=discord.ButtonStyle.primary)
+    async def apri_step2(self, interaction: discord.Interaction, button: discord.ui.Button):
+        button.disabled = True
+        bot        = self.bot
+        cittadino  = self.cittadino
+        foto_url   = self.foto_url
+        emittente  = self.emittente
+        data1      = self.data1
 
-    def __init__(self, bot, cittadino, foto_url, emittente):
-        super().__init__()
-        self.bot = bot
+        class Modal2(discord.ui.Modal, title="📒 Modulo Documenti — Parte 2"):
+            residenza   = discord.ui.TextInput(label="Residenza",         style=discord.TextStyle.short, required=True, max_length=80)
+            nazionalita = discord.ui.TextInput(label="Nazionalità",       style=discord.TextStyle.short, required=True, max_length=50)
+            sesso       = discord.ui.TextInput(label="Sesso",             style=discord.TextStyle.short, required=True, max_length=10, placeholder="Uomo / Donna")
+            capelli     = discord.ui.TextInput(label="Colore Capelli",    style=discord.TextStyle.short, required=True, max_length=30)
+            occhi       = discord.ui.TextInput(label="Colore Occhi",      style=discord.TextStyle.short, required=True, max_length=30)
+
+            async def on_submit(self2, inter: discord.Interaction):
+                data2 = {
+                    "residenza":   self2.residenza.value,
+                    "nazionalita": self2.nazionalita.value,
+                    "sesso":       self2.sesso.value,
+                    "capelli":     self2.capelli.value,
+                    "occhi":       self2.occhi.value,
+                }
+                view3 = Step3View(bot, cittadino, foto_url, emittente, {**data1, **data2})
+                await inter.response.send_message(
+                    "✅ **Parte 2 completata!** Premi il bottone per l'ultimo step.",
+                    view=view3, ephemeral=True
+                )
+
+        await interaction.response.send_modal(Modal2())
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  View STEP 3 — apre modal parte 3
+# ─────────────────────────────────────────────────────────────────────────────
+class Step3View(discord.ui.View):
+    def __init__(self, bot, cittadino, foto_url, emittente, data12):
+        super().__init__(timeout=300)
+        self.bot       = bot
         self.cittadino = cittadino
-        self.foto_url = foto_url
+        self.foto_url  = foto_url
         self.emittente = emittente
+        self.data12    = data12
 
-    async def on_submit(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
-        
-        try:
-            def get_val(text, index):
-                parts = [p.strip() for p in text.split('-')]
-                return parts[index] if len(parts) > index else "—"
+    @discord.ui.button(label="➡️ Continua — Parte 3", style=discord.ButtonStyle.primary)
+    async def apri_step3(self, interaction: discord.Interaction, button: discord.ui.Button):
+        button.disabled = True
+        bot        = self.bot
+        cittadino  = self.cittadino
+        foto_url   = self.foto_url
+        emittente  = self.emittente
+        data12     = self.data12
 
-            full_data = {
-                "psn_id": get_val(self.linea1.value, 0),
-                "nome": get_val(self.linea1.value, 1),
-                "cognome": get_val(self.linea1.value, 2),
-                "data_nascita": get_val(self.linea2.value, 0),
-                "eta": get_val(self.linea2.value, 1),
-                "residenza": get_val(self.linea3.value, 0),
-                "nazionalita": get_val(self.linea3.value, 1),
-                "sesso": get_val(self.linea3.value, 2),
-                "capelli": get_val(self.linea4.value, 0),
-                "occhi": get_val(self.linea4.value, 1),
-                "carnagione": get_val(self.linea4.value, 2),
-                "segni": self.linea5.value or "Nessuno"
-            }
+        class Modal3(discord.ui.Modal, title="📒 Modulo Documenti — Parte 3"):
+            carnagione = discord.ui.TextInput(label="Colore Carnagione",  style=discord.TextStyle.short, required=True,  max_length=30)
+            segni      = discord.ui.TextInput(label="Segni Particolari",  style=discord.TextStyle.short, required=False, max_length=100, placeholder="Lascia vuoto se nessuno")
 
-            try: eta_int = int("".join(filter(str.isdigit, full_data["eta"])))
-            except: eta_int = 0
+            async def on_submit(self3, inter: discord.Interaction):
+                full = {
+                    **data12,
+                    "carnagione": self3.carnagione.value,
+                    "segni":      self3.segni.value or "Nessuno",
+                }
+                try:
+                    eta_int = int(full["eta"])
+                except (ValueError, KeyError):
+                    await inter.response.send_message("❌ Età non valida.", ephemeral=True)
+                    return
 
-            # Salvataggio diretto nel database per massima sicurezza
-            async with aiosqlite.connect(DATABASE_NAME) as db:
-                await db.execute("""
-                    INSERT OR REPLACE INTO documents 
-                    (user_id, nome, cognome, eta, sesso, luogo_nascita, foto_url, extra) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """, (str(self.cittadino.id), full_data["nome"], full_data["cognome"], 
-                      eta_int, full_data["sesso"], full_data["residenza"], 
-                      self.foto_url, json.dumps(full_data)))
-                await db.commit()
+                await database.set_document(
+                    str(cittadino.id),
+                    full["nome"], full["cognome"], eta_int,
+                    full["sesso"], full["residenza"],
+                    foto_url,
+                    extra={
+                        "psn_id":       full.get("psn_id", "—"),
+                        "data_nascita": full.get("data_nascita", "—"),
+                        "nazionalita":  full.get("nazionalita", "—"),
+                        "capelli":      full.get("capelli", "—"),
+                        "occhi":        full.get("occhi", "—"),
+                        "carnagione":   full.get("carnagione", "—"),
+                        "segni":        full.get("segni", "—"),
+                    }
+                )
 
-            embed = _build_doc_embed(self.cittadino, self.emittente, full_data, self.foto_url)
-            view = MostraDocumentoView(embed, self.cittadino)
+                embed = _build_doc_embed(cittadino, emittente, full, foto_url)
+                view  = MostraDocumentoView(embed, inter.user)
+                await inter.response.send_message(
+                    content="✅ **Documento registrato con successo!**",
+                    embed=embed, view=view, ephemeral=True
+                )
+                try:
+                    await cittadino.send(
+                        content="📜 **Il tuo documento d'identità è stato registrato!**",
+                        embed=embed
+                    )
+                except Exception:
+                    pass
+                try:
+                    ch = bot.get_channel(LOG_CHANNEL_ID)
+                    if ch:
+                        await ch.send(embed=embed)
+                except Exception:
+                    pass
 
-            await interaction.followup.send("✅ Documento creato e salvato!", embed=embed, view=view)
-            
-            # Log e DM
-            ch = self.bot.get_channel(LOG_CHANNEL_ID)
-            if ch: await ch.send(embed=embed)
-            try: await self.cittadino.send("📜 Il tuo documento è pronto!", embed=embed)
-            except: pass
+        await interaction.response.send_modal(Modal3())
 
-        except Exception as e:
-            await interaction.followup.send(f"❌ Errore: `{e}`", ephemeral=True)
 
-# ── TUTTI I COMANDI ──────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+#  COMANDI
+# ─────────────────────────────────────────────────────────────────────────────
 def setup_document_commands(bot):
 
-    # 1. CREA DOCUMENTO
-    @bot.tree.command(name="documento", description="[Stato] Crea il documento per un cittadino")
-    async def documento(interaction: discord.Interaction, cittadino: discord.Member, foto: discord.Attachment):
+    # ── /documento ───────────────────────────────────────────────────────────
+    @bot.tree.command(name="documento", description="[Stato] Crea il documento d'identità ufficiale per un cittadino")
+    @app_commands.describe(
+        cittadino="Il cittadino",
+        foto="Foto del personaggio (OBBLIGATORIA — carica un'immagine)"
+    )
+    async def documento(
+        interaction: discord.Interaction,
+        cittadino: discord.Member,
+        foto: discord.Attachment
+    ):
         if not has_stato(interaction):
-            await interaction.response.send_message("❌ Solo lo Stato può emettere documenti.", ephemeral=True); return
-        if not foto.content_type.startswith("image/"):
-            await interaction.response.send_message("❌ Carica un'immagine valida!", ephemeral=True); return
-        await interaction.response.send_modal(DocumentoModal(bot, cittadino, foto.url, interaction.user))
+            await interaction.response.send_message(
+                "❌ Solo il ruolo **Stato** può emettere documenti d'identità.", ephemeral=True); return
 
-    # 2. RIMUOVI DOCUMENTO
-    @bot.tree.command(name="rimuovi-documento", description="[Stato] Rimuovi un documento")
+        if not foto.content_type or not foto.content_type.startswith("image/"):
+            await interaction.response.send_message(
+                "❌ Il file caricato non è un'immagine valida. Carica un'immagine (jpg, png...).", ephemeral=True); return
+
+        foto_url   = foto.url
+        emittente  = interaction.user
+
+        class Modal1(discord.ui.Modal, title="📒 Modulo Documenti — Parte 1"):
+            psn_id       = discord.ui.TextInput(label="ID PSN",         style=discord.TextStyle.short, required=True, max_length=50)
+            nome         = discord.ui.TextInput(label="Nome",            style=discord.TextStyle.short, required=True, max_length=50)
+            cognome      = discord.ui.TextInput(label="Cognome",         style=discord.TextStyle.short, required=True, max_length=50)
+            data_nascita = discord.ui.TextInput(label="Data di Nascita", style=discord.TextStyle.short, required=True, max_length=20, placeholder="es: 12/03/1885")
+            eta          = discord.ui.TextInput(label="Età",             style=discord.TextStyle.short, required=True, max_length=3)
+
+            async def on_submit(self, inter: discord.Interaction):
+                data1 = {
+                    "psn_id":       self.psn_id.value,
+                    "nome":         self.nome.value,
+                    "cognome":      self.cognome.value,
+                    "data_nascita": self.data_nascita.value,
+                    "eta":          self.eta.value,
+                }
+                view2 = Step2View(bot, cittadino, foto_url, emittente, data1)
+                await inter.response.send_message(
+                    "✅ **Parte 1 completata!** Premi il bottone per continuare.",
+                    view=view2, ephemeral=True
+                )
+
+        await interaction.response.send_modal(Modal1())
+
+    # ── /rimuovi-documento ───────────────────────────────────────────────────
+    @bot.tree.command(name="rimuovi-documento", description="[Stato] Rimuovi il documento d'identità di un cittadino")
+    @app_commands.describe(cittadino="Il cittadino")
     async def rimuovi_documento(interaction: discord.Interaction, cittadino: discord.Member):
         if not has_stato(interaction):
             await interaction.response.send_message("❌ Non hai i permessi.", ephemeral=True); return
+
         async with aiosqlite.connect(DATABASE_NAME) as db:
             await db.execute("DELETE FROM documents WHERE user_id=?", (str(cittadino.id),))
             await db.commit()
-        await interaction.response.send_message(f"🗑️ Documento di {cittadino.mention} rimosso correttamente.")
 
-    # 3. MOSTRA IL MIO DOCUMENTO
-    @bot.tree.command(name="mostra-documento", description="Visualizza il tuo documento")
+        embed = discord.Embed(
+            title="🗑️ 𝐃𝐨𝐜𝐮𝐦𝐞𝐧𝐭𝐨 𝐑𝐢𝐦𝐨𝐬𝐬𝐨",
+            color=discord.Color.red(),
+            timestamp=discord.utils.utcnow()
+        )
+        embed.add_field(name="👤 Cittadino",  value=cittadino.mention,        inline=True)
+        embed.add_field(name="🔒 Rimosso da", value=interaction.user.mention, inline=True)
+        embed.set_footer(text="🤠 Red Dead Redemption II — Stato")
+        await interaction.response.send_message(embed=embed)
+
+    # ── /mostra-documento ────────────────────────────────────────────────────
+    @bot.tree.command(name="mostra-documento", description="Mostra il tuo documento d'identità con tasto per renderlo pubblico")
     async def mostra_documento(interaction: discord.Interaction):
         doc = await database.get_document(str(interaction.user.id))
         if not doc:
             await interaction.response.send_message("❌ Non hai un documento registrato.", ephemeral=True); return
-        
-        # Caricamento dati dall'extra salvato come JSON
-        extra = {}
-        if doc.get("extra"):
-            try: extra = json.loads(doc["extra"])
-            except: extra = {}
 
-        data = {
-            "psn_id": extra.get("psn_id", "—"),
-            "nome": doc.get("nome", "—"),
-            "cognome": doc.get("cognome", "—"),
+        extra = doc.get("extra") or {}
+        data  = {
+            "psn_id":       extra.get("psn_id", "—"),
+            "nome":         doc.get("nome", "—"),
+            "cognome":      doc.get("cognome", "—"),
             "data_nascita": extra.get("data_nascita", "—"),
-            "eta": str(doc.get("eta", "—")),
-            "residenza": doc.get("luogo_nascita", "—"),
-            "nazionalita": extra.get("nazionalita", "—"),
-            "sesso": doc.get("sesso", "—"),
-            "capelli": extra.get("capelli", "—"),
-            "occhi": extra.get("occhi", "—"),
-            "carnagione": extra.get("carnagione", "—"),
-            "segni": extra.get("segni", "—"),
+            "eta":          str(doc.get("eta", "—")),
+            "residenza":    doc.get("luogo_nascita", "—"),
+            "nazionalita":  extra.get("nazionalita", "—"),
+            "sesso":        doc.get("sesso", "—"),
+            "capelli":      extra.get("capelli", "—"),
+            "occhi":        extra.get("occhi", "—"),
+            "carnagione":   extra.get("carnagione", "—"),
+            "segni":        extra.get("segni", "—"),
         }
         embed = _build_doc_embed(interaction.user, interaction.user, data, doc.get("foto_url"))
-        await interaction.response.send_message(embed=embed, view=MostraDocumentoView(embed, interaction.user), ephemeral=True)
+        view  = MostraDocumentoView(embed, interaction.user)
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
-    # 4. CERCA PERSONA NEL REGISTRO
-    @bot.tree.command(name="cercapersona", description="[FDO/Stato] Cerca nel registro civile")
+    # ── /cercapersona ────────────────────────────────────────────────────────
+    @bot.tree.command(name="cercapersona", description="[FDO] Cerca una persona nel registro")
+    @app_commands.describe(cittadino="Il cittadino da cercare")
     async def cercapersona(interaction: discord.Interaction, cittadino: discord.Member):
         if not (has_sceriffo(interaction) or has_stato(interaction)):
-            await interaction.response.send_message("❌ Solo FDO o Stato possono farlo.", ephemeral=True); return
+            await interaction.response.send_message(
+                "❌ Solo lo Sceriffo o lo Stato possono consultare il registro.", ephemeral=True); return
 
         await interaction.response.defer(ephemeral=True)
-        doc = await database.get_document(str(cittadino.id))
-        fines = await database.get_fines(str(cittadino.id))
+
+        doc     = await database.get_document(str(cittadino.id))
+        fines   = await database.get_fines(str(cittadino.id))
         records = await database.get_criminal_records(str(cittadino.id))
 
-        embed = discord.Embed(title=f"🔍 Ricerca: {cittadino.display_name}", color=0x8B4513, timestamp=discord.utils.utcnow())
+        embed = discord.Embed(
+            title=f"🔍 𝐑𝐢𝐜𝐞𝐫𝐜𝐚: {cittadino.user.mention}",
+            color=discord.Color(0x8B4513),
+            timestamp=discord.utils.utcnow()
+        )
+        embed.set_thumbnail(url=cittadino.display_avatar.url)
+
         if doc:
-            embed.add_field(name="📜 Identità", value=f"**Nome:** {doc['nome']} {doc.get('cognome','')}\n**Età:** {doc['eta']}\n**Residenza:** {doc['luogo_nascita']}", inline=False)
-            embed.set_thumbnail(url=cittadino.display_avatar.url)
-            if doc.get("foto_url"): embed.set_image(url=doc["foto_url"])
+            embed.add_field(name="📜 Identità", value=(
+                f"**Nome:** {doc.get('nome','—')} {doc.get('cognome','—')}\n"
+                f"**Età:** {doc.get('eta','—')} | **Sesso:** {doc.get('sesso','—')}\n"
+                f"**Residenza:** {doc.get('luogo_nascita','—')}"
+            ), inline=False)
+            if doc.get("foto_url"):
+                embed.set_image(url=doc["foto_url"])
         else:
-            embed.add_field(name="📜 Identità", value="*Cittadino non registrato*", inline=False)
-        
-        embed.add_field(name="⚖️ Stato Giudiziario", value=f"Multe: {len(fines)}\nCrimini: {len(records)}", inline=True)
-        await interaction.followup.send(embed=embed)
+            embed.add_field(name="📜 Identità", value="*Nessun documento registrato*", inline=False)
+
+        embed.add_field(
+            name="⭐ Taglie attive",
+            value=f"{len(fines)} (${sum(f['amount'] for f in fines):,})",
+            inline=True
+        )
+        embed.add_field(name="⚖️ Crimini registrati", value=str(len(records)), inline=True)
+        embed.set_footer(text=f"🤠 Consultato da: {interaction.user.display_name}")
+        await interaction.followup.send(embed=embed, ephemeral=True)

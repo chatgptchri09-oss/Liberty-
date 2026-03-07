@@ -439,7 +439,7 @@ def setup_rp_commands(bot):
 
         # ── Embed fine turno (nel canale corrente) ───────────────────────────
         embed_fine = discord.Embed(
-            title="<a:offline:1459628872197738641> 𝐓𝐔𝐑𝐍𝐎 𝐓𝐄𝐑𝐌𝐈𝐍𝐀𝐓𝐎 <a:offline:1459628872197738641> ",
+            title="<a:offline:1459628872197738641> 𝐓𝐔𝐑𝐍𝐎 𝐓𝐄𝐑𝐌𝐈𝐍𝐀𝐓𝐎 <a:offline:1459628872197738641>",
             color=discord.Color.red(),
             timestamp=discord.utils.utcnow()
         )
@@ -497,12 +497,12 @@ def setup_rp_commands(bot):
 
     # ── /campeggio ───────────────────────────────────────────────────────────
     @bot.tree.command(name="campeggio", description="Monta o smonta il tuo accampamento")
-    @app_commands.describe(azione="Monta o smonta", luogo="Dove (opzionale)")
+    @app_commands.describe(azione="Monta o smonta", luogo="Dove (opzionale)", foto="Foto dell'accampamento (opzionale)")
     @app_commands.choices(azione=[
         app_commands.Choice(name="⛺ Monta accampamento",  value="monta"),
         app_commands.Choice(name="🏕️ Smonta accampamento", value="smonta"),
     ])
-    async def campeggio(interaction: discord.Interaction, azione: str, luogo: str = ""):
+    async def campeggio(interaction: discord.Interaction, azione: str, luogo: str = "", foto: discord.Attachment = None):
         if azione == "monta":
             title = "⛺ 𝐀𝐜𝐜𝐚𝐦𝐩𝐚𝐦𝐞𝐧𝐭𝐨 𝐌𝐨𝐧𝐭𝐚𝐭𝐨"
             desc  = f"*{interaction.user.mention} monta il proprio accampamento" + (f" a **{luogo}**.*" if luogo else ".*")
@@ -511,24 +511,28 @@ def setup_rp_commands(bot):
             desc  = f"*{interaction.user.mention} smonta il proprio accampamento" + (f" da **{luogo}**.*" if luogo else ".*")
         embed = discord.Embed(title=title, description=desc, color=discord.Color(0x556B2F), timestamp=discord.utils.utcnow())
         embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
+        if foto and foto.content_type and foto.content_type.startswith("image/"):
+            embed.set_image(url=foto.url)
         embed.set_footer(text="🤠 Red Dead Redemption II — Accampamento")
         await interaction.response.send_message(embed=embed)
 
     # ── /caccia ──────────────────────────────────────────────────────────────
     @bot.tree.command(name="caccia", description="Descrivi una sessione di caccia")
-    @app_commands.describe(preda="L'animale cacciato", luogo="Zona di caccia", qualita="Qualità della preda")
+    @app_commands.describe(preda="L'animale cacciato", luogo="Zona di caccia", qualita="Qualità della preda", foto="Foto della preda (opzionale)")
     @app_commands.choices(qualita=[
         app_commands.Choice(name="⭐ Scadente",     value="Scadente ⭐"),
         app_commands.Choice(name="⭐⭐ Buona",      value="Buona ⭐⭐"),
         app_commands.Choice(name="⭐⭐⭐ Perfetta", value="Perfetta ⭐⭐⭐"),
     ])
-    async def caccia(interaction: discord.Interaction, preda: str, luogo: str, qualita: str = "Buona ⭐⭐"):
+    async def caccia(interaction: discord.Interaction, preda: str, luogo: str, qualita: str = "Buona ⭐⭐", foto: discord.Attachment = None):
         embed = discord.Embed(title="🎯 𝐁𝐚𝐭𝐭𝐮𝐭𝐚 𝐝𝐢 𝐂𝐚𝐜𝐜𝐢𝐚", color=discord.Color(0x556B2F), timestamp=discord.utils.utcnow())
         embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
         embed.add_field(name="🤠 Cacciatore", value=interaction.user.mention, inline=False)
         embed.add_field(name="🦌 Preda",      value=preda,                    inline=False)
         embed.add_field(name="📍 Zona",       value=luogo,                    inline=False)
         embed.add_field(name="⭐ Qualità",    value=qualita,                  inline=False)
+        if foto and foto.content_type and foto.content_type.startswith("image/"):
+            embed.set_image(url=foto.url)
         embed.set_footer(text="🤠 Red Dead Redemption II — Caccia")
         await interaction.response.send_message(embed=embed)
 
@@ -600,7 +604,23 @@ def setup_rp_commands(bot):
         embed.set_footer(text="🤠 Red Dead Redemption II — Nascosto")
         await interaction.response.send_message(embed=embed)
 
-    
+    # ── /sondaggiorp ─────────────────────────────────────────────────────────
+    @bot.tree.command(name="sondaggiorp", description="[Staff] Crea un sondaggio roleplay")
+    @app_commands.describe(domanda="La domanda", opzione1="Prima opzione", opzione2="Seconda opzione")
+    async def sondaggiorp(interaction: discord.Interaction, domanda: str, opzione1: str, opzione2: str):
+        if not isinstance(interaction.user, discord.Member) or \
+           not any(r.id in STAFF_ROLES for r in interaction.user.roles):
+            await interaction.response.send_message("❌ Non hai i permessi.", ephemeral=True); return
+        embed = discord.Embed(title="📜 𝐒𝐨𝐧𝐝𝐚𝐠𝐠𝐢𝐨 𝐑𝐨𝐥𝐞𝐩𝐥𝐚𝐲", description=f"**{domanda}**",
+                              color=discord.Color(0xDAA520), timestamp=discord.utils.utcnow())
+        embed.add_field(name="1️⃣ Opzione A", value=opzione1, inline=False)
+        embed.add_field(name="2️⃣ Opzione B", value=opzione2, inline=False)
+        embed.set_footer(text="🤠 Red Dead Redemption II — Sondaggio RP")
+        msg = await interaction.channel.send(embed=embed)
+        await msg.add_reaction("1️⃣")
+        await msg.add_reaction("2️⃣")
+        await interaction.response.send_message("✅ Sondaggio creato!", ephemeral=True)
+
     # ── /lettera ─────────────────────────────────────────────────────────────
     @bot.tree.command(name="lettera", description="Invia una lettera privata a un altro giocatore")
     @app_commands.describe(destinatario="Il giocatore che riceverà la lettera")

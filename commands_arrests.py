@@ -23,7 +23,7 @@ def setup_arrest_commands(bot):
             color=discord.Color.red()))
         except Exception: pass
 
-    @bot.tree.command(name="modulo-arresto", description="[Sceriffo] Compila un modulo di arresto ufficiale")
+    @bot.tree.command(name="modulo-arresto", description="[FDO] Compila un modulo di arresto ufficiale")
     @app_commands.describe(criminale="Il criminale", crimine="Il crimine", pena="La pena")
     async def modulo_arresto(interaction: discord.Interaction, criminale: discord.Member, crimine: str, pena: str):
         if not has_sceriffo(interaction):

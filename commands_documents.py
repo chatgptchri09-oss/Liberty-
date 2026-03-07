@@ -36,7 +36,6 @@ def _build_doc_embed(cittadino, emittente, data: dict, foto_url):
         timestamp=discord.utils.utcnow()
     )
     embed.set_thumbnail(url=cittadino.display_avatar.url)
-
     embed.add_field(name="👤 ID PSN",           value=data.get("psn_id", "—"),       inline=True)
     embed.add_field(name="🔖 ID Discord",        value=cittadino.mention,              inline=True)
     embed.add_field(name="\u200b",               value="\u200b",                       inline=False)
@@ -59,92 +58,195 @@ def _build_doc_embed(cittadino, emittente, data: dict, foto_url):
     return embed
 
 
-# ── Modal a catena: 3 step per coprire tutti i campi ─────────────────────────
-def _modal_step1(bot, cittadino, foto_url, emittente):
-    class Step1(discord.ui.Modal, title="📒 Modulo Documenti — Parte 1"):
-        psn_id       = discord.ui.TextInput(label="ID PSN",          style=discord.TextStyle.short, required=True,  max_length=50)
-        nome         = discord.ui.TextInput(label="Nome",             style=discord.TextStyle.short, required=True,  max_length=50)
-        cognome      = discord.ui.TextInput(label="Cognome",          style=discord.TextStyle.short, required=True,  max_length=50)
-        data_nascita = discord.ui.TextInput(label="Data di Nascita",  style=discord.TextStyle.short, required=True,  max_length=20, placeholder="es: 12/03/1885")
-        eta          = discord.ui.TextInput(label="Età",              style=discord.TextStyle.short, required=True,  max_length=3)
+# ─────────────────────────────────────────────────────────────────────────────
+#  STEP 2 — Modal con i campi fisici (aperto da bottone)
+# ─────────────────────────────────────────────────────────────────────────────
+def _make_step2_modal(bot, cittadino, foto_url, emittente, prev_data: dict):
+    class Step2Modal(discord.ui.Modal, title="📒 Modulo Documenti — Parte 2"):
+        residenza   = discord.ui.TextInput(label="Residenza",         style=discord.TextStyle.short, required=True,  max_length=80)
+        nazionalita = discord.ui.TextInput(label="Nazionalità",       style=discord.TextStyle.short, required=True,  max_length=50)
+        capelli     = discord.ui.TextInput(label="Colore Capelli",    style=discord.TextStyle.short, required=True,  max_length=30)
+        occhi       = discord.ui.TextInput(label="Colore Occhi",      style=discord.TextStyle.short, required=True,  max_length=30)
+        carnagione  = discord.ui.TextInput(label="Colore Carnagione", style=discord.TextStyle.short, required=True,  max_length=30)
 
         async def on_submit(self, inter: discord.Interaction):
-            await inter.response.send_modal(
-                _modal_step2(bot, cittadino, foto_url, emittente,
-                             psn_id=self.psn_id.value, nome=self.nome.value,
-                             cognome=self.cognome.value, data_nascita=self.data_nascita.value,
-                             eta=self.eta.value)
+            await _make_step3_modal(bot, cittadino, foto_url, emittente, prev_data,
+                                    residenza=self.residenza.value,
+                                    nazionalita=self.nazionalita.value,
+                                    capelli=self.capelli.value,
+                                    occhi=self.occhi.value,
+                                    carnagione=self.carnagione.value).on_trigger(inter)
+
+    return Step2Modal()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  STEP 3 — Modal segni particolari (aperto da bottone dopo step 2)
+# ─────────────────────────────────────────────────────────────────────────────
+def _make_step3_modal(bot, cittadino, foto_url, emittente, prev_data: dict, **step2_data):
+    combined = {**prev_data, **step2_data}
+
+    class Step3Modal(discord.ui.Modal, title="📒 Modulo Documenti — Parte 3"):
+        segni = discord.ui.TextInput(
+            label="Segni Particolari",
+            style=discord.TextStyle.short,
+            required=False,
+            max_length=100,
+            placeholder="es: Cicatrice sul viso (lascia vuoto se nessuno)"
+        )
+
+        async def on_trigger(self, inter: discord.Interaction):
+            # Mostra bottone per aprire il 3° step
+            view = _ContinuaView3(bot, cittadino, foto_url, emittente, combined)
+            await inter.response.send_message(
+                "✅ **Parte 2 completata!** Premi il bottone per inserire gli ultimi dettagli.",
+                view=view,
+                ephemeral=True
             )
-    return Step1()
-
-
-def _modal_step2(bot, cittadino, foto_url, emittente, **prev):
-    class Step2(discord.ui.Modal, title="📒 Modulo Documenti — Parte 2"):
-        residenza  = discord.ui.TextInput(label="Residenza",    style=discord.TextStyle.short, required=True,  max_length=80)
-        nazionalita= discord.ui.TextInput(label="Nazionalità",  style=discord.TextStyle.short, required=True,  max_length=50)
-        sesso      = discord.ui.TextInput(label="Sesso",        style=discord.TextStyle.short, required=True,  max_length=10, placeholder="Uomo / Donna")
-        capelli    = discord.ui.TextInput(label="Colore Capelli",style=discord.TextStyle.short, required=True,  max_length=30)
-        occhi      = discord.ui.TextInput(label="Colore Occhi",  style=discord.TextStyle.short, required=True,  max_length=30)
 
         async def on_submit(self, inter: discord.Interaction):
-            await inter.response.send_modal(
-                _modal_step3(bot, cittadino, foto_url, emittente,
-                             **prev,
-                             residenza=self.residenza.value, nazionalita=self.nazionalita.value,
-                             sesso=self.sesso.value, capelli=self.capelli.value, occhi=self.occhi.value)
+            await _finalize(inter, bot, cittadino, foto_url, emittente, combined,
+                            segni=self.segni.value or "Nessuno")
+
+    return Step3Modal()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  View bottone "Continua" tra step 1 e step 2
+# ─────────────────────────────────────────────────────────────────────────────
+class _ContinuaView2(discord.ui.View):
+    def __init__(self, bot, cittadino, foto_url, emittente, prev_data):
+        super().__init__(timeout=300)
+        self._bot       = bot
+        self._cittadino = cittadino
+        self._foto_url  = foto_url
+        self._emittente = emittente
+        self._prev      = prev_data
+
+    @discord.ui.button(label="Continua ➡️ Parte 2", style=discord.ButtonStyle.primary)
+    async def continua(self, interaction: discord.Interaction, button: discord.ui.Button):
+        button.disabled = True
+        await interaction.response.send_modal(
+            _make_step2_modal(self._bot, self._cittadino, self._foto_url,
+                              self._emittente, self._prev)
+        )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  View bottone "Continua" tra step 2 e step 3
+# ─────────────────────────────────────────────────────────────────────────────
+class _ContinuaView3(discord.ui.View):
+    def __init__(self, bot, cittadino, foto_url, emittente, combined_data):
+        super().__init__(timeout=300)
+        self._bot       = bot
+        self._cittadino = cittadino
+        self._foto_url  = foto_url
+        self._emittente = emittente
+        self._combined  = combined_data
+
+    @discord.ui.button(label="Continua ➡️ Parte 3", style=discord.ButtonStyle.primary)
+    async def continua(self, interaction: discord.Interaction, button: discord.ui.Button):
+        button.disabled = True
+
+        class FinalModal(discord.ui.Modal, title="📒 Modulo Documenti — Parte 3"):
+            segni = discord.ui.TextInput(
+                label="Segni Particolari",
+                style=discord.TextStyle.short,
+                required=False,
+                max_length=100,
+                placeholder="es: Cicatrice sul viso (lascia vuoto se nessuno)"
             )
-    return Step2()
+
+            async def on_submit(s, inter: discord.Interaction):
+                await _finalize(inter, self._bot, self._cittadino, self._foto_url,
+                                self._emittente, self._combined,
+                                segni=s.segni.value or "Nessuno")
+
+        await interaction.response.send_modal(FinalModal())
 
 
-def _modal_step3(bot, cittadino, foto_url, emittente, **prev):
-    class Step3(discord.ui.Modal, title="📒 Modulo Documenti — Parte 3"):
-        carnagione = discord.ui.TextInput(label="Colore Carnagione",  style=discord.TextStyle.short, required=True,  max_length=30)
-        segni      = discord.ui.TextInput(label="Segni Particolari",  style=discord.TextStyle.short, required=False, max_length=100, placeholder="es: Cicatrice sul viso")
+# ─────────────────────────────────────────────────────────────────────────────
+#  Finalizzazione: salva DB + invia embed
+# ─────────────────────────────────────────────────────────────────────────────
+async def _finalize(inter, bot, cittadino, foto_url, emittente, data, segni):
+    try:
+        eta_int = int(data["eta"])
+    except (ValueError, KeyError):
+        await inter.response.send_message("❌ Età non valida.", ephemeral=True)
+        return
+
+    full_data = {**data, "segni": segni}
+
+    await database.set_document(
+        str(cittadino.id),
+        full_data["nome"], full_data["cognome"], eta_int,
+        full_data["sesso"], full_data["residenza"],
+        foto_url,
+        extra={
+            "psn_id":       full_data.get("psn_id", "—"),
+            "data_nascita": full_data.get("data_nascita", "—"),
+            "nazionalita":  full_data.get("nazionalita", "—"),
+            "capelli":      full_data.get("capelli", "—"),
+            "occhi":        full_data.get("occhi", "—"),
+            "carnagione":   full_data.get("carnagione", "—"),
+            "segni":        segni,
+        }
+    )
+
+    embed = _build_doc_embed(cittadino, emittente, full_data, foto_url)
+    view  = MostraDocumentoView(embed, inter.user)
+    await inter.response.send_message(
+        content="✅ **Documento registrato con successo!**",
+        embed=embed, view=view, ephemeral=True
+    )
+
+    try:
+        await cittadino.send(
+            content="📜 **Il tuo documento d'identità è stato registrato!**",
+            embed=embed
+        )
+    except Exception:
+        pass
+    try:
+        ch = bot.get_channel(LOG_CHANNEL_ID)
+        if ch:
+            await ch.send(embed=embed)
+    except Exception:
+        pass
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  STEP 1 — Modal iniziale (aperto direttamente da /documento)
+# ─────────────────────────────────────────────────────────────────────────────
+def _make_step1_modal(bot, cittadino, foto_url, emittente):
+    class Step1Modal(discord.ui.Modal, title="📒 Modulo Documenti — Parte 1"):
+        psn_id       = discord.ui.TextInput(label="ID PSN",         style=discord.TextStyle.short, required=True, max_length=50)
+        nome         = discord.ui.TextInput(label="Nome",            style=discord.TextStyle.short, required=True, max_length=50)
+        cognome      = discord.ui.TextInput(label="Cognome",         style=discord.TextStyle.short, required=True, max_length=50)
+        data_nascita = discord.ui.TextInput(label="Data di Nascita", style=discord.TextStyle.short, required=True, max_length=20, placeholder="es: 12/03/1885")
+        eta          = discord.ui.TextInput(label="Età",             style=discord.TextStyle.short, required=True, max_length=3)
 
         async def on_submit(self, inter: discord.Interaction):
-            try:
-                eta_int = int(prev["eta"])
-            except ValueError:
-                await inter.response.send_message("❌ Età non valida.", ephemeral=True); return
-
-            data = {**prev,
-                    "carnagione": self.carnagione.value,
-                    "segni":      self.segni.value or "Nessuno"}
-
-            # Salva nel DB — usa i campi base + extra JSON
-            await database.set_document(
-                str(cittadino.id),
-                data["nome"], data["cognome"], eta_int,
-                data["sesso"], data["residenza"],
-                foto_url,
-                extra={
-                    "psn_id":       data["psn_id"],
-                    "data_nascita": data["data_nascita"],
-                    "nazionalita":  data["nazionalita"],
-                    "capelli":      data["capelli"],
-                    "occhi":        data["occhi"],
-                    "carnagione":   data["carnagione"],
-                    "segni":        data["segni"],
-                }
+            prev_data = {
+                "psn_id":       self.psn_id.value,
+                "nome":         self.nome.value,
+                "cognome":      self.cognome.value,
+                "data_nascita": self.data_nascita.value,
+                "eta":          self.eta.value,
+            }
+            view = _ContinuaView2(bot, cittadino, foto_url, emittente, prev_data)
+            await inter.response.send_message(
+                "✅ **Parte 1 completata!** Premi il bottone per continuare con i dati del personaggio.",
+                view=view,
+                ephemeral=True
             )
 
-            embed = _build_doc_embed(cittadino, emittente, data, foto_url)
-            view  = MostraDocumentoView(embed, inter.user)
-            await inter.response.send_message(embed=embed, view=view, ephemeral=True)
-
-            try:
-                await cittadino.send(content="📜 **Il tuo documento d'identità è stato registrato!**", embed=embed)
-            except Exception:
-                pass
-            try:
-                ch = bot.get_channel(LOG_CHANNEL_ID)
-                if ch: await ch.send(embed=embed)
-            except Exception:
-                pass
-
-    return Step3()
+    return Step1Modal()
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+#  COMANDI
+# ─────────────────────────────────────────────────────────────────────────────
 def setup_document_commands(bot):
 
     # ── /documento ───────────────────────────────────────────────────────────
@@ -167,7 +269,7 @@ def setup_document_commands(bot):
                 "❌ Il file caricato non è un'immagine valida. Carica un'immagine (jpg, png...).", ephemeral=True); return
 
         await interaction.response.send_modal(
-            _modal_step1(bot, cittadino, foto.url, interaction.user)
+            _make_step1_modal(bot, cittadino, foto.url, interaction.user)
         )
 
     # ── /rimuovi-documento ───────────────────────────────────────────────────
@@ -232,7 +334,7 @@ def setup_document_commands(bot):
         records = await database.get_criminal_records(str(cittadino.id))
 
         embed = discord.Embed(
-            title=f"🔍 𝐑𝐢𝐜𝐞𝐫𝐜𝐚: {cittadino.user.mention}",
+            title=f"🔍 𝐑𝐢𝐜𝐞𝐫𝐜𝐚: {cittadino.display_name}",
             color=discord.Color(0x8B4513),
             timestamp=discord.utils.utcnow()
         )

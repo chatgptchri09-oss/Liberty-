@@ -20,7 +20,7 @@ def setup_criminal_record_commands(bot):
         embed.set_footer(text="🤠 Red Dead Redemption II — Fedina Penale")
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    @bot.tree.command(name="puliziafedinapenale", description="[Sceriffo] Pulisci la fedina penale di un cittadino")
+    @bot.tree.command(name="puliziafedinapenale", description="[FDO] Pulisci la fedina penale di un cittadino")
     @app_commands.describe(cittadino="Il cittadino")
     async def pulisci_fedina(interaction: discord.Interaction, cittadino: discord.Member):
         if not has_sceriffo(interaction):

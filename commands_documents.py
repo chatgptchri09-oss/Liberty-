@@ -218,7 +218,7 @@ def setup_document_commands(bot):
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
     # ── /cercapersona ────────────────────────────────────────────────────────
-    @bot.tree.command(name="cercapersona", description="[Sceriffo/Stato] Cerca una persona nel registro")
+    @bot.tree.command(name="cercapersona", description="[FDO] Cerca una persona nel registro")
     @app_commands.describe(cittadino="Il cittadino da cercare")
     async def cercapersona(interaction: discord.Interaction, cittadino: discord.Member):
         if not (has_sceriffo(interaction) or has_stato(interaction)):

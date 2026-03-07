@@ -53,6 +53,7 @@ _modules = [
     ("commands_criminal_record", "setup_criminal_record_commands"),
     ("commands_fondocassa",      "setup_fondocassa_commands"),
     ("commands_rp_status",       "setup_rpoff_commands"),
+    ("commands_robbery",         "setup_robbery_commands"),
 ]
 
 _loaded = {}

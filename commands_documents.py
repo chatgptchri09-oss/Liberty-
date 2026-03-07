@@ -31,7 +31,7 @@ class MostraDocumentoView(discord.ui.View):
 # ── Costruisce l'embed del documento ─────────────────────────────────────────
 def _build_doc_embed(cittadino, emittente, data: dict, foto_url):
     embed = discord.Embed(
-        title="📜 𝐃𝐎𝐂𝐔𝐌𝐄𝐍𝐓𝐎 𝐃'𝐈𝐃𝐄𝐍𝐓𝐈𝐓À 𝐔𝐅𝐅𝐈𝐂𝐈𝐀𝐋𝐄",
+        title="<a:documento:1458563773546893541> 𝐃𝐎𝐂𝐔𝐌𝐄𝐍𝐓𝐎 𝐃'𝐈𝐃𝐄𝐍𝐓𝐈𝐓À 𝐔𝐅𝐅𝐈𝐂𝐈𝐀𝐋𝐄",
         color=discord.Color(0x8B4513),
         timestamp=discord.utils.utcnow()
     )
@@ -232,7 +232,7 @@ def setup_document_commands(bot):
         records = await database.get_criminal_records(str(cittadino.id))
 
         embed = discord.Embed(
-            title=f"🔍 𝐑𝐢𝐜𝐞𝐫𝐜𝐚: {cittadino.display_name}",
+            title=f"🔍 𝐑𝐢𝐜𝐞𝐫𝐜𝐚: {cittadino.user.mention}",
             color=discord.Color(0x8B4513),
             timestamp=discord.utils.utcnow()
         )

@@ -163,11 +163,11 @@ def setup_rp_commands(bot):
         new_t  = max(0, user["thirst"] - t_drop)
         await database.update_hunger_thirst(uid, hunger=new_h, thirst=new_t)
         embed = discord.Embed(
-            description=f"*{interaction.user.display_name} {azione}*",
+            description=f"*{interaction.user.mention} {azione}*",
             color=_color(new_h, new_t),
             timestamp=discord.utils.utcnow()
         )
-        embed.set_author(name=interaction.user.mention, icon_url=interaction.user.display_avatar.url)
+        embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
         embed.add_field(name="🍔 Fame", value=_bar(new_h), inline=True)
         embed.add_field(name="💦 Sete", value=_bar(new_t), inline=True)
         warns = []

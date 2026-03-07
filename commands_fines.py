@@ -50,7 +50,7 @@ def setup_fine_commands(bot):
         embed.set_footer(text="🤠 Red Dead Redemption II — Sceriffo")
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    @bot.tree.command(name="controlla-taglia", description="[Sceriffo] Verifica le taglie di un giocatore")
+    @bot.tree.command(name="controlla-taglia", description="[FDO] Verifica le taglie di un giocatore")
     @app_commands.describe(giocatore="Il giocatore")
     async def controlla_taglia(interaction: discord.Interaction, giocatore: discord.Member):
         if not has_sceriffo(interaction):

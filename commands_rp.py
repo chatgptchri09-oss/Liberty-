@@ -157,13 +157,22 @@ def setup_rp_commands(bot):
     async def me(interaction: discord.Interaction, azione: str):
         uid  = str(interaction.user.id)
         user = await database.get_user(uid)
+
+        # Blocco se fame E sete sono entrambe a 0
+        if user["hunger"] <= 0 and user["thirst"] <= 0:
+            await interaction.response.send_message(
+                "❌ Non puoi eseguire alcuna azione in quanto sei troppo disidratato e affamato.",
+                ephemeral=True
+            )
+            return
+
         h_drop = random.randint(4, 10)
         t_drop = random.randint(4, 10)
         new_h  = max(0, user["hunger"] - h_drop)
         new_t  = max(0, user["thirst"] - t_drop)
         await database.update_hunger_thirst(uid, hunger=new_h, thirst=new_t)
         embed = discord.Embed(
-            description=f"*{interaction.user.mention} {azione}*",
+            description=f"*{interaction.user.display_name} {azione}*",
             color=_color(new_h, new_t),
             timestamp=discord.utils.utcnow()
         )
@@ -256,13 +265,13 @@ def setup_rp_commands(bot):
                 await interaction.response.send_message("❌ Solo Staff e Sceriffo possono vedere la bisaccia altrui.", ephemeral=True); return
         items = await database.get_inventory(str(target.id))
         user  = await database.get_user(str(target.id))
-        titolo = f"🎒 Bisaccia di {target.display_name}" if utente else "🎒 La tua Bisaccia"
+        titolo = f"🎒 Bisaccia di {target.user.mention}" if utente else "🎒 La tua Bisaccia"
         embed = discord.Embed(title=titolo, color=discord.Color(0x8B4513), timestamp=discord.utils.utcnow())
         embed.set_thumbnail(url=target.display_avatar.url)
         embed.add_field(name="🍔 Fame", value=_bar(user["hunger"]), inline=True)
         embed.add_field(name="💦 Sete", value=_bar(user["thirst"]), inline=True)
         if not items:
-            embed.add_field(name="📦 Contenuto", value="*Bisaccia vuota cowboy, riempila con qualcosa.*", inline=False)
+            embed.add_field(name="📦 Contenuto", value="*Bisaccia vuota.*", inline=False)
         else:
             desc = "\n".join(f"**{i['item_name']}** — x{i['quantity']}" for i in items)
             embed.add_field(name="📦 Contenuto", value=desc, inline=False)
@@ -505,10 +514,10 @@ def setup_rp_commands(bot):
     async def campeggio(interaction: discord.Interaction, azione: str, luogo: str = "", foto: discord.Attachment = None):
         if azione == "monta":
             title = "⛺ 𝐀𝐜𝐜𝐚𝐦𝐩𝐚𝐦𝐞𝐧𝐭𝐨 𝐌𝐨𝐧𝐭𝐚𝐭𝐨"
-            desc  = f"*{interaction.user.mention} monta il proprio accampamento" + (f" a **{luogo}**.*" if luogo else ".*")
+            desc  = f"*{interaction.user.display_name} monta il proprio accampamento" + (f" a **{luogo}**.*" if luogo else ".*")
         else:
             title = "🏕️ 𝐀𝐜𝐜𝐚𝐦𝐩𝐚𝐦𝐞𝐧𝐭𝐨 𝐒𝐦𝐨𝐧𝐭𝐚𝐭𝐨"
-            desc  = f"*{interaction.user.mention} smonta il proprio accampamento" + (f" da **{luogo}**.*" if luogo else ".*")
+            desc  = f"*{interaction.user.display_name} smonta il proprio accampamento" + (f" da **{luogo}**.*" if luogo else ".*")
         embed = discord.Embed(title=title, description=desc, color=discord.Color(0x556B2F), timestamp=discord.utils.utcnow())
         embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
         if foto and foto.content_type and foto.content_type.startswith("image/"):
@@ -518,20 +527,20 @@ def setup_rp_commands(bot):
 
     # ── /caccia ──────────────────────────────────────────────────────────────
     @bot.tree.command(name="caccia", description="Descrivi una sessione di caccia")
-    @app_commands.describe(preda="L'animale cacciato", luogo="Zona di caccia", qualita="Qualità della preda", foto="Foto della preda (opzionale)")
+    @app_commands.describe(preda="L'animale cacciato", luogo="Zona di caccia", qualita="Qualità della preda", foto="Foto della preda (OBBLIGATORIA)")
     @app_commands.choices(qualita=[
         app_commands.Choice(name="⭐ Scadente",     value="Scadente ⭐"),
         app_commands.Choice(name="⭐⭐ Buona",      value="Buona ⭐⭐"),
         app_commands.Choice(name="⭐⭐⭐ Perfetta", value="Perfetta ⭐⭐⭐"),
     ])
-    async def caccia(interaction: discord.Interaction, preda: str, luogo: str, qualita: str = "Buona ⭐⭐", foto: discord.Attachment = None):
+    async def caccia(interaction: discord.Interaction, preda: str, luogo: str, foto: discord.Attachment, qualita: str = "Buona ⭐⭐"):
         embed = discord.Embed(title="🎯 𝐁𝐚𝐭𝐭𝐮𝐭𝐚 𝐝𝐢 𝐂𝐚𝐜𝐜𝐢𝐚", color=discord.Color(0x556B2F), timestamp=discord.utils.utcnow())
         embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
         embed.add_field(name="🤠 Cacciatore", value=interaction.user.mention, inline=False)
         embed.add_field(name="🦌 Preda",      value=preda,                    inline=False)
         embed.add_field(name="📍 Zona",       value=luogo,                    inline=False)
         embed.add_field(name="⭐ Qualità",    value=qualita,                  inline=False)
-        if foto and foto.content_type and foto.content_type.startswith("image/"):
+        if foto.content_type and foto.content_type.startswith("image/"):
             embed.set_image(url=foto.url)
         embed.set_footer(text="🤠 Red Dead Redemption II — Caccia")
         await interaction.response.send_message(embed=embed)
@@ -605,7 +614,7 @@ def setup_rp_commands(bot):
         await interaction.response.send_message(embed=embed)
 
     # ── /sondaggiorp ─────────────────────────────────────────────────────────
-   
+  
     # ── /lettera ─────────────────────────────────────────────────────────────
     @bot.tree.command(name="lettera", description="Invia una lettera privata a un altro giocatore")
     @app_commands.describe(destinatario="Il giocatore che riceverà la lettera")

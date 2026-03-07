@@ -29,6 +29,7 @@ async def init_db():
                 sesso        TEXT,
                 luogo_nascita TEXT,
                 foto_url     TEXT DEFAULT NULL,
+                extra        TEXT DEFAULT NULL,
                 created_at   TEXT
             )
         """)
@@ -104,6 +105,7 @@ async def init_db():
             "ALTER TABLE users ADD COLUMN hunger INTEGER DEFAULT 100",
             "ALTER TABLE users ADD COLUMN thirst INTEGER DEFAULT 100",
             "ALTER TABLE documents ADD COLUMN foto_url TEXT DEFAULT NULL",
+            "ALTER TABLE documents ADD COLUMN extra TEXT DEFAULT NULL",
             "ALTER TABLE shop_items ADD COLUMN required_role INTEGER DEFAULT NULL",
         ]:
             try:
@@ -278,27 +280,41 @@ async def clear_criminal_record(user_id: str):
 # ── DOCUMENTI ─────────────────────────────────────────────────────────────────
 
 async def set_document(user_id: str, nome: str, cognome: str, eta: int,
-                       sesso: str, luogo_nascita: str, foto_url: str = None):
+                       sesso: str, luogo_nascita: str, foto_url: str = None,
+                       extra: dict = None):
+    import json
     from datetime import datetime
+    extra_json = json.dumps(extra, ensure_ascii=False) if extra else None
     async with aiosqlite.connect(DATABASE_NAME) as db:
         await db.execute("""
             INSERT INTO documents
-                (user_id,nome,cognome,eta,sesso,luogo_nascita,foto_url,created_at)
-            VALUES (?,?,?,?,?,?,?,?)
+                (user_id,nome,cognome,eta,sesso,luogo_nascita,foto_url,extra,created_at)
+            VALUES (?,?,?,?,?,?,?,?,?)
             ON CONFLICT(user_id) DO UPDATE SET
                 nome=excluded.nome, cognome=excluded.cognome, eta=excluded.eta,
                 sesso=excluded.sesso, luogo_nascita=excluded.luogo_nascita,
-                foto_url=excluded.foto_url, created_at=excluded.created_at
-        """, (user_id, nome, cognome, eta, sesso, luogo_nascita, foto_url,
+                foto_url=excluded.foto_url, extra=excluded.extra,
+                created_at=excluded.created_at
+        """, (user_id, nome, cognome, eta, sesso, luogo_nascita, foto_url, extra_json,
               datetime.utcnow().strftime("%d/%m/%Y %H:%M")))
         await db.commit()
 
 async def get_document(user_id: str) -> dict | None:
+    import json
     async with aiosqlite.connect(DATABASE_NAME) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute("SELECT * FROM documents WHERE user_id=?", (user_id,)) as c:
             row = await c.fetchone()
-            return dict(row) if row else None
+            if not row:
+                return None
+            d = dict(row)
+            # Deserializza extra da JSON string a dict
+            if d.get("extra") and isinstance(d["extra"], str):
+                try:
+                    d["extra"] = json.loads(d["extra"])
+                except Exception:
+                    d["extra"] = {}
+            return d
 
 
 # ── PROPRIETÀ ─────────────────────────────────────────────────────────────────

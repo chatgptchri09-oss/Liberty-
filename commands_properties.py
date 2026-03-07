@@ -1,27 +1,27 @@
 import discord
 from discord import app_commands
 import database
-from datetime import datetime
 
-STAFF_ROLES = [1414738761207517214, 1414735564632231988]
 AGENCY_ROLE = 1404051965364670545
+
 
 def has_staff(interaction: discord.Interaction) -> bool:
     if not isinstance(interaction.user, discord.Member):
         return False
-    return any(r.id in AGENCY_ROLE for r in interaction.user.roles)
+    return any(r.id == AGENCY_ROLE for r in interaction.user.roles)
+
 
 def setup_property_commands(bot):
 
     PROPERTY_TYPES = [
-        app_commands.Choice(name="🏡 Ranch",            value="Ranch"),
-        app_commands.Choice(name="⛏️ Miniera",          value="Miniera"),
-        app_commands.Choice(name="🍺 Saloon",           value="Saloon"),
-        app_commands.Choice(name="🐴 Stalla",           value="Stalla"),
-        app_commands.Choice(name="🏚️ Casolare",         value="Casolare"),
-        app_commands.Choice(name="🌾 Fattoria",         value="Fattoria"),
-        app_commands.Choice(name="🏪 Emporio",          value="Emporio"),
-        app_commands.Choice(name="🏕️ Accampamento",     value="Accampamento"),
+        app_commands.Choice(name="🏡 Ranch",        value="Ranch"),
+        app_commands.Choice(name="⛏️ Miniera",      value="Miniera"),
+        app_commands.Choice(name="🍺 Saloon",       value="Saloon"),
+        app_commands.Choice(name="🐴 Stalla",       value="Stalla"),
+        app_commands.Choice(name="🏚️ Casolare",     value="Casolare"),
+        app_commands.Choice(name="🌾 Fattoria",     value="Fattoria"),
+        app_commands.Choice(name="🏪 Emporio",      value="Emporio"),
+        app_commands.Choice(name="🏕️ Accampamento", value="Accampamento"),
     ]
 
     @bot.tree.command(name="daiproprieta", description="Registra una proprietà per un cittadino")
@@ -46,7 +46,7 @@ def setup_property_commands(bot):
         await database.add_property(str(cittadino.id), nome, tipo, luogo)
 
         embed = discord.Embed(
-            title="🏡 Proprietà Registrata",
+            title="🏡 𝐏𝐫𝐨𝐩𝐫𝐢𝐞𝐭à 𝐑𝐞𝐠𝐢𝐬𝐭𝐫𝐚𝐭𝐚",
             color=discord.Color(0x8B4513),
             timestamp=discord.utils.utcnow()
         )
@@ -73,7 +73,7 @@ def setup_property_commands(bot):
         props = await database.get_properties(str(interaction.user.id))
 
         embed = discord.Embed(
-            title=f"🏡 Proprietà di {interaction.user.display_name}",
+            title=f"🏡 𝐏𝐫𝐨𝐩𝐫𝐢𝐞𝐭à 𝐝𝐢 {interaction.user.display_name}",
             color=discord.Color(0x8B4513),
             timestamp=discord.utils.utcnow()
         )
@@ -88,5 +88,6 @@ def setup_property_commands(bot):
                     value=f"📍 {p['location']}\n📅 {p['created_at']}",
                     inline=False
                 )
+
         embed.set_footer(text="🤠 Red Dead Redemption II — Registro Proprietà")
         await interaction.response.send_message(embed=embed, ephemeral=True)

@@ -5,7 +5,7 @@ from constants import LOG_CHANNEL_ID, has_sceriffo
 
 def setup_arrest_commands(bot):
 
-    @bot.tree.command(name="ammanetto", description="[Sceriffo] Ammanetta un sospettato")
+    @bot.tree.command(name="ammanetto", description="[FDO] Ammanetta un sospettato")
     @app_commands.describe(sospettato="Il sospettato", motivo="Motivo dell'arresto")
     async def ammanetto(interaction: discord.Interaction, sospettato: discord.Member, motivo: str):
         if not has_sceriffo(interaction):

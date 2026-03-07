@@ -5,7 +5,7 @@ from constants import LOG_CHANNEL_ID, has_sceriffo
 
 def setup_fine_commands(bot):
 
-    @bot.tree.command(name="taglia", description="[Sceriffo] Emetti una taglia su un fuorilegge")
+    @bot.tree.command(name="taglia", description="[FDO] Emetti una taglia su un fuorilegge")
     @app_commands.describe(fuorilegge="Il fuorilegge", importo="Valore della taglia", motivo="Motivazione")
     async def taglia(interaction: discord.Interaction, fuorilegge: discord.Member, importo: int, motivo: str):
         if not has_sceriffo(interaction):
@@ -55,6 +55,7 @@ def setup_fine_commands(bot):
     async def controlla_taglia(interaction: discord.Interaction, giocatore: discord.Member):
         if not has_sceriffo(interaction):
             await interaction.response.send_message("❌ Non hai i permessi.", ephemeral=True); return
+        await interaction.response.defer(ephemeral=True)
         fines = await database.get_fines(str(giocatore.id))
         embed = discord.Embed(title=f"⭐ 𝐓𝐚𝐠𝐥𝐢𝐞 𝐝𝐢 {giocatore.user.mention}",
                               color=discord.Color(0xDAA520), timestamp=discord.utils.utcnow())
@@ -67,4 +68,4 @@ def setup_fine_commands(bot):
                                 value=f"📋 {f['reason']}\n👮 {f['issued_by']}\n📅 {f['created_at']}", inline=False)
             embed.add_field(name="💰 Totale", value=f"${sum(f['amount'] for f in fines):,}", inline=False)
         embed.set_footer(text="🤠 Red Dead Redemption II — Sceriffo")
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.followup.send(embed=embed, ephemeral=True)

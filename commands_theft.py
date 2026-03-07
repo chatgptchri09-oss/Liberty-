@@ -16,6 +16,7 @@ ITEM_FORBICI = "✂️ • Forbici per raccolta droga"
 
 # Sessioni attive in memoria: user_id → {droga, inizio}
 _raccolte_attive: dict = {}
+_vendite_attive:  dict = {}
 
 
 def _durata_str(secondi: float) -> str:
@@ -170,6 +171,146 @@ def setup_theft_commands(bot):
         embed.add_field(name="\u200b",            value="\u200b",                               inline=False)
         embed.add_field(name="⏱️ Tempo raccolto", value=f"**{durata}**",                       inline=False)
         embed.set_footer(text="🤠 Red Dead Redemption II — Raccolta Completata")
+
+        await interaction.response.send_message(embed=embed)
+
+        try:
+            ch = bot.get_channel(LOG_CHANNEL_ID)
+            if ch:
+                await ch.send(embed=embed)
+        except Exception:
+            pass
+
+    # ── /inizio-vendita ──────────────────────────────────────────────────────
+    @bot.tree.command(name="inizio-vendita", description="Inizia una sessione di vendita droga")
+    @app_commands.describe(
+        droga="Tipo di droga da vendere",
+        foto="Foto della sessione (OBBLIGATORIA — allega un'immagine)"
+    )
+    @app_commands.choices(droga=[
+        app_commands.Choice(name="🍃 Tabacco",           value="🍃 Tabacco"),
+        app_commands.Choice(name="🍁 Canapa",             value="🍁 Canapa"),
+        app_commands.Choice(name="🌿 Foglie di Cocaina",  value="🌿 Foglie di Cocaina"),
+        app_commands.Choice(name="💉 Eroina",             value="💉 Eroina"),
+    ])
+    async def inizio_vendita(
+        interaction: discord.Interaction,
+        droga: str,
+        foto: discord.Attachment
+    ):
+        uid    = str(interaction.user.id)
+        member = interaction.user
+
+        # Controlla immagine
+        if not foto.content_type or not foto.content_type.startswith("image/"):
+            await interaction.response.send_message(
+                "❌ Il file allegato non è un'immagine valida. Allega una foto (jpg, png...).",
+                ephemeral=True
+            )
+            return
+
+        # Controlla se ha già una vendita attiva
+        if uid in _vendite_attive:
+            v = _vendite_attive[uid]
+            await interaction.response.send_message(
+                f"❌ Hai già una vendita di **{v['droga']}** in corso! Usa `/fine-vendita` prima.",
+                ephemeral=True
+            )
+            return
+
+        # Controlla ruolo richiesto
+        ruolo_id = DROGA_CONFIG.get(droga)
+        if ruolo_id is None:
+            await interaction.response.send_message("❌ Tipo di droga non valido.", ephemeral=True)
+            return
+
+        if not isinstance(member, discord.Member) or \
+           not any(r.id == ruolo_id for r in member.roles):
+            await interaction.response.send_message(
+                f"❌ Non hai il ruolo richiesto per vendere **{droga}**.",
+                ephemeral=True
+            )
+            return
+
+        # Registra inizio vendita
+        now = datetime.now(timezone.utc)
+        _vendite_attive[uid] = {
+            "droga":  droga,
+            "inizio": now,
+        }
+
+        embed = discord.Embed(
+            title="💰 𝐕𝐄𝐍𝐃𝐈𝐓𝐀 𝐈𝐍𝐈𝐙𝐈𝐀𝐓𝐀",
+            color=discord.Color(0xDAA520),
+            timestamp=discord.utils.utcnow()
+        )
+        embed.set_author(name=member.display_name, icon_url=member.display_avatar.url)
+        embed.add_field(name="🤠 Venditore", value=member.mention,                      inline=False)
+        embed.add_field(name="🌿 Droga",     value=droga,                               inline=True)
+        embed.add_field(name="🕐 Inizio",    value=f"<t:{int(now.timestamp())}:t>",     inline=True)
+        embed.set_image(url=foto.url)
+        embed.set_footer(text="🤠 Red Dead Redemption II — Vendita • Usa /fine-vendita per terminare")
+
+        await interaction.response.send_message(embed=embed)
+
+        try:
+            ch = bot.get_channel(LOG_CHANNEL_ID)
+            if ch:
+                await ch.send(embed=embed)
+        except Exception:
+            pass
+
+    # ── /fine-vendita ────────────────────────────────────────────────────────
+    @bot.tree.command(name="fine-vendita", description="Termina la sessione di vendita droga e calcola il tempo")
+    @app_commands.describe(droga="Tipo di droga che stavi vendendo")
+    @app_commands.choices(droga=[
+        app_commands.Choice(name="🍃 Tabacco",           value="🍃 Tabacco"),
+        app_commands.Choice(name="🍁 Canapa",             value="🍁 Canapa"),
+        app_commands.Choice(name="🌿 Foglie di Cocaina",  value="🌿 Foglie di Cocaina"),
+        app_commands.Choice(name="💉 Eroina",             value="💉 Eroina"),
+    ])
+    async def fine_vendita(
+        interaction: discord.Interaction,
+        droga: str
+    ):
+        uid = str(interaction.user.id)
+
+        if uid not in _vendite_attive:
+            await interaction.response.send_message(
+                "❌ Non hai nessuna vendita attiva. Usa `/inizio-vendita` prima.",
+                ephemeral=True
+            )
+            return
+
+        sessione = _vendite_attive[uid]
+        if sessione["droga"] != droga:
+            await interaction.response.send_message(
+                f"❌ La tua vendita attiva è di **{sessione['droga']}**, non di **{droga}**.",
+                ephemeral=True
+            )
+            return
+
+        now      = datetime.now(timezone.utc)
+        inizio   = sessione["inizio"]
+        durata_s = (now - inizio).total_seconds()
+        durata   = _durata_str(durata_s)
+
+        del _vendite_attive[uid]
+
+        embed = discord.Embed(
+            title="✅ 𝐕𝐄𝐍𝐃𝐈𝐓𝐀 𝐓𝐄𝐑𝐌𝐈𝐍𝐀𝐓𝐀",
+            color=discord.Color(0xDAA520),
+            timestamp=discord.utils.utcnow()
+        )
+        embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
+        embed.add_field(name="🤠 Venditore",     value=interaction.user.mention,             inline=False)
+        embed.add_field(name="🌿 Droga",          value=droga,                                inline=True)
+        embed.add_field(name="\u200b",             value="\u200b",                             inline=False)
+        embed.add_field(name="🕐 Inizio",         value=f"<t:{int(inizio.timestamp())}:t>",  inline=True)
+        embed.add_field(name="🕑 Fine",           value=f"<t:{int(now.timestamp())}:t>",     inline=True)
+        embed.add_field(name="\u200b",             value="\u200b",                             inline=False)
+        embed.add_field(name="⏱️ Tempo vendita",  value=f"**{durata}**",                      inline=False)
+        embed.set_footer(text="🤠 Red Dead Redemption II — Vendita Completata")
 
         await interaction.response.send_message(embed=embed)
 

@@ -1,83 +1,181 @@
 import discord
 from discord import app_commands
+from datetime import datetime, timezone
 import database
-import random
+from constants import LOG_CHANNEL_ID
 
-LOG_CHANNEL_ID = 1415297578022604850
+# ── Ruoli richiesti per tipo di droga ────────────────────────────────────────
+DROGA_CONFIG = {
+    "🍃 Tabacco":             1421166296850235602,
+    "🍁 Canapa":              1421166461988114532,
+    "🌿 Foglie di Cocaina":   1421166604447776780,
+    "💉 Eroina":              1404052027570524181,
+}
+
+ITEM_FORBICI = "✂️ • Forbici per raccolta droga"
+
+# Sessioni attive in memoria: user_id → {droga, inizio}
+_raccolte_attive: dict = {}
+
+
+def _durata_str(secondi: float) -> str:
+    h = int(secondi // 3600)
+    m = int((secondi % 3600) // 60)
+    s = int(secondi % 60)
+    if h > 0:
+        return f"{h}h {m}min {s}s"
+    elif m > 0:
+        return f"{m}min {s}s"
+    return f"{s}s"
+
 
 def setup_theft_commands(bot):
 
-    @bot.tree.command(name="furto", description="Tenta un furto furtivo nel Far West (azione illegale)")
-    @app_commands.describe(bersaglio="Cosa vuoi rubare", luogo="Dove")
-    async def furto(interaction: discord.Interaction, bersaglio: str, luogo: str):
-        successo = random.random() < 0.65
-        bottino  = random.randint(20, 200) if successo else 0
+    # ── /inizio-raccolta ─────────────────────────────────────────────────────
+    @bot.tree.command(name="inizio-raccolta", description="Inizia una sessione di raccolta droga")
+    @app_commands.describe(
+        droga="Tipo di droga da raccogliere",
+        foto="Foto della sessione (OBBLIGATORIA — allega un'immagine)"
+    )
+    @app_commands.choices(droga=[
+        app_commands.Choice(name="🍃 Tabacco",           value="🍃 Tabacco"),
+        app_commands.Choice(name="🍁 Canapa",             value="🍁 Canapa"),
+        app_commands.Choice(name="🌿 Foglie di Cocaina",  value="🌿 Foglie di Cocaina"),
+        app_commands.Choice(name="💉 Eroina",             value="💉 Eroina"),
+    ])
+    async def inizio_raccolta(
+        interaction: discord.Interaction,
+        droga: str,
+        foto: discord.Attachment
+    ):
+        uid    = str(interaction.user.id)
+        member = interaction.user
 
-        if successo:
-            user = await database.get_user(str(interaction.user.id))
-            await database.update_balance(str(interaction.user.id), cash=user["cash"] + bottino)
-            color = discord.Color(0x556B2F)
-            titolo = "🤫 Furto Riuscito"
-            desc = (
-                f"*{interaction.user.display_name} ruba furtivamente **{bersaglio}** a **{luogo}**.*\n\n"
-                f"**Guadagno: ${bottino:,}**"
+        # Controlla immagine
+        if not foto.content_type or not foto.content_type.startswith("image/"):
+            await interaction.response.send_message(
+                "❌ Il file allegato non è un'immagine valida. Allega una foto (jpg, png...).",
+                ephemeral=True
             )
-        else:
-            color = discord.Color.red()
-            titolo = "❌ Furto Fallito"
-            desc = (
-                f"*{interaction.user.display_name} tenta di rubare **{bersaglio}** a **{luogo}**...*\n\n"
-                f"*Qualcuno ti vede. Ti dileguhi nel nulla senza nulla.*"
-            )
+            return
 
-        embed = discord.Embed(title=titolo, description=desc, color=color, timestamp=discord.utils.utcnow())
+        # Controlla se ha già una raccolta attiva
+        if uid in _raccolte_attive:
+            r = _raccolte_attive[uid]
+            await interaction.response.send_message(
+                f"❌ Hai già una raccolta di **{r['droga']}** in corso! Usa `/fine-raccolta` prima.",
+                ephemeral=True
+            )
+            return
+
+        # Controlla ruolo richiesto
+        ruolo_id = DROGA_CONFIG.get(droga)
+        if ruolo_id is None:
+            await interaction.response.send_message("❌ Tipo di droga non valido.", ephemeral=True)
+            return
+
+        if not isinstance(member, discord.Member) or \
+           not any(r.id == ruolo_id for r in member.roles):
+            await interaction.response.send_message(
+                f"❌ Non hai il ruolo richiesto per raccogliere **{droga}**.",
+                ephemeral=True
+            )
+            return
+
+        # Controlla forbici in bisaccia
+        quantita_forbici = await database.get_item_quantity(uid, ITEM_FORBICI)
+        if quantita_forbici < 1:
+            await interaction.response.send_message(
+                f"❌ Non hai **{ITEM_FORBICI}** nella bisaccia! Non puoi raccogliere senza attrezzatura.",
+                ephemeral=True
+            )
+            return
+
+        # Registra inizio raccolta
+        now = datetime.now(timezone.utc)
+        _raccolte_attive[uid] = {
+            "droga":  droga,
+            "inizio": now,
+        }
+
+        embed = discord.Embed(
+            title="🌱 𝐑𝐀𝐂𝐂𝐎𝐋𝐓𝐀 𝐈𝐍𝐈𝐙𝐈𝐀𝐓𝐀",
+            color=discord.Color(0x2E8B57),
+            timestamp=discord.utils.utcnow()
+        )
+        embed.set_author(name=member.display_name, icon_url=member.display_avatar.url)
+        embed.add_field(name="🤠 Raccoglitore", value=member.mention,                         inline=False)
+        embed.add_field(name="🌿 Droga",         value=droga,                                  inline=True)
+        embed.add_field(name="🕐 Inizio",        value=f"<t:{int(now.timestamp())}:t>",        inline=True)
+        embed.set_image(url=foto.url)
+        embed.set_footer(text="🤠 Red Dead Redemption II — Raccolta • Usa /fine-raccolta per terminare")
+
+        await interaction.response.send_message(embed=embed)
+
+        try:
+            ch = bot.get_channel(LOG_CHANNEL_ID)
+            if ch:
+                await ch.send(embed=embed)
+        except Exception:
+            pass
+
+    # ── /fine-raccolta ───────────────────────────────────────────────────────
+    @bot.tree.command(name="fine-raccolta", description="Termina la sessione di raccolta droga e calcola il tempo")
+    @app_commands.describe(droga="Tipo di droga che stavi raccogliendo")
+    @app_commands.choices(droga=[
+        app_commands.Choice(name="🍃 Tabacco",           value="🍃 Tabacco"),
+        app_commands.Choice(name="🍁 Canapa",             value="🍁 Canapa"),
+        app_commands.Choice(name="🌿 Foglie di Cocaina",  value="🌿 Foglie di Cocaina"),
+        app_commands.Choice(name="💉 Eroina",             value="💉 Eroina"),
+    ])
+    async def fine_raccolta(
+        interaction: discord.Interaction,
+        droga: str
+    ):
+        uid = str(interaction.user.id)
+
+        if uid not in _raccolte_attive:
+            await interaction.response.send_message(
+                "❌ Non hai nessuna raccolta attiva. Usa `/inizio-raccolta` prima.",
+                ephemeral=True
+            )
+            return
+
+        sessione = _raccolte_attive[uid]
+        if sessione["droga"] != droga:
+            await interaction.response.send_message(
+                f"❌ La tua raccolta attiva è di **{sessione['droga']}**, non di **{droga}**.",
+                ephemeral=True
+            )
+            return
+
+        now      = datetime.now(timezone.utc)
+        inizio   = sessione["inizio"]
+        durata_s = (now - inizio).total_seconds()
+        durata   = _durata_str(durata_s)
+
+        del _raccolte_attive[uid]
+
+        embed = discord.Embed(
+            title="✅ 𝐑𝐀𝐂𝐂𝐎𝐋𝐓𝐀 𝐓𝐄𝐑𝐌𝐈𝐍𝐀𝐓𝐀",
+            color=discord.Color(0x8B4513),
+            timestamp=discord.utils.utcnow()
+        )
         embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
-        embed.set_footer(text="🤠 Red Dead Redemption II — Crimine")
+        embed.add_field(name="🤠 Raccoglitore", value=interaction.user.mention,               inline=False)
+        embed.add_field(name="🌿 Droga",         value=droga,                                  inline=True)
+        embed.add_field(name="\u200b",            value="\u200b",                               inline=False)
+        embed.add_field(name="🕐 Inizio",        value=f"<t:{int(inizio.timestamp())}:t>",    inline=True)
+        embed.add_field(name="🕑 Fine",          value=f"<t:{int(now.timestamp())}:t>",       inline=True)
+        embed.add_field(name="\u200b",            value="\u200b",                               inline=False)
+        embed.add_field(name="⏱️ Tempo raccolto", value=f"**{durata}**",                       inline=False)
+        embed.set_footer(text="🤠 Red Dead Redemption II — Raccolta Completata")
+
         await interaction.response.send_message(embed=embed)
 
-    @bot.tree.command(name="raccolta-marijuana", description="Raccogli erba selvatica nel Far West (azione illegale)")
-    @app_commands.describe(luogo="Dove raccogli")
-    async def raccolta_marijuana(interaction: discord.Interaction, luogo: str):
-        quantita = random.randint(1, 5)
-        user = await database.get_user(str(interaction.user.id))
-
-        # Calo fame/sete per la fatica
-        new_h = max(0, user["hunger"] - random.randint(4, 8))
-        new_t = max(0, user["thirst"] - random.randint(4, 8))
-        await database.update_hunger_thirst(str(interaction.user.id), hunger=new_h, thirst=new_t)
-        await database.add_item(str(interaction.user.id), "🌿 • Erba Selvatica", quantita)
-
-        embed = discord.Embed(
-            title="🌿 Raccolta Completata",
-            description=f"*{interaction.user.display_name} raccoglie erba selvatica a **{luogo}**.*",
-            color=discord.Color(0x556B2F),
-            timestamp=discord.utils.utcnow()
-        )
-        embed.add_field(name="📦 Raccolto", value=f"🌿 • Erba Selvatica x{quantita}", inline=True)
-        embed.add_field(name="🍔 Fame",     value=f"**{new_h}%**",                     inline=True)
-        embed.add_field(name="💦 Sete",     value=f"**{new_t}%**",                     inline=True)
-        embed.set_footer(text="🤠 Red Dead Redemption II — Raccolta")
-        await interaction.response.send_message(embed=embed)
-
-    @bot.tree.command(name="raccolta-cocaina", description="Raccogli piante rare nel Far West (azione illegale)")
-    @app_commands.describe(luogo="Dove raccogli")
-    async def raccolta_cocaina(interaction: discord.Interaction, luogo: str):
-        quantita = random.randint(1, 3)
-        user = await database.get_user(str(interaction.user.id))
-
-        new_h = max(0, user["hunger"] - random.randint(5, 10))
-        new_t = max(0, user["thirst"] - random.randint(5, 10))
-        await database.update_hunger_thirst(str(interaction.user.id), hunger=new_h, thirst=new_t)
-        await database.add_item(str(interaction.user.id), "🪴 • Pianta Rara", quantita)
-
-        embed = discord.Embed(
-            title="🪴 Raccolta Completata",
-            description=f"*{interaction.user.display_name} raccoglie piante rare a **{luogo}**.*",
-            color=discord.Color(0x556B2F),
-            timestamp=discord.utils.utcnow()
-        )
-        embed.add_field(name="📦 Raccolto", value=f"🪴 • Pianta Rara x{quantita}", inline=True)
-        embed.add_field(name="🍔 Fame",     value=f"**{new_h}%**",                  inline=True)
-        embed.add_field(name="💦 Sete",     value=f"**{new_t}%**",                  inline=True)
-        embed.set_footer(text="🤠 Red Dead Redemption II — Raccolta")
-        await interaction.response.send_message(embed=embed)
+        try:
+            ch = bot.get_channel(LOG_CHANNEL_ID)
+            if ch:
+                await ch.send(embed=embed)
+        except Exception:
+            pass

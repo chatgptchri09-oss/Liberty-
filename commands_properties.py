@@ -4,11 +4,12 @@ import database
 from datetime import datetime
 
 STAFF_ROLES = [1414738761207517214, 1414735564632231988]
+AGENCY_ROLE = 1404051965364670545
 
 def has_staff(interaction: discord.Interaction) -> bool:
     if not isinstance(interaction.user, discord.Member):
         return False
-    return any(r.id in STAFF_ROLES for r in interaction.user.roles)
+    return any(r.id in AGENCY_ROLE for r in interaction.user.roles)
 
 def setup_property_commands(bot):
 
@@ -23,7 +24,7 @@ def setup_property_commands(bot):
         app_commands.Choice(name="🏕️ Accampamento",     value="Accampamento"),
     ]
 
-    @bot.tree.command(name="daiproprieta", description="[Staff] Registra una proprietà per un cittadino")
+    @bot.tree.command(name="daiproprieta", description="Registra una proprietà per un cittadino")
     @app_commands.describe(
         cittadino="Il proprietario",
         nome="Nome della proprietà",

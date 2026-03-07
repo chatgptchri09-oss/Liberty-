@@ -167,7 +167,7 @@ def setup_rp_commands(bot):
             color=_color(new_h, new_t),
             timestamp=discord.utils.utcnow()
         )
-        embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
+        embed.set_author(name=interaction.user.mention, icon_url=interaction.user.display_avatar.url)
         embed.add_field(name="🍔 Fame", value=_bar(new_h), inline=True)
         embed.add_field(name="💦 Sete", value=_bar(new_t), inline=True)
         warns = []
@@ -262,7 +262,7 @@ def setup_rp_commands(bot):
         embed.add_field(name="🍔 Fame", value=_bar(user["hunger"]), inline=True)
         embed.add_field(name="💦 Sete", value=_bar(user["thirst"]), inline=True)
         if not items:
-            embed.add_field(name="📦 Contenuto", value="*Bisaccia vuota.*", inline=False)
+            embed.add_field(name="📦 Contenuto", value="*Bisaccia vuota cowboy, riempila con qualcosa.*", inline=False)
         else:
             desc = "\n".join(f"**{i['item_name']}** — x{i['quantity']}" for i in items)
             embed.add_field(name="📦 Contenuto", value=desc, inline=False)

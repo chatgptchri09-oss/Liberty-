@@ -5,7 +5,6 @@ from aiohttp import web
 import asyncio
 import os
 import sys
-import time
 
 sys.stdout.reconfigure(line_buffering=True)
 
@@ -26,9 +25,6 @@ intents.members = True
 intents.guilds  = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
-
-last_sync_time = 0
-SYNC_COOLDOWN  = 3600
 
 print("✅ Bot inizializzato", flush=True)
 
@@ -59,6 +55,12 @@ _modules = [
     ("commands_arrests",         "setup_arrest_commands"),
     ("commands_criminal_record", "setup_criminal_record_commands"),
     ("commands_fondocassa",      "setup_fondocassa_commands"),
+    ("commands_robbery",         "setup_robbery_commands"),
+    ("commands_theft",           "setup_theft_commands"),
+    ("commands_misc",            "setup_rpoff_commands"),
+    ("commands_misc",            "setup_wipepg_commands"),
+    ("commands_misc",            "setup_invoice_commands"),
+    ("commands_misc",            "setup_property_commands"),
 ]
 
 _loaded = {}
@@ -78,25 +80,18 @@ print("✅ Tutti i moduli caricati!", flush=True)
 # ── /sync ─────────────────────────────────────────────────────────────────────
 @bot.tree.command(name="sync", description="[Owner] Sincronizza i comandi slash")
 async def sync(interaction: discord.Interaction):
-    global last_sync_time
     if not has_role_id(interaction, CHIAVE_ROLE_ID):
         await interaction.response.send_message("❌ Solo i creatori del server.", ephemeral=True); return
-    elapsed = time.time() - last_sync_time
-    if elapsed < SYNC_COOLDOWN:
-        rem = int(SYNC_COOLDOWN - elapsed)
-        await interaction.response.send_message(
-            f"⏰ Cooldown attivo! Aspetta **{rem//60}m {rem%60}s**.", ephemeral=True); return
     await interaction.response.defer(ephemeral=True)
     try:
         synced = await bot.tree.sync()
-        last_sync_time = time.time()
         await interaction.followup.send(
-            f"✅ **{len(synced)} comandi sincronizzati!**\n🔄 Ricarica Discord.\n⏰ Prossima sync tra 1 ora.",
+            f"✅ **{len(synced)} comandi sincronizzati!**\n🔄 Ricarica Discord.",
             ephemeral=True)
         print(f"✅ Sync: {len(synced)} comandi (da {interaction.user})", flush=True)
     except discord.HTTPException as e:
         if e.status == 429:
-            await interaction.followup.send("❌ Rate limited da Discord. Aspetta 2-3 ore.", ephemeral=True)
+            await interaction.followup.send("❌ Rate limited da Discord. Aspetta qualche minuto.", ephemeral=True)
         else:
             await interaction.followup.send(f"❌ Errore: {e}", ephemeral=True)
 

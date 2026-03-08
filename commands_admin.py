@@ -152,8 +152,6 @@ class BackgroundView(discord.ui.View):
 # ─────────────────────────────────────────────────────────────────────────────
 def setup_admin_commands(bot):
 
-    bot.add_view(BackgroundView(bot))
-
     # ── /add-money ────────────────────────────────────────────────────────────
     @bot.tree.command(name="add-money", description="[Staff] Aggiungi denaro a un giocatore")
     @app_commands.describe(giocatore="Il giocatore", importo="Importo", dove="Contanti o banca")

@@ -57,10 +57,6 @@ _modules = [
     ("commands_fondocassa",      "setup_fondocassa_commands"),
     ("commands_robbery",         "setup_robbery_commands"),
     ("commands_theft",           "setup_theft_commands"),
-    ("commands_misc",            "setup_rpoff_commands"),
-    ("commands_misc",            "setup_wipepg_commands"),
-    ("commands_misc",            "setup_invoice_commands"),
-    ("commands_misc",            "setup_property_commands"),
 ]
 
 _loaded = {}

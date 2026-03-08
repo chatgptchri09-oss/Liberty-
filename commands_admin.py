@@ -43,7 +43,7 @@ class BackgroundView(discord.ui.View):
         self.bot = bot
 
     @discord.ui.button(
-        label=" Inizia Background",
+        label="🏁 Inizia Background",
         style=discord.ButtonStyle.success,
         custom_id="bg_inizia"
     )
@@ -99,29 +99,33 @@ class BackgroundView(discord.ui.View):
             return m.author.id == member.id and isinstance(m.channel, discord.DMChannel)
 
         async def chiedi(label: str, domanda: str) -> str:
-            await member.send(f"**{domanda}**")
+            e = discord.Embed(description=f"**{domanda}**", color=discord.Color(0x8B4513))
+            await member.send(embed=e)
             try:
                 msg = await bot.wait_for("message", check=check, timeout=300)
                 return msg.content
             except Exception:
                 return "*(nessuna risposta)*"
 
-        await member.send("╞═════𖠁**OOC**𖠁═════╡")
+        await member.send(embed=discord.Embed(description="╞═════𖠁**OOC**𖠁═════╡", color=discord.Color(0xDAA520)))
         for label, domanda in DOMANDE_OOC:
             r = await chiedi(label, domanda)
             risposte_ooc.append((label, r))
 
-        await member.send("╞═════𖠁**IC**𖠁═════╡")
+        await member.send(embed=discord.Embed(description="╞═════𖠁**IC**𖠁═════╡", color=discord.Color(0xDAA520)))
         for label, domanda in DOMANDE_IC:
             r = await chiedi(label, domanda)
             risposte_ic.append((label, r))
 
-        await member.send(
-            "Le tue risposte sono state registrate negli archivi della contea.\n\n"
-            "La tua storia verrà ora esaminata dalle autorità.\n"
-            "Riceverai notizie non appena la tua richiesta verrà valutata.\n\n"
-            "Per ora, viandante... attendi il tuo destino. 🤠"
-        )
+        await member.send(embed=discord.Embed(
+            description=(
+                "Le tue risposte sono state registrate negli archivi della contea.\n\n"
+                "La tua storia verrà ora esaminata dalle autorità.\n"
+                "Riceverai notizie non appena la tua richiesta verrà valutata.\n\n"
+                "Per ora, viandante... attendi il tuo destino. 🤠"
+            ),
+            color=discord.Color(0x8B4513)
+        ))
 
         # Embed riepilogo nel canale background
         embed_bg = discord.Embed(
@@ -132,10 +136,15 @@ class BackgroundView(discord.ui.View):
         embed_bg.set_thumbnail(url=member.display_avatar.url)
         embed_bg.add_field(name="👤 Candidato", value=member.mention, inline=False)
 
-        ooc_text = "\n".join(f"**{l}:** {r}" for l, r in risposte_ooc)
-        ic_text  = "\n".join(f"**{l}:** {r}" for l, r in risposte_ic)
-        embed_bg.add_field(name="╞═══ OOC ═══╡", value=ooc_text[:1024] or "—", inline=False)
-        embed_bg.add_field(name="╞═══ IC  ═══╡", value=ic_text[:1024]  or "—", inline=False)
+        # OOC — ogni risposta come field separato (label / valore su riga successiva)
+        embed_bg.add_field(name="\u200b", value="╞═════𖠁 **OOC** 𖠁═════╡", inline=False)
+        for l, r in risposte_ooc:
+            embed_bg.add_field(name=l, value=r or "—", inline=False)
+        # Separatore IC
+        embed_bg.add_field(name="\u200b", value="\u200b", inline=False)
+        embed_bg.add_field(name="\u200b", value="╞═════𖠁 **IC** 𖠁═════╡", inline=False)
+        for l, r in risposte_ic:
+            embed_bg.add_field(name=l, value=r or "—", inline=False)
         embed_bg.set_footer(text="🤠 Red Dead Redemption II — Background PG")
 
         try:
@@ -471,7 +480,7 @@ def setup_admin_commands(bot):
             return
 
         embed = discord.Embed(
-            title="🤠 𝐌𝐀𝐊𝐄 𝐘𝐎𝐔𝐑 𝐍𝐀𝐌𝐄 𝐈𝐍 𝐓𝐇𝐄 𝐖𝐄𝐒𝐓 ",
+            title="🤠 Background PG",
             description=(
                 "Prima di mettere piede nelle terre selvagge e iniziare la tua nuova vita, "
                 "ogni anima deve lasciare traccia della propria storia.\n\n"

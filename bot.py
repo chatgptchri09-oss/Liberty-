@@ -57,6 +57,7 @@ _modules = [
     ("commands_fondocassa",      "setup_fondocassa_commands"),
     ("commands_robbery",         "setup_robbery_commands"),
     ("commands_theft",           "setup_theft_commands"),
+    ("commands_banca",           "setup_banca_commands"),
 ]
 
 _loaded = {}

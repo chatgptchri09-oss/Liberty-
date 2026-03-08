@@ -114,33 +114,28 @@ def setup_inventory_commands(bot):
     @bot.tree.command(name="crea-item", description="[Staff] Crea un nuovo item nell'emporio")
     @app_commands.describe(
         nome="Nome item (es: 🥃 • Whisky)",
-        descrizione="Descrizione breve",
-        ruolo_richiesto="Ruolo Discord richiesto per acquistare (lascia vuoto = tutti)"
+        ruolo_richiesto="Ruolo Discord richiesto per ottenere l'item",
+        descrizione="Descrizione breve (facoltativa)"
     )
     async def crea_item(
         interaction: discord.Interaction,
         nome: str,
-        descrizione: str,
-        ruolo_richiesto: discord.Role = None
+        ruolo_richiesto: discord.Role,
+        descrizione: str = ""
     ):
         if not has_staff(interaction):
             await interaction.response.send_message("❌ Non hai i permessi necessari.", ephemeral=True)
             return
-        if prezzo <= 0:
-            await interaction.response.send_message("❌ Il prezzo deve essere positivo.", ephemeral=True)
-            return
 
-        role_id = ruolo_richiesto.id if ruolo_richiesto else None
-        await database.upsert_shop_item(nome, prezzo, descrizione, role_id)
+        role_id = ruolo_richiesto.id
+        await database.upsert_shop_item(nome, 0, descrizione, role_id)
 
         embed = discord.Embed(title="✅ 𝐈𝐭𝐞𝐦 𝐂𝐫𝐞𝐚𝐭𝐨/𝐀𝐠𝐠𝐢𝐨𝐫𝐧𝐚𝐭𝐨", color=discord.Color.green(),
                               timestamp=discord.utils.utcnow())
-        embed.add_field(name="📦 Nome",        value=nome,           inline=True)
-        embed.add_field(name="📝 Descrizione", value=descrizione,    inline=False)
-        if role_id:
-            embed.add_field(name="🔑 Ruolo Richiesto", value=f"<@&{role_id}>", inline=True)
-        else:
-            embed.add_field(name="🔑 Ruolo Richiesto", value="Nessuno (tutti possono acquistare)", inline=True)
+        embed.add_field(name="📦 Nome",              value=nome,              inline=True)
+        embed.add_field(name="🔑 Ruolo Richiesto",   value=f"<@&{role_id}>", inline=True)
+        if descrizione:
+            embed.add_field(name="📝 Descrizione", value=descrizione, inline=False)
         embed.set_footer(text="🤠 Red Dead Redemption II — Admin")
         await interaction.response.send_message(embed=embed)
 

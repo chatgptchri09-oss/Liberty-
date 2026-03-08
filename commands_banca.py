@@ -5,8 +5,8 @@ import asyncio
 import random
 
 # ── Ruoli autorizzati ─────────────────────────────────────────────────────────
-SINDACO_ROLE_ID   = 1404051939561574514
-DIRETTORE_ROLE_ID = 1404051913150038117
+SINDACO_ROLE_ID   = 1404051913150038117
+DIRETTORE_ROLE_ID = 1404051939561574514
 CONTABILE_ROLE_ID = 1480217343245287424   # terzo ruolo che può usare il comando
 
 # Canale banca per le notifiche di conferma
@@ -106,7 +106,7 @@ class ConfermaView(discord.ui.View):
     @discord.ui.button(
         label="✅ Conferma Direttore",
         style=discord.ButtonStyle.success,
-        custom_id="conferma_direttore"
+        custom_id="banca_conferma_direttore_v2"
     )
     async def conferma_direttore(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not _has_role(interaction.user, DIRETTORE_ROLE_ID):
@@ -131,7 +131,7 @@ class ConfermaView(discord.ui.View):
     @discord.ui.button(
         label="✅ Conferma Sindaco",
         style=discord.ButtonStyle.primary,
-        custom_id="conferma_sindaco"
+        custom_id="banca_conferma_sindaco_v2"
     )
     async def conferma_sindaco(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not _has_role(interaction.user, SINDACO_ROLE_ID):

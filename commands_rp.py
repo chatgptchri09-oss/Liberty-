@@ -526,38 +526,10 @@ def setup_rp_commands(bot):
         await interaction.response.send_message(embed=embed)
 
     # ── /caccia ──────────────────────────────────────────────────────────────
-    @bot.tree.command(name="caccia", description="Descrivi una sessione di caccia")
-    @app_commands.describe(preda="L'animale cacciato", luogo="Zona di caccia", qualita="Qualità della preda", foto="Foto della preda (OBBLIGATORIA)")
-    @app_commands.choices(qualita=[
-        app_commands.Choice(name="⭐ Scadente",     value="Scadente ⭐"),
-        app_commands.Choice(name="⭐⭐ Buona",      value="Buona ⭐⭐"),
-        app_commands.Choice(name="⭐⭐⭐ Perfetta", value="Perfetta ⭐⭐⭐"),
-    ])
-    async def caccia(interaction: discord.Interaction, preda: str, luogo: str, foto: discord.Attachment, qualita: str = "Buona ⭐⭐"):
-        embed = discord.Embed(title="🎯 𝐁𝐚𝐭𝐭𝐮𝐭𝐚 𝐝𝐢 𝐂𝐚𝐜𝐜𝐢𝐚", color=discord.Color(0x556B2F), timestamp=discord.utils.utcnow())
-        embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
-        embed.add_field(name="🤠 Cacciatore", value=interaction.user.mention, inline=False)
-        embed.add_field(name="🦌 Preda",      value=preda,                    inline=False)
-        embed.add_field(name="📍 Zona",       value=luogo,                    inline=False)
-        embed.add_field(name="⭐ Qualità",    value=qualita,                  inline=False)
-        if foto.content_type and foto.content_type.startswith("image/"):
-            embed.set_image(url=foto.url)
-        embed.set_footer(text="🤠 Red Dead Redemption II — Caccia")
-        await interaction.response.send_message(embed=embed)
+   
 
     # ── /pesca ───────────────────────────────────────────────────────────────
-    @bot.tree.command(name="pesca", description="Descrivi una sessione di pesca")
-    @app_commands.describe(pesce="Il pesce catturato", luogo="Dove hai pescato", peso="Peso (es: 2.5 kg, opzionale)")
-    async def pesca(interaction: discord.Interaction, pesce: str, luogo: str, peso: str = ""):
-        embed = discord.Embed(title="🎣 𝐒𝐞𝐬𝐬𝐢𝐨𝐧𝐞 𝐝𝐢 𝐏𝐞𝐬𝐜𝐚", color=discord.Color(0x4682B4), timestamp=discord.utils.utcnow())
-        embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
-        embed.add_field(name="🤠 Pescatore", value=interaction.user.mention, inline=False)
-        embed.add_field(name="🐟 Pesce",     value=pesce,                    inline=False)
-        embed.add_field(name="📍 Zona",      value=luogo,                    inline=False)
-        if peso:
-            embed.add_field(name="⚖️ Peso",  value=peso,                     inline=False)
-        embed.set_footer(text="🤠 Red Dead Redemption II — Pesca")
-        await interaction.response.send_message(embed=embed)
+   
 
     # ── /anonimo ─────────────────────────────────────────────────────────────
     @bot.tree.command(name="anonimo", description="Invia un messaggio anonimo nel canale")

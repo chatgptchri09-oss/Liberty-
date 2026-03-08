@@ -38,6 +38,13 @@ async def on_ready():
     print(f"✅ Logged in as {bot.user} (ID: {bot.user.id})", flush=True)
     print(f"✅ Server: {len(bot.guilds)}", flush=True)
     await database.init_db()
+    # Registra le View persistenti (devono stare qui, dentro il loop)
+    try:
+        from commands_admin import BackgroundView
+        bot.add_view(BackgroundView(bot))
+        print("✅ BackgroundView registrata", flush=True)
+    except Exception as e:
+        print(f"⚠️ BackgroundView non registrata: {e}", flush=True)
     print("🤠 Red Dead Redemption II Bot — Pronto!", flush=True)
 
 # ── Import moduli ─────────────────────────────────────────────────────────────
@@ -52,9 +59,6 @@ _modules = [
     ("commands_arrests",         "setup_arrest_commands"),
     ("commands_criminal_record", "setup_criminal_record_commands"),
     ("commands_fondocassa",      "setup_fondocassa_commands"),
-    ("commands_rp_status",       "setup_rpoff_commands"),
-    ("commands_robbery",         "setup_robbery_commands"),
-    ("commands_theft",           "setup_theft_commands"),
 ]
 
 _loaded = {}

@@ -5,8 +5,8 @@ import asyncio
 import random
 
 # ── Ruoli autorizzati ─────────────────────────────────────────────────────────
-SINDACO_ROLE_ID   = 1404051913150038117
-DIRETTORE_ROLE_ID = 1404051939561574514
+SINDACO_ROLE_ID   = 1404051939561574514
+DIRETTORE_ROLE_ID = 1404051913150038117
 CONTABILE_ROLE_ID = 1480217343245287424   # terzo ruolo che può usare il comando
 
 # Canale banca per le notifiche di conferma

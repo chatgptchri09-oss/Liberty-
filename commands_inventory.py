@@ -23,7 +23,7 @@ def _fuzzy(query: str, candidates: list) -> list:
 def setup_inventory_commands(bot):
 
     # ── /itemshop ─────────────────────────────────────────────────────────────
-    @bot.tree.command(name="itemshop", description="Visualizza il negozio degli item disponibili")
+    @bot.tree.command(name="listino-emporio", description="Visualizza il negozio degli item disponibili")
     async def itemshop(interaction: discord.Interaction):
         items = await database.get_shop_items()
 

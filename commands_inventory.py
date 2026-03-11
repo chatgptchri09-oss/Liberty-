@@ -7,73 +7,125 @@ from constants import DATABASE_NAME, has_staff, LOG_CHANNEL_ID
 
 # ── Fuzzy match ───────────────────────────────────────────────────────────────
 def _fuzzy(query: str, candidates: list) -> list:
-    """Restituisce candidati che contengono ogni parola del query (tutte, poi almeno una)."""
     q = query.lower().strip()
     if not q:
         return candidates
     words = q.split()
-    # Prima prova: tutte le parole presenti
     all_match = [c for c in candidates if all(w in c.lower() for w in words)]
     if all_match:
         return all_match
-    # Seconda prova: almeno una parola
     return [c for c in candidates if any(w in c.lower() for w in words)]
 
 
-def setup_inventory_commands(bot):
+# ── Costanti paginazione ──────────────────────────────────────────────────────
+ITEMS_PER_PAGE = 5
 
-    # ── Helper paginazione emporio ───────────────────────────────────────────
-    ITEMS_PER_PAGE = 5
 
-    def _build_shop_embed(page_items: list, page: int, tot: int) -> discord.Embed:
-        embed = discord.Embed(
-            title="🏪 𝐄𝐦𝐩𝐨𝐫𝐢𝐨 𝐝𝐞𝐥 𝐅𝐚𝐫 𝐖𝐞𝐬𝐭",
-            description="Benvenuto, cowboy! Acquista con `/item-sell`." if page_items else "*L'emporio è vuoto per ora...*",
-            color=discord.Color(0xDAA520),
-            timestamp=discord.utils.utcnow()
+# ── Helper embed emporio ──────────────────────────────────────────────────────
+def _build_shop_embed(page_items: list, page: int, tot: int) -> discord.Embed:
+    embed = discord.Embed(
+        title="🏪 𝐄𝐦𝐩𝐨𝐫𝐢𝐨 𝐝𝐞𝐥 𝐅𝐚𝐫 𝐖𝐞𝐬𝐭",
+        description="Benvenuto, cowboy! Acquista con `/item-sell`." if page_items else "*L'emporio è vuoto per ora...*",
+        color=discord.Color(0xDAA520),
+        timestamp=discord.utils.utcnow()
+    )
+    for item in page_items:
+        ruolo_line = f"\n🔑 **Ruolo:** <@&{item['required_role']}>" if item.get("required_role") else ""
+        desc_line  = f"\n_{item['description']}_" if item.get("description") else ""
+        embed.add_field(name=item["item_name"], value=f"{desc_line}{ruolo_line}" or "—", inline=True)
+    embed.set_footer(text=f"🤠 Red Dead Redemption II — Emporio | Pagina {page+1}/{tot}")
+    return embed
+
+
+# ── View paginazione emporio (a livello modulo per persistenza callback) ───────
+class ShopView(discord.ui.View):
+    def __init__(self, all_items: list, page: int = 0):
+        super().__init__(timeout=120)
+        self._all  = all_items
+        self.page  = page
+        self._tot  = max(1, -(-len(all_items) // ITEMS_PER_PAGE))
+        self._refresh()
+
+    def _get_page(self, p: int) -> list:
+        return self._all[p * ITEMS_PER_PAGE:(p + 1) * ITEMS_PER_PAGE]
+
+    def _refresh(self):
+        self.prev_btn.disabled = self.page == 0
+        self.next_btn.disabled = self.page >= self._tot - 1
+
+    @discord.ui.button(label="⬅️ Pagina", style=discord.ButtonStyle.primary)
+    async def prev_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.page -= 1
+        self._refresh()
+        await interaction.response.edit_message(
+            embed=_build_shop_embed(self._get_page(self.page), self.page, self._tot),
+            view=self
         )
-        for item in page_items:
-            ruolo_line = f"\n🔑 **Ruolo:** <@&{item['required_role']}>" if item.get("required_role") else ""
-            desc_line  = f"\n_{item['description']}_" if item.get("description") else ""
-            embed.add_field(name=item["item_name"], value=f"{desc_line}{ruolo_line}" or "—", inline=True)
-        embed.set_footer(text=f"🤠 Red Dead Redemption II — Emporio | Pagina {page+1}/{tot}")
+
+    @discord.ui.button(label="➡️ Pagina", style=discord.ButtonStyle.primary)
+    async def next_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.page += 1
+        self._refresh()
+        await interaction.response.edit_message(
+            embed=_build_shop_embed(self._get_page(self.page), self.page, self._tot),
+            view=self
+        )
+
+
+# ── View paginazione bisaccia (a livello modulo per persistenza callback) ──────
+class BisacciaPageView(discord.ui.View):
+    def __init__(self, all_items: list, titolo: str, hunger: int, thirst: int,
+                 avatar_url: str, page: int = 0):
+        super().__init__(timeout=120)
+        self._all      = all_items
+        self._titolo   = titolo
+        self._hunger   = hunger
+        self._thirst   = thirst
+        self._avatar   = avatar_url
+        self.page      = page
+        self._tot      = max(1, -(-len(all_items) // ITEMS_PER_PAGE))
+        self._refresh()
+
+    def _bar(self, v: int) -> str:
+        f = round(v / 10)
+        return "█" * f + "░" * (10 - f) + f"  **{v}%**"
+
+    def _get_page(self, p: int) -> list:
+        return self._all[p * ITEMS_PER_PAGE:(p + 1) * ITEMS_PER_PAGE]
+
+    def _build_embed(self, p: int) -> discord.Embed:
+        embed = discord.Embed(title=self._titolo, color=discord.Color(0x8B4513),
+                              timestamp=discord.utils.utcnow())
+        embed.set_thumbnail(url=self._avatar)
+        embed.add_field(name="🍔 Fame", value=self._bar(self._hunger), inline=True)
+        embed.add_field(name="💦 Sete", value=self._bar(self._thirst), inline=True)
+        page_items = self._get_page(p)
+        if not self._all:
+            embed.add_field(name="📦 Contenuto", value="*Bisaccia vuota.*", inline=False)
+        else:
+            desc = "\n".join(f"**{i['item_name']}** — x{i['quantity']}" for i in page_items)
+            embed.add_field(name="📦 Contenuto", value=desc, inline=False)
+        embed.set_footer(text=f"🤠 Red Dead Redemption II — Bisaccia | Pagina {p+1}/{self._tot}")
         return embed
 
-    # ── /listino-emporio ──────────────────────────────────────────────────────
-    @bot.tree.command(name="listino-emporio", description="Visualizza il negozio degli item disponibili")
-    async def itemshop(interaction: discord.Interaction):
-        all_items = await database.get_shop_items()
-        tot = max(1, -(-len(all_items) // ITEMS_PER_PAGE))
+    def _refresh(self):
+        self.prev_btn.disabled = self.page == 0
+        self.next_btn.disabled = self.page >= self._tot - 1
 
-        def get_page(p):
-            return all_items[p * ITEMS_PER_PAGE:(p + 1) * ITEMS_PER_PAGE]
+    @discord.ui.button(label="⬅️ Pagina", style=discord.ButtonStyle.primary)
+    async def prev_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.page -= 1
+        self._refresh()
+        await interaction.response.edit_message(embed=self._build_embed(self.page), view=self)
 
-        class ShopView(discord.ui.View):
-            def __init__(self_v, p=0):
-                super().__init__(timeout=120)
-                self_v.p = p
-                self_v._refresh()
+    @discord.ui.button(label="➡️ Pagina", style=discord.ButtonStyle.primary)
+    async def next_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.page += 1
+        self._refresh()
+        await interaction.response.edit_message(embed=self._build_embed(self.page), view=self)
 
-            def _refresh(self_v):
-                self_v.prev_btn.disabled = self_v.p == 0
-                self_v.next_btn.disabled = self_v.p >= tot - 1
 
-            @discord.ui.button(label="⬅️ Pagina", style=discord.ButtonStyle.primary)
-            async def prev_btn(self_v, itr: discord.Interaction, btn):
-                self_v.p -= 1
-                self_v._refresh()
-                await itr.response.edit_message(embed=_build_shop_embed(get_page(self_v.p), self_v.p, tot), view=self_v)
-
-            @discord.ui.button(label="➡️ Pagina", style=discord.ButtonStyle.primary)
-            async def next_btn(self_v, itr: discord.Interaction, btn):
-                self_v.p += 1
-                self_v._refresh()
-                await itr.response.edit_message(embed=_build_shop_embed(get_page(self_v.p), self_v.p, tot), view=self_v)
-
-        if tot > 1:
-            await interaction.response.send_message(embed=_build_shop_embed(get_page(0), 0, tot), view=ShopView())
-        else:
-            await interaction.response.send_message(embed=_build_shop_embed(get_page(0), 0, tot))
+def setup_inventory_commands(bot):
 
     # ── Autocomplete item shop ────────────────────────────────────────────────
     async def _shop_autocomplete(interaction: discord.Interaction, current: str):
@@ -81,6 +133,17 @@ def setup_inventory_commands(bot):
         names = [i["item_name"] for i in items]
         matches = _fuzzy(current, names)
         return [app_commands.Choice(name=m, value=m) for m in matches[:25]]
+
+    # ── /listino-emporio ──────────────────────────────────────────────────────
+    @bot.tree.command(name="listino-emporio", description="Visualizza il negozio degli item disponibili")
+    async def itemshop(interaction: discord.Interaction):
+        all_items = await database.get_shop_items()
+        tot = max(1, -(-len(all_items) // ITEMS_PER_PAGE))
+        embed = _build_shop_embed(all_items[:ITEMS_PER_PAGE], 0, tot)
+        if tot > 1:
+            await interaction.response.send_message(embed=embed, view=ShopView(all_items, 0))
+        else:
+            await interaction.response.send_message(embed=embed)
 
     # ── /item-sell ────────────────────────────────────────────────────────────
     @bot.tree.command(name="item-sell", description="Acquista uno o più item dall'emporio")
@@ -92,7 +155,6 @@ def setup_inventory_commands(bot):
             return
 
         shop_item = await database.get_shop_item(item)
-        # Fuzzy fallback se non trovato esatto
         if not shop_item:
             all_items = await database.get_shop_items()
             matches = _fuzzy(item, [i["item_name"] for i in all_items])
@@ -100,11 +162,10 @@ def setup_inventory_commands(bot):
                 shop_item = await database.get_shop_item(matches[0])
         if not shop_item:
             await interaction.response.send_message(
-                "❌ Item non trovato nell'emporio. Controlla `/itemshop`.", ephemeral=True
+                "❌ Item non trovato nell'emporio. Controlla `/listino-emporio`.", ephemeral=True
             )
             return
 
-        # Controllo ruolo richiesto
         role_id = shop_item.get("required_role")
         if role_id:
             if not isinstance(interaction.user, discord.Member) or \
@@ -158,8 +219,8 @@ def setup_inventory_commands(bot):
 
         embed = discord.Embed(title="✅ 𝐈𝐭𝐞𝐦 𝐂𝐫𝐞𝐚𝐭𝐨/𝐀𝐠𝐠𝐢𝐨𝐫𝐧𝐚𝐭𝐨", color=discord.Color.green(),
                               timestamp=discord.utils.utcnow())
-        embed.add_field(name="📦 Nome",              value=nome,              inline=True)
-        embed.add_field(name="🔑 Ruolo Richiesto",   value=f"<@&{role_id}>", inline=True)
+        embed.add_field(name="📦 Nome",            value=nome,              inline=True)
+        embed.add_field(name="🔑 Ruolo Richiesto", value=f"<@&{role_id}>", inline=True)
         if descrizione:
             embed.add_field(name="📝 Descrizione", value=descrizione, inline=False)
         embed.set_footer(text="🤠 Red Dead Redemption II — Admin")
@@ -176,7 +237,7 @@ def setup_inventory_commands(bot):
         await database.delete_shop_item(nome)
         await interaction.response.send_message(f"✅ Item **{nome}** rimosso dall'emporio.", ephemeral=True)
 
-    # ── /give-item ────────────────────────────────────────────────────────────
+    # ── Autocomplete per give/take ────────────────────────────────────────────
     async def _shop_items_autocomplete(interaction: discord.Interaction, current: str):
         items = await database.get_shop_items()
         names = [i["item_name"] for i in items]
@@ -193,6 +254,7 @@ def setup_inventory_commands(bot):
         except Exception:
             return []
 
+    # ── /give-item ────────────────────────────────────────────────────────────
     @bot.tree.command(name="give-item", description="[Staff] Dai un item a un giocatore")
     @app_commands.describe(giocatore="Il giocatore", item="Nome item", quantita="Quantità")
     @app_commands.autocomplete(item=_shop_items_autocomplete)
@@ -207,7 +269,7 @@ def setup_inventory_commands(bot):
         matches = [exact] if exact else _fuzzy(item, names)
 
         if len(matches) == 0:
-            item_finale = item  # usa testo così com'è se non trovato nel negozio
+            item_finale = item
         elif len(matches) == 1:
             item_finale = matches[0]
         else:
@@ -227,11 +289,12 @@ def setup_inventory_commands(bot):
                 async def callback(self_s, itr: discord.Interaction):
                     chosen = self_s.values[0]
                     await database.add_item(str(giocatore.id), chosen, quantita)
-                    done = discord.Embed(title="🎁 𝐈𝐭𝐞𝐦 𝐂𝐨𝐧𝐬𝐞𝐠𝐧𝐚𝐭𝐨", color=discord.Color.green(), timestamp=discord.utils.utcnow())
-                    done.add_field(name="👤 Ricevuto da", value=giocatore.mention,   inline=True)
-                    done.add_field(name="📦 Item",        value=chosen,              inline=True)
-                    done.add_field(name="🔢 Quantità",    value=str(quantita),       inline=True)
-                    done.add_field(name="👮 Staff",       value=itr.user.mention,    inline=True)
+                    done = discord.Embed(title="🎁 𝐈𝐭𝐞𝐦 𝐂𝐨𝐧𝐬𝐞𝐠𝐧𝐚𝐭𝐨", color=discord.Color.green(),
+                                        timestamp=discord.utils.utcnow())
+                    done.add_field(name="👤 Ricevuto da", value=giocatore.mention, inline=True)
+                    done.add_field(name="📦 Item",        value=chosen,            inline=True)
+                    done.add_field(name="🔢 Quantità",    value=str(quantita),     inline=True)
+                    done.add_field(name="👮 Staff",       value=itr.user.mention,  inline=True)
                     done.set_footer(text="🤠 Red Dead Redemption II — Admin")
                     await itr.response.edit_message(embed=done, view=None)
 
@@ -241,7 +304,8 @@ def setup_inventory_commands(bot):
             return
 
         await database.add_item(str(giocatore.id), item_finale, quantita)
-        embed = discord.Embed(title="🎁 𝐈𝐭𝐞𝐦 𝐂𝐨𝐧𝐬𝐞𝐠𝐧𝐚𝐭𝐨", color=discord.Color.green(), timestamp=discord.utils.utcnow())
+        embed = discord.Embed(title="🎁 𝐈𝐭𝐞𝐦 𝐂𝐨𝐧𝐬𝐞𝐠𝐧𝐚𝐭𝐨", color=discord.Color.green(),
+                              timestamp=discord.utils.utcnow())
         embed.add_field(name="👤 Ricevuto da", value=giocatore.mention,        inline=True)
         embed.add_field(name="📦 Item",        value=item_finale,              inline=True)
         embed.add_field(name="🔢 Quantità",    value=str(quantita),            inline=True)
@@ -296,7 +360,8 @@ def setup_inventory_commands(bot):
                             ), view=None
                         )
                         return
-                    done = discord.Embed(title="📦 𝐈𝐭𝐞𝐦 𝐑𝐢𝐦𝐨𝐬𝐬𝐨", color=discord.Color.orange(), timestamp=discord.utils.utcnow())
+                    done = discord.Embed(title="📦 𝐈𝐭𝐞𝐦 𝐑𝐢𝐦𝐨𝐬𝐬𝐨", color=discord.Color.orange(),
+                                        timestamp=discord.utils.utcnow())
                     done.add_field(name="👤 Giocatore", value=giocatore.mention, inline=True)
                     done.add_field(name="📦 Item",      value=chosen,            inline=True)
                     done.add_field(name="🔢 Quantità",  value=str(quantita),     inline=True)
@@ -314,7 +379,8 @@ def setup_inventory_commands(bot):
                 f"❌ **{giocatore.display_name}** non ha abbastanza **{item_finale}**.", ephemeral=True
             )
             return
-        embed = discord.Embed(title="📦 𝐈𝐭𝐞𝐦 𝐑𝐢𝐦𝐨𝐬𝐬𝐨", color=discord.Color.orange(), timestamp=discord.utils.utcnow())
+        embed = discord.Embed(title="📦 𝐈𝐭𝐞𝐦 𝐑𝐢𝐦𝐨𝐬𝐬𝐨", color=discord.Color.orange(),
+                              timestamp=discord.utils.utcnow())
         embed.add_field(name="👤 Giocatore", value=giocatore.mention,        inline=True)
         embed.add_field(name="📦 Item",      value=item_finale,              inline=True)
         embed.add_field(name="🔢 Quantità",  value=str(quantita),            inline=True)

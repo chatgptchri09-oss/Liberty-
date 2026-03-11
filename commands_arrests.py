@@ -21,7 +21,7 @@ def setup_arrest_commands(bot):
         embed.set_thumbnail(url=sospettato.display_avatar.url)
         embed.add_field(name="🤠 Sospettato", value=sospettato.mention,       inline=True)
         embed.add_field(name="📋 Motivo",     value=motivo,                   inline=False)
-        embed.add_field(name="⭐ Sceriffo",   value=interaction.user.mention, inline=True)
+        embed.add_field(name="⭐ Agente",   value=interaction.user.mention, inline=True)
         embed.set_footer(text="🤠 Red Dead Redemption II — Sceriffo")
 
         await interaction.response.send_message(embed=embed)
@@ -30,7 +30,7 @@ def setup_arrest_commands(bot):
         try:
             await sospettato.send(embed=discord.Embed(
                 title="<a:manette:1431626831076921507> 𝐒𝐞𝐢 𝐬𝐭𝐚𝐭𝐨 𝐚𝐦𝐦𝐚𝐧𝐞𝐭𝐭𝐚𝐭𝐨!",
-                description=f"Lo Sceriffo **{interaction.user.display_name}** ti ha fermato.\n**Motivo:** {motivo}",
+                description=f"L'agente **{interaction.user.display_name}** ti ha fermato.\n**Motivo:** {motivo}",
                 color=discord.Color.red()
             ))
         except Exception:

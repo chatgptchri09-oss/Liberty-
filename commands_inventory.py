@@ -23,7 +23,7 @@ def _fuzzy(query: str, candidates: list) -> list:
 def setup_inventory_commands(bot):
 
     # ── /itemshop ─────────────────────────────────────────────────────────────
-    @bot.tree.command(name="listino-emporio", description="Visualizza il negozio degli item disponibili")
+    @bot.tree.command(name="itemshop", description="Visualizza il negozio degli item disponibili")
     async def itemshop(interaction: discord.Interaction):
         items = await database.get_shop_items()
 
@@ -149,6 +149,152 @@ def setup_inventory_commands(bot):
             return
         await database.delete_shop_item(nome)
         await interaction.response.send_message(f"✅ Item **{nome}** rimosso dall'emporio.", ephemeral=True)
+
+    # ── /give-item ────────────────────────────────────────────────────────────
+    async def _shop_items_autocomplete(interaction: discord.Interaction, current: str):
+        items = await database.get_shop_items()
+        names = [i["item_name"] for i in items]
+        return [app_commands.Choice(name=m, value=m) for m in _fuzzy(current, names)[:25]]
+
+    async def _bisaccia_autocomplete(interaction: discord.Interaction, current: str):
+        try:
+            giocatore_id = interaction.namespace.giocatore
+            if not giocatore_id:
+                return []
+            items = await database.get_inventory(str(giocatore_id))
+            names = [i["item_name"] for i in items]
+            return [app_commands.Choice(name=m, value=m) for m in _fuzzy(current, names)[:25]]
+        except Exception:
+            return []
+
+    @bot.tree.command(name="give-item", description="[Staff] Dai un item a un giocatore")
+    @app_commands.describe(giocatore="Il giocatore", item="Nome item", quantita="Quantità")
+    @app_commands.autocomplete(item=_shop_items_autocomplete)
+    async def give_item(interaction: discord.Interaction, giocatore: discord.Member, item: str, quantita: int = 1):
+        if not has_staff(interaction):
+            await interaction.response.send_message("❌ Non hai i permessi necessari.", ephemeral=True)
+            return
+
+        shop_items = await database.get_shop_items()
+        names = [i["item_name"] for i in shop_items]
+        exact = next((n for n in names if n.lower() == item.lower()), None)
+        matches = [exact] if exact else _fuzzy(item, names)
+
+        if len(matches) == 0:
+            item_finale = item  # usa testo così com'è se non trovato nel negozio
+        elif len(matches) == 1:
+            item_finale = matches[0]
+        else:
+            embed = discord.Embed(
+                title="🔍 Trovati più item con questo nome:",
+                description="Seleziona l'item da consegnare dal menu qui sotto.",
+                color=discord.Color(0xDAA520),
+                timestamp=discord.utils.utcnow()
+            )
+            embed.set_footer(text="🤠 Red Dead Redemption II — Admin")
+
+            class GiveSelect(discord.ui.Select):
+                def __init__(self_s):
+                    options = [discord.SelectOption(label=m[:100], value=m) for m in matches[:25]]
+                    super().__init__(placeholder="Scegli l'item...", options=options)
+
+                async def callback(self_s, itr: discord.Interaction):
+                    chosen = self_s.values[0]
+                    await database.add_item(str(giocatore.id), chosen, quantita)
+                    done = discord.Embed(title="🎁 𝐈𝐭𝐞𝐦 𝐂𝐨𝐧𝐬𝐞𝐠𝐧𝐚𝐭𝐨", color=discord.Color.green(), timestamp=discord.utils.utcnow())
+                    done.add_field(name="👤 Ricevuto da", value=giocatore.mention,   inline=True)
+                    done.add_field(name="📦 Item",        value=chosen,              inline=True)
+                    done.add_field(name="🔢 Quantità",    value=str(quantita),       inline=True)
+                    done.add_field(name="👮 Staff",       value=itr.user.mention,    inline=True)
+                    done.set_footer(text="🤠 Red Dead Redemption II — Admin")
+                    await itr.response.edit_message(embed=done, view=None)
+
+            view = discord.ui.View(timeout=60)
+            view.add_item(GiveSelect())
+            await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+            return
+
+        await database.add_item(str(giocatore.id), item_finale, quantita)
+        embed = discord.Embed(title="🎁 𝐈𝐭𝐞𝐦 𝐂𝐨𝐧𝐬𝐞𝐠𝐧𝐚𝐭𝐨", color=discord.Color.green(), timestamp=discord.utils.utcnow())
+        embed.add_field(name="👤 Ricevuto da", value=giocatore.mention,        inline=True)
+        embed.add_field(name="📦 Item",        value=item_finale,              inline=True)
+        embed.add_field(name="🔢 Quantità",    value=str(quantita),            inline=True)
+        embed.add_field(name="👮 Staff",       value=interaction.user.mention, inline=True)
+        embed.set_footer(text="🤠 Red Dead Redemption II — Admin")
+        await interaction.response.send_message(embed=embed)
+
+    # ── /take-item ────────────────────────────────────────────────────────────
+    @bot.tree.command(name="take-item", description="[Staff] Rimuovi un item dalla bisaccia di un giocatore")
+    @app_commands.describe(giocatore="Il giocatore", item="Nome item (fuzzy search nella bisaccia)", quantita="Quantità")
+    @app_commands.autocomplete(item=_bisaccia_autocomplete)
+    async def take_item(interaction: discord.Interaction, giocatore: discord.Member, item: str, quantita: int = 1):
+        if not has_staff(interaction):
+            await interaction.response.send_message("❌ Non hai i permessi necessari.", ephemeral=True)
+            return
+
+        inventory = await database.get_inventory(str(giocatore.id))
+        names = [i["item_name"] for i in inventory]
+        exact = next((n for n in names if n.lower() == item.lower()), None)
+        matches = [exact] if exact else _fuzzy(item, names)
+
+        if len(matches) == 0:
+            await interaction.response.send_message(
+                f"❌ **{giocatore.display_name}** non ha nessun item corrispondente a **{item}**.",
+                ephemeral=True
+            )
+            return
+        elif len(matches) == 1:
+            item_finale = matches[0]
+        else:
+            embed = discord.Embed(
+                title="🔍 Trovati più item con questo nome:",
+                description=f"Seleziona l'item da rimuovere dalla bisaccia di **{giocatore.display_name}**.",
+                color=discord.Color(0x8B4513),
+                timestamp=discord.utils.utcnow()
+            )
+            embed.set_footer(text="🤠 Red Dead Redemption II — Admin")
+
+            class TakeSelect(discord.ui.Select):
+                def __init__(self_s):
+                    options = [discord.SelectOption(label=m[:100], value=m) for m in matches[:25]]
+                    super().__init__(placeholder="Scegli l'item da rimuovere...", options=options)
+
+                async def callback(self_s, itr: discord.Interaction):
+                    chosen = self_s.values[0]
+                    if not await database.remove_item(str(giocatore.id), chosen, quantita):
+                        await itr.response.edit_message(
+                            embed=discord.Embed(
+                                title="❌ Quantità insufficiente",
+                                description=f"**{giocatore.display_name}** non ha abbastanza **{chosen}**.",
+                                color=discord.Color.red()
+                            ), view=None
+                        )
+                        return
+                    done = discord.Embed(title="📦 𝐈𝐭𝐞𝐦 𝐑𝐢𝐦𝐨𝐬𝐬𝐨", color=discord.Color.orange(), timestamp=discord.utils.utcnow())
+                    done.add_field(name="👤 Giocatore", value=giocatore.mention, inline=True)
+                    done.add_field(name="📦 Item",      value=chosen,            inline=True)
+                    done.add_field(name="🔢 Quantità",  value=str(quantita),     inline=True)
+                    done.add_field(name="👮 Staff",     value=itr.user.mention,  inline=True)
+                    done.set_footer(text="🤠 Red Dead Redemption II — Admin")
+                    await itr.response.edit_message(embed=done, view=None)
+
+            view = discord.ui.View(timeout=60)
+            view.add_item(TakeSelect())
+            await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+            return
+
+        if not await database.remove_item(str(giocatore.id), item_finale, quantita):
+            await interaction.response.send_message(
+                f"❌ **{giocatore.display_name}** non ha abbastanza **{item_finale}**.", ephemeral=True
+            )
+            return
+        embed = discord.Embed(title="📦 𝐈𝐭𝐞𝐦 𝐑𝐢𝐦𝐨𝐬𝐬𝐨", color=discord.Color.orange(), timestamp=discord.utils.utcnow())
+        embed.add_field(name="👤 Giocatore", value=giocatore.mention,        inline=True)
+        embed.add_field(name="📦 Item",      value=item_finale,              inline=True)
+        embed.add_field(name="🔢 Quantità",  value=str(quantita),            inline=True)
+        embed.add_field(name="👮 Staff",     value=interaction.user.mention, inline=True)
+        embed.set_footer(text="🤠 Red Dead Redemption II — Admin")
+        await interaction.response.send_message(embed=embed)
 
     # ── /rimuovibisaccia ──────────────────────────────────────────────────────
     @bot.tree.command(name="rimuovibisaccia", description="[Staff] Rimuovi la bisaccia di un giocatore")

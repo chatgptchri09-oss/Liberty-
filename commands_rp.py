@@ -172,7 +172,7 @@ def setup_rp_commands(bot):
         new_t  = max(0, user["thirst"] - t_drop)
         await database.update_hunger_thirst(uid, hunger=new_h, thirst=new_t)
         embed = discord.Embed(
-            description=f"*{interaction.user.mention} {azione}*",
+            description=f"*{interaction.user.display_name} {azione}*",
             color=_color(new_h, new_t),
             timestamp=discord.utils.utcnow()
         )
@@ -183,7 +183,7 @@ def setup_rp_commands(bot):
         if new_h < 20: warns.append("⚠️ **Sei affamato!** Mangia qualcosa.")
         if new_t < 20: warns.append("⚠️ **Sei assetato!** Bevi qualcosa.")
         if warns:
-            
+            embed.add_field(name="200b", value="200b", inline=False)
             embed.add_field(name="⚡ Avviso", value="\n".join(warns), inline=False)
         embed.set_footer(text="🤠 Red Dead Redemption II — Azione RP")
         await interaction.response.send_message(embed=embed)
@@ -262,21 +262,58 @@ def setup_rp_commands(bot):
         if utente and utente.id != interaction.user.id:
             if not isinstance(interaction.user, discord.Member) or \
                not any(r.id in ALLOWED for r in interaction.user.roles):
-                await interaction.response.send_message("❌ Solo Staff e Sceriffo possono vedere la bisaccia altrui.", ephemeral=True); return
-        items = await database.get_inventory(str(target.id))
-        user  = await database.get_user(str(target.id))
-        titolo = f"🎒 Bisaccia di {target.user.mention}" if utente else "🎒 La tua Bisaccia"
-        embed = discord.Embed(title=titolo, color=discord.Color(0x8B4513), timestamp=discord.utils.utcnow())
-        embed.set_thumbnail(url=target.display_avatar.url)
-        embed.add_field(name="🍔 Fame", value=_bar(user["hunger"]), inline=True)
-        embed.add_field(name="💦 Sete", value=_bar(user["thirst"]), inline=True)
-        if not items:
-            embed.add_field(name="📦 Contenuto", value="*Bisaccia vuota.*", inline=False)
+                await interaction.response.send_message(
+                    "❌ Solo Staff e Sceriffo possono vedere la bisaccia altrui.", ephemeral=True
+                )
+                return
+
+        all_items = await database.get_inventory(str(target.id))
+        user      = await database.get_user(str(target.id))
+        titolo    = f"🎒 Bisaccia di {target.display_name}" if utente else "🎒 La tua Bisaccia"
+        B_PER_PAGE = 5
+        tot = max(1, -(-len(all_items) // B_PER_PAGE))
+
+        def build_bisaccia_embed(p: int) -> discord.Embed:
+            embed = discord.Embed(title=titolo, color=discord.Color(0x8B4513), timestamp=discord.utils.utcnow())
+            embed.set_thumbnail(url=target.display_avatar.url)
+            embed.add_field(name="🍔 Fame", value=_bar(user["hunger"]), inline=True)
+            embed.add_field(name="💦 Sete", value=_bar(user["thirst"]), inline=True)
+            page_items = all_items[p * B_PER_PAGE:(p + 1) * B_PER_PAGE]
+            if not all_items:
+                embed.add_field(name="📦 Contenuto", value="*Bisaccia vuota.*", inline=False)
+            else:
+                desc = "\n".join(f"**{i['item_name']}** — x{i['quantity']}" for i in page_items)
+                embed.add_field(name="📦 Contenuto", value=desc, inline=False)
+            embed.set_footer(text=f"🤠 Red Dead Redemption II — Bisaccia | Pagina {p+1}/{tot}")
+            return embed
+
+        class BisacciaView(discord.ui.View):
+            def __init__(self_v, p=0):
+                super().__init__(timeout=120)
+                self_v.p = p
+                self_v._refresh()
+
+            def _refresh(self_v):
+                self_v.prev_btn.disabled = self_v.p == 0
+                self_v.next_btn.disabled = self_v.p >= tot - 1
+
+            @discord.ui.button(label="⬅️ Pagina", style=discord.ButtonStyle.primary)
+            async def prev_btn(self_v, itr: discord.Interaction, btn):
+                self_v.p -= 1
+                self_v._refresh()
+                await itr.response.edit_message(embed=build_bisaccia_embed(self_v.p), view=self_v)
+
+            @discord.ui.button(label="➡️ Pagina", style=discord.ButtonStyle.primary)
+            async def next_btn(self_v, itr: discord.Interaction, btn):
+                self_v.p += 1
+                self_v._refresh()
+                await itr.response.edit_message(embed=build_bisaccia_embed(self_v.p), view=self_v)
+
+        if tot > 1:
+            await interaction.response.send_message(embed=build_bisaccia_embed(0), view=BisacciaView(), ephemeral=True)
         else:
-            desc = "\n".join(f"**{i['item_name']}** — x{i['quantity']}" for i in items)
-            embed.add_field(name="📦 Contenuto", value=desc, inline=False)
-        embed.set_footer(text="🤠 Red Dead Redemption II — Bisaccia")
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+            await interaction.response.send_message(embed=build_bisaccia_embed(0), ephemeral=True)
+
         if utente and utente.id != interaction.user.id:
             try:
                 ch = bot.get_channel(LOG_CHANNEL_ID)
@@ -286,6 +323,7 @@ def setup_rp_commands(bot):
                     log.add_field(name="👤 Bisaccia di",     value=target.mention,           inline=True)
                     await ch.send(embed=log)
             except Exception: pass
+
 
     # ── /vendibisaccia ───────────────────────────────────────────────────────
     @bot.tree.command(name="vendibisaccia", description="Vendi l'intera tua bisaccia a un altro giocatore")
@@ -393,7 +431,7 @@ def setup_rp_commands(bot):
         }
 
         embed = discord.Embed(
-            title="<a:online:1459627385702973572> 𝐓𝐔𝐑𝐍𝐎 𝐈𝐍𝐈𝐙𝐈𝐀𝐓𝐎 <a:online:1459627385702973572>",
+            title="🟢 𝐓𝐔𝐑𝐍𝐎 𝐈𝐍𝐈𝐙𝐈𝐀𝐓𝐎",
             color=discord.Color.green(),
             timestamp=discord.utils.utcnow()
         )
@@ -448,21 +486,21 @@ def setup_rp_commands(bot):
 
         # ── Embed fine turno (nel canale corrente) ───────────────────────────
         embed_fine = discord.Embed(
-            title="<a:offline:1459628872197738641> 𝐓𝐔𝐑𝐍𝐎 𝐓𝐄𝐑𝐌𝐈𝐍𝐀𝐓𝐎 <a:offline:1459628872197738641>",
+            title="🔴 𝐓𝐔𝐑𝐍𝐎 𝐓𝐄𝐑𝐌𝐈𝐍𝐀𝐓𝐎",
             color=discord.Color.red(),
             timestamp=discord.utils.utcnow()
         )
         embed_fine.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
         embed_fine.add_field(name="🤠 Dipendente",       value=interaction.user.mention,               inline=False)
-        
+        embed_fine.add_field(name="200b", value="200b", inline=False)
         embed_fine.add_field(name="💼 Lavoro",           value=lavoro.mention,                         inline=False)
-        
+        embed_fine.add_field(name="200b", value="200b", inline=False)
         embed_fine.add_field(name="🕐 Inizio",           value=_ora_italia(inizio),           inline=True)
         embed_fine.add_field(name="🕑 Fine",             value=_ora_italia(now),              inline=True)
-        
+        embed_fine.add_field(name="200b", value="200b", inline=False)
         embed_fine.add_field(name="⏱️ Durata reale",     value=durata_str,                             inline=True)
         embed_fine.add_field(name="📋 Ore fatturate",    value=f"{ore_fatturate}h (arrot. mezz'ora)",  inline=True)
-        
+        embed_fine.add_field(name="200b", value="200b", inline=False)
         embed_fine.add_field(name="💵 Stipendio/ora",    value=f"${turno['stipendio']:,}",             inline=True)
         embed_fine.add_field(name="💰 Totale da pagare", value=f"**${stipendio_totale:,}**",           inline=True)
         embed_fine.set_footer(text="🤠 Red Dead Redemption II — Turno di Lavoro")
@@ -482,15 +520,15 @@ def setup_rp_commands(bot):
         )
         embed_staff.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
         embed_staff.add_field(name="🤠 Dipendente",       value=interaction.user.mention,               inline=False)
-        
+        embed_staff.add_field(name="200b", value="200b", inline=False)
         embed_staff.add_field(name="💼 Ruolo",            value=lavoro.mention,                         inline=False)
-        
+        embed_staff.add_field(name="200b", value="200b", inline=False)
         embed_staff.add_field(name="🕐 Inizio turno",     value=_ora_italia(inizio),           inline=True)
         embed_staff.add_field(name="🕑 Fine turno",       value=_ora_italia(now),              inline=True)
-        
+        embed_staff.add_field(name="200b", value="200b", inline=False)
         embed_staff.add_field(name="⏱️ Durata",           value=durata_str,                             inline=True)
         embed_staff.add_field(name="📋 Ore fatturate",    value=f"{ore_fatturate}h",                    inline=True)
-        
+        embed_staff.add_field(name="200b", value="200b", inline=False)
         embed_staff.add_field(name="💵 Stipendio/ora",    value=f"${turno['stipendio']:,}",             inline=True)
         embed_staff.add_field(name="💰 Da pagare",        value=f"**${stipendio_totale:,}**",           inline=True)
         embed_staff.set_footer(text="🤠 Red Dead Redemption II — Usa /paga-stipendio per pagare")
@@ -526,10 +564,38 @@ def setup_rp_commands(bot):
         await interaction.response.send_message(embed=embed)
 
     # ── /caccia ──────────────────────────────────────────────────────────────
-   
+    @bot.tree.command(name="caccia", description="Descrivi una sessione di caccia")
+    @app_commands.describe(preda="L'animale cacciato", luogo="Zona di caccia", qualita="Qualità della preda", foto="Foto della preda (OBBLIGATORIA)")
+    @app_commands.choices(qualita=[
+        app_commands.Choice(name="⭐ Scadente",     value="Scadente ⭐"),
+        app_commands.Choice(name="⭐⭐ Buona",      value="Buona ⭐⭐"),
+        app_commands.Choice(name="⭐⭐⭐ Perfetta", value="Perfetta ⭐⭐⭐"),
+    ])
+    async def caccia(interaction: discord.Interaction, preda: str, luogo: str, foto: discord.Attachment, qualita: str = "Buona ⭐⭐"):
+        embed = discord.Embed(title="🎯 𝐁𝐚𝐭𝐭𝐮𝐭𝐚 𝐝𝐢 𝐂𝐚𝐜𝐜𝐢𝐚", color=discord.Color(0x556B2F), timestamp=discord.utils.utcnow())
+        embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
+        embed.add_field(name="🤠 Cacciatore", value=interaction.user.mention, inline=False)
+        embed.add_field(name="🦌 Preda",      value=preda,                    inline=False)
+        embed.add_field(name="📍 Zona",       value=luogo,                    inline=False)
+        embed.add_field(name="⭐ Qualità",    value=qualita,                  inline=False)
+        if foto.content_type and foto.content_type.startswith("image/"):
+            embed.set_image(url=foto.url)
+        embed.set_footer(text="🤠 Red Dead Redemption II — Caccia")
+        await interaction.response.send_message(embed=embed)
 
     # ── /pesca ───────────────────────────────────────────────────────────────
-   
+    @bot.tree.command(name="pesca", description="Descrivi una sessione di pesca")
+    @app_commands.describe(pesce="Il pesce catturato", luogo="Dove hai pescato", peso="Peso (es: 2.5 kg, opzionale)")
+    async def pesca(interaction: discord.Interaction, pesce: str, luogo: str, peso: str = ""):
+        embed = discord.Embed(title="🎣 𝐒𝐞𝐬𝐬𝐢𝐨𝐧𝐞 𝐝𝐢 𝐏𝐞𝐬𝐜𝐚", color=discord.Color(0x4682B4), timestamp=discord.utils.utcnow())
+        embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
+        embed.add_field(name="🤠 Pescatore", value=interaction.user.mention, inline=False)
+        embed.add_field(name="🐟 Pesce",     value=pesce,                    inline=False)
+        embed.add_field(name="📍 Zona",      value=luogo,                    inline=False)
+        if peso:
+            embed.add_field(name="⚖️ Peso",  value=peso,                     inline=False)
+        embed.set_footer(text="🤠 Red Dead Redemption II — Pesca")
+        await interaction.response.send_message(embed=embed)
 
     # ── /anonimo ─────────────────────────────────────────────────────────────
     @bot.tree.command(name="anonimo", description="Invia un messaggio anonimo nel canale")
@@ -586,7 +652,22 @@ def setup_rp_commands(bot):
         await interaction.response.send_message(embed=embed)
 
     # ── /sondaggiorp ─────────────────────────────────────────────────────────
-  
+    @bot.tree.command(name="sondaggiorp", description="[Staff] Crea un sondaggio roleplay")
+    @app_commands.describe(domanda="La domanda", opzione1="Prima opzione", opzione2="Seconda opzione")
+    async def sondaggiorp(interaction: discord.Interaction, domanda: str, opzione1: str, opzione2: str):
+        if not isinstance(interaction.user, discord.Member) or \
+           not any(r.id in STAFF_ROLES for r in interaction.user.roles):
+            await interaction.response.send_message("❌ Non hai i permessi.", ephemeral=True); return
+        embed = discord.Embed(title="📜 𝐒𝐨𝐧𝐝𝐚𝐠𝐠𝐢𝐨 𝐑𝐨𝐥𝐞𝐩𝐥𝐚𝐲", description=f"**{domanda}**",
+                              color=discord.Color(0xDAA520), timestamp=discord.utils.utcnow())
+        embed.add_field(name="1️⃣ Opzione A", value=opzione1, inline=False)
+        embed.add_field(name="2️⃣ Opzione B", value=opzione2, inline=False)
+        embed.set_footer(text="🤠 Red Dead Redemption II — Sondaggio RP")
+        msg = await interaction.channel.send(embed=embed)
+        await msg.add_reaction("1️⃣")
+        await msg.add_reaction("2️⃣")
+        await interaction.response.send_message("✅ Sondaggio creato!", ephemeral=True)
+
     # ── /lettera ─────────────────────────────────────────────────────────────
     @bot.tree.command(name="lettera", description="Invia una lettera privata a un altro giocatore")
     @app_commands.describe(destinatario="Il giocatore che riceverà la lettera")

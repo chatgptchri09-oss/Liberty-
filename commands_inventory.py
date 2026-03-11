@@ -44,19 +44,19 @@ class ShopView(discord.ui.View):
         self._all  = all_items
         self.page  = page
         self._tot  = max(1, -(-len(all_items) // ITEMS_PER_PAGE))
-        self._refresh()
+        self._update_buttons()
 
     def _get_page(self, p: int) -> list:
         return self._all[p * ITEMS_PER_PAGE:(p + 1) * ITEMS_PER_PAGE]
 
-    def _refresh(self):
+    def _update_buttons(self):
         self.prev_btn.disabled = self.page == 0
         self.next_btn.disabled = self.page >= self._tot - 1
 
     @discord.ui.button(label="⬅️ Pagina", style=discord.ButtonStyle.primary)
     async def prev_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.page -= 1
-        self._refresh()
+        self._update_buttons()
         await interaction.response.edit_message(
             embed=_build_shop_embed(self._get_page(self.page), self.page, self._tot),
             view=self
@@ -65,7 +65,7 @@ class ShopView(discord.ui.View):
     @discord.ui.button(label="➡️ Pagina", style=discord.ButtonStyle.primary)
     async def next_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.page += 1
-        self._refresh()
+        self._update_buttons()
         await interaction.response.edit_message(
             embed=_build_shop_embed(self._get_page(self.page), self.page, self._tot),
             view=self
@@ -84,7 +84,7 @@ class BisacciaPageView(discord.ui.View):
         self._avatar   = avatar_url
         self.page      = page
         self._tot      = max(1, -(-len(all_items) // ITEMS_PER_PAGE))
-        self._refresh()
+        self._update_buttons()
 
     def _bar(self, v: int) -> str:
         f = round(v / 10)
@@ -108,20 +108,20 @@ class BisacciaPageView(discord.ui.View):
         embed.set_footer(text=f"🤠 Red Dead Redemption II — Bisaccia | Pagina {p+1}/{self._tot}")
         return embed
 
-    def _refresh(self):
+    def _update_buttons(self):
         self.prev_btn.disabled = self.page == 0
         self.next_btn.disabled = self.page >= self._tot - 1
 
     @discord.ui.button(label="⬅️ Pagina", style=discord.ButtonStyle.primary)
     async def prev_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.page -= 1
-        self._refresh()
+        self._update_buttons()
         await interaction.response.edit_message(embed=self._build_embed(self.page), view=self)
 
     @discord.ui.button(label="➡️ Pagina", style=discord.ButtonStyle.primary)
     async def next_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.page += 1
-        self._refresh()
+        self._update_buttons()
         await interaction.response.edit_message(embed=self._build_embed(self.page), view=self)
 
 

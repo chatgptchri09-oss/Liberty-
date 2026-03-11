@@ -30,13 +30,16 @@ def setup_bando_commands(bot):
         if not has_staff(interaction):
             await interaction.response.send_message("❌ Non hai i permessi.", ephemeral=True); return
         color = discord.Color.green() if stato == "aperto" else discord.Color.red()
-        emoji = "<a:online:1459627385702973572>" if stato == "aperto" else "<a:offline:1459628872197738641>"
-        embed = discord.Embed(title=f"{emoji} 𝐁𝐀𝐍𝐃𝐎 𝐋𝐀𝐕𝐎𝐑𝐀𝐓𝐈𝐕𝐎 {stato.upper()}",
-                              color=color, timestamp=discord.utils.utcnow())
-        embed.add_field(name="🤠 Lavoro",        value=lavoro,                   inline=True)
-        embed.add_field(name="📋 Stato",         value=stato.capitalize(),       inline=True)
-        if dettagli: embed.add_field(name="📝 Dettagli", value=dettagli,         inline=False)
-        embed.add_field(name="👮 Pubblicato da", value=interaction.user.mention, inline=False)
+        if stato == "aperto":
+            emoji_anim = "<a:online:1459627385702973572>"
+            titolo     = f"{emoji_anim} BANDO {lavoro.upper()} APERTO"
+        else:
+            emoji_anim = "<a:offline:1459628872197738641>"
+            titolo     = f"{emoji_anim} BANDO {lavoro.upper()} CHIUSO"
+        embed = discord.Embed(title=titolo, color=color, timestamp=discord.utils.utcnow())
+        embed.set_image(url="https://i.postimg.cc/qqfVKM9B/IMG-7648.gif")
+        if dettagli:
+            embed.add_field(name="📝 Dettagli", value=dettagli, inline=False)
         embed.set_footer(text="🤠 Red Dead Redemption II — Bando Lavorativo")
         await interaction.channel.send(embed=embed)
         await interaction.response.send_message("✅ Bando pubblicato!", ephemeral=True)
@@ -60,7 +63,7 @@ def setup_bando_commands(bot):
             await interaction.response.send_message("❌ Non hai i permessi.", ephemeral=True); return
         color = discord.Color.green() if esito == "assunto" else discord.Color.red()
         emoji = "✅" if esito == "assunto" else "❌"
-        embed = discord.Embed(title=f"{emoji} 𝐄𝐬𝐢𝐭𝐨 𝐁𝐚𝐧𝐝𝐨 — {esito.capitalize()}",
+        embed = discord.Embed(title=f"{𝐞𝐦𝐨𝐣𝐢} 𝐄𝐬𝐢𝐭𝐨 𝐁𝐚𝐧𝐝𝐨 — {𝐞𝐬𝐢𝐭𝐨.𝐜𝐚𝐩𝐢𝐭𝐚𝐥𝐢𝐳𝐞()}",
                               color=color, timestamp=discord.utils.utcnow())
         embed.set_thumbnail(url=giocatore.display_avatar.url)
         embed.add_field(name="👤 Candidato",   value=giocatore.mention,        inline=True)

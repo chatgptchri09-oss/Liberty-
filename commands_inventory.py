@@ -22,32 +22,58 @@ def _fuzzy(query: str, candidates: list) -> list:
 
 def setup_inventory_commands(bot):
 
-    # ── /itemshop ─────────────────────────────────────────────────────────────
-    @bot.tree.command(name="itemshop", description="Visualizza il negozio degli item disponibili")
-    async def itemshop(interaction: discord.Interaction):
-        items = await database.get_shop_items()
+    # ── Helper paginazione emporio ───────────────────────────────────────────
+    ITEMS_PER_PAGE = 5
 
+    def _build_shop_embed(page_items: list, page: int, tot: int) -> discord.Embed:
         embed = discord.Embed(
             title="🏪 𝐄𝐦𝐩𝐨𝐫𝐢𝐨 𝐝𝐞𝐥 𝐅𝐚𝐫 𝐖𝐞𝐬𝐭",
-            description="Benvenuto, cowboy! Acquista con `/item-sell`.",
+            description="Benvenuto, cowboy! Acquista con `/item-sell`." if page_items else "*L'emporio è vuoto per ora...*",
             color=discord.Color(0xDAA520),
             timestamp=discord.utils.utcnow()
         )
+        for item in page_items:
+            ruolo_line = f"\n🔑 **Ruolo:** <@&{item['required_role']}>" if item.get("required_role") else ""
+            desc_line  = f"\n_{item['description']}_" if item.get("description") else ""
+            embed.add_field(name=item["item_name"], value=f"{desc_line}{ruolo_line}" or "—", inline=True)
+        embed.set_footer(text=f"🤠 Red Dead Redemption II — Emporio | Pagina {page+1}/{tot}")
+        return embed
 
-        if not items:
-            embed.description = "*L'emporio è vuoto per ora...*"
+    # ── /listino-emporio ──────────────────────────────────────────────────────
+    @bot.tree.command(name="listino-emporio", description="Visualizza il negozio degli item disponibili")
+    async def itemshop(interaction: discord.Interaction):
+        all_items = await database.get_shop_items()
+        tot = max(1, -(-len(all_items) // ITEMS_PER_PAGE))
+
+        def get_page(p):
+            return all_items[p * ITEMS_PER_PAGE:(p + 1) * ITEMS_PER_PAGE]
+
+        class ShopView(discord.ui.View):
+            def __init__(self_v, p=0):
+                super().__init__(timeout=120)
+                self_v.p = p
+                self_v._refresh()
+
+            def _refresh(self_v):
+                self_v.prev_btn.disabled = self_v.p == 0
+                self_v.next_btn.disabled = self_v.p >= tot - 1
+
+            @discord.ui.button(label="⬅️ Pagina", style=discord.ButtonStyle.primary)
+            async def prev_btn(self_v, itr: discord.Interaction, btn):
+                self_v.p -= 1
+                self_v._refresh()
+                await itr.response.edit_message(embed=_build_shop_embed(get_page(self_v.p), self_v.p, tot), view=self_v)
+
+            @discord.ui.button(label="➡️ Pagina", style=discord.ButtonStyle.primary)
+            async def next_btn(self_v, itr: discord.Interaction, btn):
+                self_v.p += 1
+                self_v._refresh()
+                await itr.response.edit_message(embed=_build_shop_embed(get_page(self_v.p), self_v.p, tot), view=self_v)
+
+        if tot > 1:
+            await interaction.response.send_message(embed=_build_shop_embed(get_page(0), 0, tot), view=ShopView())
         else:
-            for item in items:
-                ruolo_line = ""
-                if item.get("required_role"):
-                    ruolo_line = f"\n🔑 **Ruolo Richiesto:** <@&{item['required_role']}>"
-                embed.add_field(
-                    name=item["item_name"],
-                    value=f"💵 **${item['price']:,}**\n_{item['description']}_{ruolo_line}",
-                    inline=True
-                )
-        embed.set_footer(text="🤠 Red Dead Redemption II — Emporio")
-        await interaction.response.send_message(embed=embed)
+            await interaction.response.send_message(embed=_build_shop_embed(get_page(0), 0, tot))
 
     # ── Autocomplete item shop ────────────────────────────────────────────────
     async def _shop_autocomplete(interaction: discord.Interaction, current: str):

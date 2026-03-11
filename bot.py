@@ -220,7 +220,7 @@ async def main():
     TOKEN = os.getenv("DISCORD_TOKEN")
     if not TOKEN:
         print("❌ DISCORD_TOKEN mancante!", flush=True); return
-    asyncio.create_task(backup.backup_database())
+    asyncio.create_task(backup.backup_database(bot))
     print("✅ Backup automatico avviato (ogni 6 ore)", flush=True)
     await bot.start(TOKEN)
 

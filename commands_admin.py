@@ -43,7 +43,7 @@ class BackgroundView(discord.ui.View):
         self.bot = bot
 
     @discord.ui.button(
-        label="Inizia Background",
+        label="🏁 Inizia Background",
         style=discord.ButtonStyle.success,
         custom_id="bg_inizia"
     )
@@ -213,38 +213,7 @@ def setup_admin_commands(bot):
         await interaction.response.send_message(embed=embed)
         await _log(bot, embed)
 
-    # ── /give-item ────────────────────────────────────────────────────────────
-    @bot.tree.command(name="give-item", description="[Staff] Dai un item a un giocatore")
-    @app_commands.describe(giocatore="Il giocatore", item="Nome item", quantita="Quantità")
-    async def give_item(interaction: discord.Interaction, giocatore: discord.Member, item: str, quantita: int = 1):
-        if not has_staff(interaction):
-            await interaction.response.send_message("❌ Non hai i permessi.", ephemeral=True); return
-        await database.add_item(str(giocatore.id), item, quantita)
-        embed = discord.Embed(title="🎁 𝐈𝐭𝐞𝐦 𝐂𝐨𝐧𝐬𝐞𝐠𝐧𝐚𝐭𝐨", color=discord.Color.green(), timestamp=discord.utils.utcnow())
-        embed.add_field(name="👤 Ricevuto da", value=giocatore.mention,       inline=True)
-        embed.add_field(name="📦 Item",        value=item,                    inline=True)
-        embed.add_field(name="🔢 Quantità",    value=str(quantita),           inline=True)
-        embed.add_field(name="👮 Staff",       value=interaction.user.mention, inline=True)
-        embed.set_footer(text="🤠 Red Dead Redemption II — Admin")
-        await interaction.response.send_message(embed=embed)
-        await _log(bot, embed)
 
-    # ── /take-item ────────────────────────────────────────────────────────────
-    @bot.tree.command(name="take-item", description="[Staff] Rimuovi un item da un giocatore")
-    @app_commands.describe(giocatore="Il giocatore", item="Nome item", quantita="Quantità")
-    async def take_item(interaction: discord.Interaction, giocatore: discord.Member, item: str, quantita: int = 1):
-        if not has_staff(interaction):
-            await interaction.response.send_message("❌ Non hai i permessi.", ephemeral=True); return
-        if not await database.remove_item(str(giocatore.id), item, quantita):
-            await interaction.response.send_message(f"❌ Il giocatore non ha abbastanza **{item}**.", ephemeral=True); return
-        embed = discord.Embed(title="📦 𝐈𝐭𝐞𝐦 𝐑𝐢𝐦𝐨𝐬𝐬𝐨", color=discord.Color.orange(), timestamp=discord.utils.utcnow())
-        embed.add_field(name="👤 Giocatore", value=giocatore.mention,       inline=True)
-        embed.add_field(name="📦 Item",      value=item,                    inline=True)
-        embed.add_field(name="🔢 Quantità",  value=str(quantita),           inline=True)
-        embed.add_field(name="👮 Staff",     value=interaction.user.mention, inline=True)
-        embed.set_footer(text="🤠 Red Dead Redemption II — Admin")
-        await interaction.response.send_message(embed=embed)
-        await _log(bot, embed)
 
     # ── /paga-stipendio ───────────────────────────────────────────────────────
     @bot.tree.command(name="paga-stipendio", description="[Staff] Paga lo stipendio a un giocatore")
@@ -339,10 +308,10 @@ def setup_admin_commands(bot):
         color    = discord.Color.green() if positivo else discord.Color.red()
 
         TITOLI = {
-            "bg_positivo": "✅ 𝐁𝐚𝐜𝐤𝐠𝐫𝐨𝐮𝐧𝐝 𝐀𝐜𝐜𝐞𝐭𝐭𝐚𝐭𝐨",
-            "bg_negativo": "❌ 𝐁𝐚𝐜𝐤𝐠𝐫𝐨𝐮𝐧𝐝 𝐑𝐢𝐟𝐢𝐮𝐭𝐚𝐭𝐨",
-            "wl_positiva": "✅ 𝐖𝐡𝐢𝐭𝐞𝐥𝐢𝐬𝐭 𝐀𝐜𝐜𝐞𝐭𝐭𝐚𝐭𝐚",
-            "wl_negativa": "❌ 𝐖𝐡𝐢𝐭𝐞𝐥𝐢𝐬𝐭 𝐑𝐢𝐟𝐢𝐮𝐭𝐚𝐭𝐚",
+            "bg_positivo": "✅ 𝐁𝐚𝐜𝐤𝐠𝐫𝐨𝐮𝐧𝐝 𝐏𝐨𝐬𝐢𝐭𝐢𝐯𝐨",
+            "bg_negativo": "❌ 𝐁𝐚𝐜𝐤𝐠𝐫𝐨𝐮𝐧𝐝 𝐍𝐞𝐠𝐚𝐭𝐢𝐯𝐨",
+            "wl_positiva": "✅ 𝐖𝐡𝐢𝐭𝐞𝐥𝐢𝐬𝐭 𝐏𝐨𝐬𝐢𝐭𝐢𝐯𝐚",
+            "wl_negativa": "❌ 𝐖𝐡𝐢𝐭𝐞𝐥𝐢𝐬𝐭 𝐍𝐞𝐠𝐚𝐭𝐢𝐯𝐚",
         }
 
         embed = discord.Embed(title=TITOLI[esito], color=color, timestamp=discord.utils.utcnow())
@@ -480,7 +449,7 @@ def setup_admin_commands(bot):
             return
 
         embed = discord.Embed(
-            title="🤠 𝐌𝐀𝐊𝐄 𝐘𝐎𝐔𝐑 𝐍𝐀𝐌𝐄 𝐈𝐍 𝐓𝐇𝐄 𝐖𝐄𝐒𝐓",
+            title="🤠 Background PG",
             description=(
                 "Prima di mettere piede nelle terre selvagge e iniziare la tua nuova vita, "
                 "ogni anima deve lasciare traccia della propria storia.\n\n"

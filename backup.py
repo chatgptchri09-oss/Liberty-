@@ -9,15 +9,15 @@ from datetime import datetime
 
 sys.stdout.reconfigure(line_buffering=True)
 
-DATABASE_NAME = "rdr2_bot.db"
-BACKUP_INTERVAL = 6 * 3600  # 6 ore in secondi
-
-OWNER_ID      = 492778659093716993   # @fucckku
-OWNER_ROLE_ID = 1404051866962100286  # ruolo fallback
+DATABASE_NAME    = "rdr2_bot.db"
+BACKUP_INTERVAL  = 6 * 3600
+OWNER_ID         = 492778659093716993
+OWNER_ROLE_ID    = 1404051866962100286
+NOTIFY_CHANNEL   = 1407293728103727197
 
 
 # ── Helper permessi ───────────────────────────────────────────────────────────
-def _can_restore(interaction) -> bool:
+def _can_use(interaction) -> bool:
     if interaction.user.id == OWNER_ID:
         return True
     if isinstance(interaction.user, discord.Member):
@@ -25,28 +25,25 @@ def _can_restore(interaction) -> bool:
     return False
 
 
-# ── Backup automatico ─────────────────────────────────────────────────────────
-async def backup_database():
-    print("🔄 Sistema di backup avviato (ogni 6 ore)", flush=True)
-    while True:
-        await asyncio.sleep(BACKUP_INTERVAL)
-        await _push_backup()
-
-
-async def _push_backup():
+# ── Funzione core: push backup su GitHub ─────────────────────────────────────
+async def _push_backup() -> tuple[bool, str]:
+    """Esegue il backup. Ritorna (successo, messaggio)."""
     github_token = os.getenv("GITHUB_TOKEN")
     github_repo  = os.getenv("GITHUB_REPO")
 
     if not github_token or not github_repo:
-        print("⚠️ Backup saltato: GITHUB_TOKEN o GITHUB_REPO non configurati.", flush=True)
-        return
+        msg = "⚠️ GITHUB_TOKEN o GITHUB_REPO non configurati."
+        print(msg, flush=True)
+        return False, msg
 
     if not os.path.exists(DATABASE_NAME):
-        print(f"⚠️ Backup saltato: file '{DATABASE_NAME}' non trovato.", flush=True)
-        return
+        msg = f"⚠️ File '{DATABASE_NAME}' non trovato."
+        print(msg, flush=True)
+        return False, msg
 
     with open(DATABASE_NAME, "rb") as f:
         content_b64 = base64.b64encode(f.read()).decode("utf-8")
+        size_bytes  = len(f.read()) if False else os.path.getsize(DATABASE_NAME)
 
     timestamp   = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
     remote_path = f"backups/{DATABASE_NAME}"
@@ -66,13 +63,14 @@ async def _push_backup():
                 sha = data.get("sha")
             elif resp.status not in (404,):
                 text = await resp.text()
-                print(f"❌ Backup: errore nel recupero SHA ({resp.status}): {text}", flush=True)
-                return
+                msg = f"❌ Errore recupero SHA ({resp.status})"
+                print(f"{msg}: {text}", flush=True)
+                return False, msg
 
         payload = {
             "message": f"🔄 Backup automatico database — {timestamp}",
             "content": content_b64,
-            "branch": "main"
+            "branch":  "main"
         }
         if sha:
             payload["sha"] = sha
@@ -81,12 +79,15 @@ async def _push_backup():
             if resp.status in (200, 201):
                 print(f"✅ Backup completato su GitHub ({timestamp})", flush=True)
                 await _cleanup_old_backups(session, headers, backup_dir)
+                return True, timestamp
             else:
                 text = await resp.text()
-                print(f"❌ Backup fallito ({resp.status}): {text}", flush=True)
+                msg = f"❌ Backup fallito ({resp.status})"
+                print(f"{msg}: {text}", flush=True)
+                return False, msg
 
 
-async def _cleanup_old_backups(session: aiohttp.ClientSession, headers: dict, backup_dir_url: str):
+async def _cleanup_old_backups(session, headers, backup_dir_url):
     async with session.get(backup_dir_url, headers=headers) as resp:
         if resp.status != 200:
             return
@@ -101,27 +102,106 @@ async def _cleanup_old_backups(session: aiohttp.ClientSession, headers: dict, ba
             if not del_url or not sha:
                 continue
             payload = {
-                "message": f"🗑️ Pulizia automatica backup vecchio: {name}",
-                "sha": sha,
-                "branch": "main"
+                "message": f"🗑️ Pulizia automatica: {name}",
+                "sha":     sha,
+                "branch":  "main"
             }
             async with session.delete(del_url, headers=headers, json=payload) as del_resp:
                 if del_resp.status == 200:
                     deleted += 1
 
     if deleted:
-        print(f"🗑️ Eliminati {deleted} vecchi file di backup da GitHub", flush=True)
+        print(f"🗑️ Eliminati {deleted} vecchi file di backup", flush=True)
 
 
-# ── Comando /ripristina-backup ────────────────────────────────────────────────
+# ── Loop automatico ogni 6 ore ────────────────────────────────────────────────
+async def backup_database(bot=None):
+    print("🔄 Sistema di backup avviato (ogni 6 ore)", flush=True)
+    while True:
+        await asyncio.sleep(BACKUP_INTERVAL)
+        ok, result = await _push_backup()
+
+        # Notifica nel canale Discord
+        if bot:
+            try:
+                ch = bot.get_channel(NOTIFY_CHANNEL)
+                if ch:
+                    if ok:
+                        embed = discord.Embed(
+                            title="✅ Backup Automatico Completato",
+                            color=discord.Color.green(),
+                            timestamp=discord.utils.utcnow()
+                        )
+                        embed.add_field(name="🕐 Data/Ora UTC", value=result, inline=True)
+                        embed.add_field(name="📦 File",         value=DATABASE_NAME, inline=True)
+                        embed.add_field(name="🔁 Prossimo",     value="tra 6 ore",   inline=True)
+                    else:
+                        embed = discord.Embed(
+                            title="❌ Backup Automatico Fallito",
+                            description=result,
+                            color=discord.Color.red(),
+                            timestamp=discord.utils.utcnow()
+                        )
+                    embed.set_footer(text="🤠 Red Dead Redemption II — Backup")
+                    await ch.send(embed=embed)
+            except Exception as e:
+                print(f"⚠️ Notifica backup fallita: {e}", flush=True)
+
+
+# ── Comandi Discord ───────────────────────────────────────────────────────────
 def setup_backup_commands(bot):
 
+    # ── /backup-create ────────────────────────────────────────────────────────
     @bot.tree.command(
-        name="ripristina-backup",
+        name="backup-create",
+        description="[Owner] Crea subito un backup del database su GitHub"
+    )
+    async def backup_create(interaction: discord.Interaction):
+        if not _can_use(interaction):
+            await interaction.response.send_message(
+                "❌ Non hai i permessi per usare questo comando.", ephemeral=True
+            )
+            return
+
+        await interaction.response.defer(ephemeral=True)
+        ok, result = await _push_backup()
+
+        if ok:
+            embed = discord.Embed(
+                title="✅ 𝐁𝐚𝐜𝐤𝐮𝐩 𝐂𝐨𝐦𝐩𝐥𝐞𝐭𝐚𝐭𝐨",
+                description="Il database è stato salvato su GitHub con successo.",
+                color=discord.Color.green(),
+                timestamp=discord.utils.utcnow()
+            )
+            embed.add_field(name="🕐 Data/Ora UTC", value=result,       inline=True)
+            embed.add_field(name="📦 File",         value=DATABASE_NAME, inline=True)
+            embed.add_field(name="👤 Avviato da",   value=interaction.user.mention, inline=True)
+        else:
+            embed = discord.Embed(
+                title="❌ 𝐁𝐚𝐜𝐤𝐮𝐩 𝐅𝐚𝐥𝐥𝐢𝐭𝐨",
+                description=result,
+                color=discord.Color.red(),
+                timestamp=discord.utils.utcnow()
+            )
+
+        embed.set_footer(text="🤠 Red Dead Redemption II — Backup")
+        await interaction.followup.send(embed=embed, ephemeral=True)
+
+        # Notifica pubblica nel canale
+        try:
+            ch = bot.get_channel(NOTIFY_CHANNEL)
+            if ch:
+                await ch.send(embed=embed)
+        except Exception:
+            pass
+
+    # ── /backup-load ──────────────────────────────────────────────────────────
+    @bot.tree.command(
+        name="backup-load",
         description="[Owner] Ripristina il database dall'ultimo backup su GitHub"
     )
-    async def ripristina_backup(interaction: discord.Interaction):
-        if not _can_restore(interaction):
+    async def backup_load(interaction: discord.Interaction):
+        if not _can_use(interaction):
             await interaction.response.send_message(
                 "❌ Non hai i permessi per usare questo comando.", ephemeral=True
             )
@@ -161,7 +241,6 @@ def setup_backup_commands(bot):
 
         db_bytes = base64.b64decode(content_b64)
 
-        # Salva copia locale prima di sovrascrivere
         if os.path.exists(DATABASE_NAME):
             shutil.copy(DATABASE_NAME, DATABASE_NAME + ".pre_restore")
 
@@ -174,9 +253,18 @@ def setup_backup_commands(bot):
             color=discord.Color.green(),
             timestamp=discord.utils.utcnow()
         )
-        embed.add_field(name="📦 File",        value=DATABASE_NAME,               inline=True)
-        embed.add_field(name="💾 Dimensione",  value=f"{len(db_bytes):,} bytes",  inline=True)
-        embed.add_field(name="👤 Eseguito da", value=interaction.user.mention,    inline=True)
+        embed.add_field(name="📦 File",        value=DATABASE_NAME,              inline=True)
+        embed.add_field(name="💾 Dimensione",  value=f"{len(db_bytes):,} bytes", inline=True)
+        embed.add_field(name="👤 Eseguito da", value=interaction.user.mention,   inline=True)
         embed.set_footer(text="🤠 Red Dead Redemption II — Ripristino Backup")
         await interaction.followup.send(embed=embed, ephemeral=True)
+
+        # Notifica pubblica nel canale
+        try:
+            ch = bot.get_channel(NOTIFY_CHANNEL)
+            if ch:
+                await ch.send(embed=embed)
+        except Exception:
+            pass
+
         print(f"✅ Database ripristinato da {interaction.user} ({interaction.user.id})", flush=True)

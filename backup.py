@@ -41,9 +41,9 @@ async def _push_backup() -> tuple[bool, str]:
         print(msg, flush=True)
         return False, msg
 
+    size_bytes  = os.path.getsize(DATABASE_NAME)
     with open(DATABASE_NAME, "rb") as f:
         content_b64 = base64.b64encode(f.read()).decode("utf-8")
-        size_bytes  = len(f.read()) if False else os.path.getsize(DATABASE_NAME)
 
     timestamp   = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
     remote_path = f"backups/{DATABASE_NAME}"

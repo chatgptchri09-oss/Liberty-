@@ -45,89 +45,28 @@ STIPENDIO_CHANNEL_ID = 1422986030650228766
 # Turni attivi in memoria: user_id → {role, stipendio, inizio}
 _turni_attivi: dict = {}
 
-# ── Cibi ──────────────────────────────────────────────────────────────────────
+# ── Cibi (Listino Saloon) ─────────────────────────────────────────────────────
 FOOD_ITEMS = {
-    "🦌 • Carne di cervo":           30,
-    "🦌 • Carne di cervo grande":    35,
-    "🫎 • Carne di alce":            40,
-    "🐃 • Carne di bisonte":         45,
-    "🐗 • Carne di cinghiale":       35,
-    "🐻 • Carne di orso":            50,
-    "🐑 • Carne di pecora":          25,
-    "🐐 • Carne di capra":           25,
-    "🐄 • Carne di mucca":           30,
-    "🐂 • Carne di toro":            35,
-    "🐔 • Carne di pollo":           20,
-    "🦃 • Carne di tacchino":        25,
-    "🦆 • Carne di anatra":          20,
-    "🪿 • Carne di oca":             22,
-    "🐇 • Carne di coniglio":        15,
-    "🐿️ • Carne di scoiattolo":      10,
-    "🦝 • Carne di procione":        12,
-    "🐾 • Carne di opossum":         10,
-    "🐍 • Carne di serpente":         8,
-    "🐸 • Carne di rana":             6,
-    "🦀 • Carne di granchio":        12,
-    "🐟 • Carne di pesce":           18,
-    "🍖 • Carne arrostita semplice": 28,
-    "🌿 • Carne con menta":          32,
-    "🌱 • Carne con timo":           32,
-    "🍃 • Carne con origano":        32,
-    "🥫 • Fagioli in scatola":       20,
-    "🥫 • Pesce in scatola":         18,
-    "🥫 • Mais in scatola":          15,
-    "🥫 • Fragole in scatola":       12,
-    "🥫 • Pesche in scatola":        14,
-    "🥫 • Ananas in scatola":        14,
-    "🥫 • Salmone in scatola":       20,
-    "🍪 • Biscotti":                 10,
-    "🫙 • Biscotti salati":           8,
-    "🍞 • Pane":                     15,
-    "🧀 • Formaggio":                18,
-    "🍫 • Cioccolato":               12,
-    "🍬 • Caramelle":                 6,
-    "🍬 • Zolletta di zucchero":      4,
-    "🍎 • Mela":                     10,
-    "🍐 • Pera":                     10,
-    "🍑 • Pesca":                    10,
-    "🍑 • Albicocca":                 8,
-    "🍌 • Banana":                   12,
-    "🫐 • Mora":                      8,
-    "🍇 • Lampone":                   7,
-    "🍓 • Fragola":                   7,
-    "🥬 • Sedano":                    5,
-    "🫚 • Barbabietola":              6,
-    "🥕 • Carota":                    8,
-    "🐟 • Persico":                  18,
-    "🐟 • Salmone rosso":            22,
-    "🐟 • Trota iridea":             20,
-    "🐟 • Pesce gatto":              18,
-    "🐟 • Bluegill":                 14,
-    "🐟 • Pickerel":                 16,
-    "🐟 • Rock Bass":                16,
-    "🐟 • Muskellunge":              25,
-    "🐟 • Storione":                 30,
+    "🥪 • Panino col prosciutto":                     4,
+    "🥪 • Panino con lattuga e prosciutto":           5,
+    "🥪 • Panino con lattuga, prosciutto e pomodoro": 6,
+    "🥪 • Panino farcito a piacere":                  0,   # prezzo variabile
+    "🍝 • Pasta al sugo":                             9,
+    "🍝 • Pasta al pesto":                           10,
+    "🥩 • Stufato di bistecca con verdure":          15,
 }
 
 DRINK_ITEMS = {
-    "🥃 • Whisky":             15,
-    "🥃 • Bourbon":            15,
-    "🥃 • Brandy":             12,
-    "🥃 • Rum guatemalteco":   12,
-    "🍸 • Gin":                10,
-    "🍺 • Birra":              20,
-    "🍺 • Birra artigianale":  22,
-    "🍷 • Vino pregiato":      18,
-    "🥂 • Champagne":          16,
-    "🍑 • Liquore alla pesca": 14,
-    "🫐 • Liquore al lampone": 14,
-    "☕ • Caffè":              25,
+    "🍺 • Birra":       1,
+    "🥃 • Whisky":      5,
+    "🍵 • Tè":          3,
+    "☕ • Caffè":       2,
+    "🥛 • Latte caldo": 4,
 }
+
 ALCOHOLIC = {
-    "🥃 • Whisky", "🥃 • Bourbon", "🥃 • Brandy", "🥃 • Rum guatemalteco",
-    "🍸 • Gin", "🍺 • Birra", "🍺 • Birra artigianale",
-    "🍷 • Vino pregiato", "🥂 • Champagne",
-    "🍑 • Liquore alla pesca", "🫐 • Liquore al lampone"
+    "🍺 • Birra",
+    "🥃 • Whisky",
 }
 
 # ── Helper ────────────────────────────────────────────────────────────────────
@@ -183,7 +122,7 @@ def setup_rp_commands(bot):
         if new_h < 20: warns.append("⚠️ **Sei affamato!** Mangia qualcosa.")
         if new_t < 20: warns.append("⚠️ **Sei assetato!** Bevi qualcosa.")
         if warns:
-            embed.add_field(name="200b", value="200b", inline=False)
+            embed.add_field(name="​", value="​", inline=False)
             embed.add_field(name="⚡ Avviso", value="\n".join(warns), inline=False)
         embed.set_footer(text="🤠 Red Dead Redemption II — Azione RP")
         await interaction.response.send_message(embed=embed)
@@ -492,15 +431,15 @@ def setup_rp_commands(bot):
         )
         embed_fine.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
         embed_fine.add_field(name="🤠 Dipendente",       value=interaction.user.mention,               inline=False)
-        embed_fine.add_field(name="200b", value="200b", inline=False)
+        embed_fine.add_field(name="​", value="​", inline=False)
         embed_fine.add_field(name="💼 Lavoro",           value=lavoro.mention,                         inline=False)
-        embed_fine.add_field(name="200b", value="200b", inline=False)
+        embed_fine.add_field(name="​", value="​", inline=False)
         embed_fine.add_field(name="🕐 Inizio",           value=_ora_italia(inizio),           inline=True)
         embed_fine.add_field(name="🕑 Fine",             value=_ora_italia(now),              inline=True)
-        embed_fine.add_field(name="200b", value="200b", inline=False)
+        embed_fine.add_field(name="​", value="​", inline=False)
         embed_fine.add_field(name="⏱️ Durata reale",     value=durata_str,                             inline=True)
         embed_fine.add_field(name="📋 Ore fatturate",    value=f"{ore_fatturate}h (arrot. mezz'ora)",  inline=True)
-        embed_fine.add_field(name="200b", value="200b", inline=False)
+        embed_fine.add_field(name="​", value="​", inline=False)
         embed_fine.add_field(name="💵 Stipendio/ora",    value=f"${turno['stipendio']:,}",             inline=True)
         embed_fine.add_field(name="💰 Totale da pagare", value=f"**${stipendio_totale:,}**",           inline=True)
         embed_fine.set_footer(text="🤠 Red Dead Redemption II — Turno di Lavoro")
@@ -520,15 +459,15 @@ def setup_rp_commands(bot):
         )
         embed_staff.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
         embed_staff.add_field(name="🤠 Dipendente",       value=interaction.user.mention,               inline=False)
-        embed_staff.add_field(name="200b", value="200b", inline=False)
+        embed_staff.add_field(name="​", value="​", inline=False)
         embed_staff.add_field(name="💼 Ruolo",            value=lavoro.mention,                         inline=False)
-        embed_staff.add_field(name="200b", value="200b", inline=False)
+        embed_staff.add_field(name="​", value="​", inline=False)
         embed_staff.add_field(name="🕐 Inizio turno",     value=_ora_italia(inizio),           inline=True)
         embed_staff.add_field(name="🕑 Fine turno",       value=_ora_italia(now),              inline=True)
-        embed_staff.add_field(name="200b", value="200b", inline=False)
+        embed_staff.add_field(name="​", value="​", inline=False)
         embed_staff.add_field(name="⏱️ Durata",           value=durata_str,                             inline=True)
         embed_staff.add_field(name="📋 Ore fatturate",    value=f"{ore_fatturate}h",                    inline=True)
-        embed_staff.add_field(name="200b", value="200b", inline=False)
+        embed_staff.add_field(name="​", value="​", inline=False)
         embed_staff.add_field(name="💵 Stipendio/ora",    value=f"${turno['stipendio']:,}",             inline=True)
         embed_staff.add_field(name="💰 Da pagare",        value=f"**${stipendio_totale:,}**",           inline=True)
         embed_staff.set_footer(text="🤠 Red Dead Redemption II — Usa /paga-stipendio per pagare")
@@ -564,38 +503,9 @@ def setup_rp_commands(bot):
         await interaction.response.send_message(embed=embed)
 
     # ── /caccia ──────────────────────────────────────────────────────────────
-    @bot.tree.command(name="caccia", description="Descrivi una sessione di caccia")
-    @app_commands.describe(preda="L'animale cacciato", luogo="Zona di caccia", qualita="Qualità della preda", foto="Foto della preda (OBBLIGATORIA)")
-    @app_commands.choices(qualita=[
-        app_commands.Choice(name="⭐ Scadente",     value="Scadente ⭐"),
-        app_commands.Choice(name="⭐⭐ Buona",      value="Buona ⭐⭐"),
-        app_commands.Choice(name="⭐⭐⭐ Perfetta", value="Perfetta ⭐⭐⭐"),
-    ])
-    async def caccia(interaction: discord.Interaction, preda: str, luogo: str, foto: discord.Attachment, qualita: str = "Buona ⭐⭐"):
-        embed = discord.Embed(title="🎯 𝐁𝐚𝐭𝐭𝐮𝐭𝐚 𝐝𝐢 𝐂𝐚𝐜𝐜𝐢𝐚", color=discord.Color(0x556B2F), timestamp=discord.utils.utcnow())
-        embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
-        embed.add_field(name="🤠 Cacciatore", value=interaction.user.mention, inline=False)
-        embed.add_field(name="🦌 Preda",      value=preda,                    inline=False)
-        embed.add_field(name="📍 Zona",       value=luogo,                    inline=False)
-        embed.add_field(name="⭐ Qualità",    value=qualita,                  inline=False)
-        if foto.content_type and foto.content_type.startswith("image/"):
-            embed.set_image(url=foto.url)
-        embed.set_footer(text="🤠 Red Dead Redemption II — Caccia")
-        await interaction.response.send_message(embed=embed)
+
 
     # ── /pesca ───────────────────────────────────────────────────────────────
-    @bot.tree.command(name="pesca", description="Descrivi una sessione di pesca")
-    @app_commands.describe(pesce="Il pesce catturato", luogo="Dove hai pescato", peso="Peso (es: 2.5 kg, opzionale)")
-    async def pesca(interaction: discord.Interaction, pesce: str, luogo: str, peso: str = ""):
-        embed = discord.Embed(title="🎣 𝐒𝐞𝐬𝐬𝐢𝐨𝐧𝐞 𝐝𝐢 𝐏𝐞𝐬𝐜𝐚", color=discord.Color(0x4682B4), timestamp=discord.utils.utcnow())
-        embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
-        embed.add_field(name="🤠 Pescatore", value=interaction.user.mention, inline=False)
-        embed.add_field(name="🐟 Pesce",     value=pesce,                    inline=False)
-        embed.add_field(name="📍 Zona",      value=luogo,                    inline=False)
-        if peso:
-            embed.add_field(name="⚖️ Peso",  value=peso,                     inline=False)
-        embed.set_footer(text="🤠 Red Dead Redemption II — Pesca")
-        await interaction.response.send_message(embed=embed)
 
     # ── /anonimo ─────────────────────────────────────────────────────────────
     @bot.tree.command(name="anonimo", description="Invia un messaggio anonimo nel canale")
@@ -651,23 +561,7 @@ def setup_rp_commands(bot):
         embed.set_footer(text="🤠 Red Dead Redemption II — Nascosto")
         await interaction.response.send_message(embed=embed)
 
-    # ── /sondaggiorp ─────────────────────────────────────────────────────────
-    @bot.tree.command(name="sondaggiorp", description="[Staff] Crea un sondaggio roleplay")
-    @app_commands.describe(domanda="La domanda", opzione1="Prima opzione", opzione2="Seconda opzione")
-    async def sondaggiorp(interaction: discord.Interaction, domanda: str, opzione1: str, opzione2: str):
-        if not isinstance(interaction.user, discord.Member) or \
-           not any(r.id in STAFF_ROLES for r in interaction.user.roles):
-            await interaction.response.send_message("❌ Non hai i permessi.", ephemeral=True); return
-        embed = discord.Embed(title="📜 𝐒𝐨𝐧𝐝𝐚𝐠𝐠𝐢𝐨 𝐑𝐨𝐥𝐞𝐩𝐥𝐚𝐲", description=f"**{domanda}**",
-                              color=discord.Color(0xDAA520), timestamp=discord.utils.utcnow())
-        embed.add_field(name="1️⃣ Opzione A", value=opzione1, inline=False)
-        embed.add_field(name="2️⃣ Opzione B", value=opzione2, inline=False)
-        embed.set_footer(text="🤠 Red Dead Redemption II — Sondaggio RP")
-        msg = await interaction.channel.send(embed=embed)
-        await msg.add_reaction("1️⃣")
-        await msg.add_reaction("2️⃣")
-        await interaction.response.send_message("✅ Sondaggio creato!", ephemeral=True)
-
+   
     # ── /lettera ─────────────────────────────────────────────────────────────
     @bot.tree.command(name="lettera", description="Invia una lettera privata a un altro giocatore")
     @app_commands.describe(destinatario="Il giocatore che riceverà la lettera")

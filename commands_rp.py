@@ -370,7 +370,7 @@ def setup_rp_commands(bot):
         }
 
         embed = discord.Embed(
-            title="🟢 𝐓𝐔𝐑𝐍𝐎 𝐈𝐍𝐈𝐙𝐈𝐀𝐓𝐎",
+            title="<a:online:1459627385702973572> 𝐓𝐔𝐑𝐍𝐎 𝐈𝐍𝐈𝐙𝐈𝐀𝐓𝐎 <a:online:1459627385702973572>",
             color=discord.Color.green(),
             timestamp=discord.utils.utcnow()
         )
@@ -425,7 +425,7 @@ def setup_rp_commands(bot):
 
         # ── Embed fine turno (nel canale corrente) ───────────────────────────
         embed_fine = discord.Embed(
-            title="🔴 𝐓𝐔𝐑𝐍𝐎 𝐓𝐄𝐑𝐌𝐈𝐍𝐀𝐓𝐎",
+            title="<a:offline:1459628872197738641> 𝐓𝐔𝐑𝐍𝐎 𝐓𝐄𝐑𝐌𝐈𝐍𝐀𝐓𝐎 <a:offline:1459628872197738641>",
             color=discord.Color.red(),
             timestamp=discord.utils.utcnow()
         )
@@ -491,10 +491,10 @@ def setup_rp_commands(bot):
     async def campeggio(interaction: discord.Interaction, azione: str, luogo: str = "", foto: discord.Attachment = None):
         if azione == "monta":
             title = "⛺ 𝐀𝐜𝐜𝐚𝐦𝐩𝐚𝐦𝐞𝐧𝐭𝐨 𝐌𝐨𝐧𝐭𝐚𝐭𝐨"
-            desc  = f"*{interaction.user.display_name} monta il proprio accampamento" + (f" a **{luogo}**.*" if luogo else ".*")
+            desc  = f"*{interaction.user.mention} monta il proprio accampamento" + (f" a **{luogo}**.*" if luogo else ".*")
         else:
             title = "🏕️ 𝐀𝐜𝐜𝐚𝐦𝐩𝐚𝐦𝐞𝐧𝐭𝐨 𝐒𝐦𝐨𝐧𝐭𝐚𝐭𝐨"
-            desc  = f"*{interaction.user.display_name} smonta il proprio accampamento" + (f" da **{luogo}**.*" if luogo else ".*")
+            desc  = f"*{interaction.user.mention} smonta il proprio accampamento" + (f" da **{luogo}**.*" if luogo else ".*")
         embed = discord.Embed(title=title, description=desc, color=discord.Color(0x556B2F), timestamp=discord.utils.utcnow())
         embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
         if foto and foto.content_type and foto.content_type.startswith("image/"):

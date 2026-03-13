@@ -98,23 +98,57 @@ class BackgroundView(discord.ui.View):
         def check(m):
             return m.author.id == member.id and isinstance(m.channel, discord.DMChannel)
 
-        async def chiedi(label: str, domanda: str) -> str:
-            e = discord.Embed(description=f"**{domanda}**", color=discord.Color(0x8B4513))
+        async def chiedi(label: str, domanda: str):
+            """Ritorna la risposta, None se timeout, 'ANNULLA' se l'utente annulla."""
+            e = discord.Embed(
+                description=f"**{domanda}**\n\n*Scrivi `annulla` per interrompere il background.*",
+                color=discord.Color(0x8B4513)
+            )
             await member.send(embed=e)
             try:
-                msg = await bot.wait_for("message", check=check, timeout=300)
+                msg = await bot.wait_for("message", check=check, timeout=900)  # 15 minuti
+                if msg.content.strip().lower() == "annulla":
+                    return "ANNULLA"
                 return msg.content
             except Exception:
-                return "*(nessuna risposta)*"
+                return None  # timeout
 
+        EMBED_TIMEOUT = discord.Embed(
+            title="⏰ Tempo scaduto",
+            description=(
+                "Hai impiegato troppo tempo a rispondere.\n"
+                "Il background è stato **annullato automaticamente**.\n\n"
+                "Puoi ricominciare premendo il pulsante nel canale quando sei pronto. 🤠"
+            ),
+            color=discord.Color.red()
+        )
+        EMBED_ANNULLA = discord.Embed(
+            title="❌ Background Annullato",
+            description=(
+                "Hai annullato il background.\n\n"
+                "Puoi ricominciare premendo il pulsante nel canale quando sei pronto. 🤠"
+            ),
+            color=discord.Color.orange()
+        )
+
+        # ── OOC ──────────────────────────────────────────────────────────────
         await member.send(embed=discord.Embed(description="╞═════𖠁**OOC**𖠁═════╡", color=discord.Color(0xDAA520)))
         for label, domanda in DOMANDE_OOC:
             r = await chiedi(label, domanda)
+            if r is None:
+                await member.send(embed=EMBED_TIMEOUT); return
+            if r == "ANNULLA":
+                await member.send(embed=EMBED_ANNULLA); return
             risposte_ooc.append((label, r))
 
+        # ── IC ───────────────────────────────────────────────────────────────
         await member.send(embed=discord.Embed(description="╞═════𖠁**IC**𖠁═════╡", color=discord.Color(0xDAA520)))
         for label, domanda in DOMANDE_IC:
             r = await chiedi(label, domanda)
+            if r is None:
+                await member.send(embed=EMBED_TIMEOUT); return
+            if r == "ANNULLA":
+                await member.send(embed=EMBED_ANNULLA); return
             risposte_ic.append((label, r))
 
         await member.send(embed=discord.Embed(

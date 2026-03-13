@@ -59,6 +59,7 @@ _modules = [
     ("commands_theft",           "setup_theft_commands"),
     ("commands_banca",           "setup_banca_commands"),
     ("backup",                   "setup_backup_commands"),
+    ("commands_rp_status",       "setup_rpoff_commands"),
 ]
 
 _loaded = {}
@@ -178,7 +179,6 @@ class ListaSelect(discord.ui.Select):
                 "`/anonimo` — Invia un messaggio anonimo",
                 "`/nascondo` — Nascondi un oggetto in un luogo segreto",
                 "`/lettera` — Invia una lettera privata a un giocatore",
-                "`/sondaggiorp` — Crea un sondaggio roleplay",
                 "`/miafedinapenale` — Visualizza la tua fedina penale",
                 "`/mie-proprieta` — Le tue proprietà registrate",
                 "`/controlla-saldo` - Controlla il saldo dei cittadini",

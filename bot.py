@@ -97,10 +97,11 @@ async def sync(interaction: discord.Interaction):
 class ListaSelect(discord.ui.Select):
     def __init__(self):
         options = [
-            discord.SelectOption(label="⭐ Staff",      value="staff",    description="Comandi riservati allo staff"),
-            discord.SelectOption(label="🔫 Sceriffo",   value="sceriffo", description="Comandi dello Sceriffo"),
-            discord.SelectOption(label="💰 Economia",   value="economia", description="Banca, fatture, fondo cassa"),
-            discord.SelectOption(label="🤠 Roleplay",   value="roleplay", description="Azioni RP, bisaccia, caccia, pesca"),
+            discord.SelectOption(label="⭐ Staff",         value="staff",         description="Comandi riservati allo staff"),
+            discord.SelectOption(label="🔫 Sceriffo",      value="sceriffo",      description="Comandi dello Sceriffo"),
+            discord.SelectOption(label="💰 Economia",      value="economia",      description="Banca, fatture, fondo cassa"),
+            discord.SelectOption(label="🤠 Roleplay",      value="roleplay",      description="Azioni RP, bisaccia, turni"),
+            discord.SelectOption(label="🚫 Contrabbando",  value="contrabbando",  description="Raccolta e vendita droga, rapine"),
         ]
         super().__init__(placeholder="Seleziona categoria...", options=options)
 
@@ -124,25 +125,28 @@ class ListaSelect(discord.ui.Select):
                 "`/wipe-item` — Svuota tutte le bisacce",
                 "`/crea-item` — Crea item nell'emporio",
                 "`/eliminaitem` — Elimina item emporio",
-                "`/whitelister` — Esito whitelist",
+                "`/whitelister` — Esito whitelist/background",
                 "`/status-whitelist` — Stato whitelist",
                 "`/add-fondocassa` — Aggiungi al fondo cassa",
+                "`/saldo-fondocassa` — Visualizza tutti i fondi cassa",
                 "`/daiproprieta` — Registra una proprietà",
                 "`/documento` — Emetti documento d'identità",
                 "`/rimuovi-documento` — Rimuovi documento",
+                "`/setup-background` — Invia pannello background PG",
                 "`/sync` — Sincronizza comandi slash",
             ]
         elif cat == "sceriffo":
             embed = discord.Embed(title="🔫 COMANDI SCERIFFO", color=discord.Color.blue())
             cmds = [
                 "`/ammanetto` — Ammanetta un sospettato",
-                "`/taglia` — Emetti una taglia",
-                "`/controlla-taglia` — Verifica taglie",
-                "`/paga-taglia` — Paga le taglie (giocatore)",
-                "`/modulo-arresto` — Compila modulo arresto",
-                "`/denuncia` — Denuncia ufficiale",
-                "`/puliziafedinapenale` — Pulisci fedina penale",
-                "`/cercapersona` — Cerca nel registro",
+                "`/modulo-arresto` — Compila modulo di arresto ufficiale",
+                "`/taglia` — Emetti una taglia su un fuorilegge",
+                "`/controlla-taglia` — Verifica le taglie di un giocatore",
+                "`/paga-taglia` — Paga le taglie sulla tua testa",
+                "`/puliziafedinapenale` — Pulisci la fedina penale",
+                "`/cercapersona` — Cerca nel registro cittadini",
+                "`/mostra-documento` — Visualizza documento di un giocatore",
+                "`/controlla-saldo` — Controlla il saldo di un giocatore",
             ]
         elif cat == "economia":
             embed = discord.Embed(title="💰 COMANDI ECONOMIA", color=discord.Color.green())
@@ -151,7 +155,10 @@ class ListaSelect(discord.ui.Select):
                 "`/paga` — Paga un giocatore in contanti",
                 "`/fattura` — Emetti una fattura",
                 "`/pagafattura` — Paga una fattura",
-                "`/fondocassa` — Fondo cassa compagnia",
+                "`/fondocassa` — Visualizza il fondo cassa della tua compagnia",
+                "`/deposita-fondocassa` — Deposita nel fondo cassa",
+                "`/preleva-fondocassa` — Preleva dal fondo cassa",
+                "`/tiro-dadi` — Tira i dadi (gioco d'azzardo)",
             ]
         elif cat == "roleplay":
             embed = discord.Embed(title="🤠 COMANDI ROLEPLAY", color=discord.Color.purple())
@@ -161,20 +168,29 @@ class ListaSelect(discord.ui.Select):
                 "`/mangia` — Mangia dalla bisaccia",
                 "`/bevi` — Bevi dalla bisaccia",
                 "`/bisaccia [utente]` — Visualizza bisaccia (tua o altrui)",
-                "`/vendibisaccia` — Vendi la tua bisaccia",
+                "`/vendibisaccia` — Vendi la tua bisaccia a un altro giocatore",
                 "`/dai-item` — Dai un item a un altro giocatore",
-                "`/utilizza-item` — Utilizza un item",
-                "`/itemshop` — Visualizza l'emporio",
-                "`/item-sell` — Acquista dall'emporio",
+                "`/utilizza-item` — Utilizza un item dalla bisaccia",
+                "`/listino-emporio` — Visualizza il listino dell'emporio",
+                "`/item-sell` — Acquista un item dall'emporio",
                 "`/inizio-turno` / `/fine-turno` — Registra turno di lavoro",
                 "`/campeggio` — Monta/smonta accampamento",
-                "`/caccia` — Sessione di caccia",
-                "`/pesca` — Sessione di pesca",
-                "`/anonimo` — Messaggio anonimo",
-                "`/nascondo` — Nascondi un oggetto",
-                "`/sondaggiorp` — Sondaggio RP",
-                "`/miafedinapenale` — La tua fedina penale",
-                "`/mie-proprieta` — Le tue proprietà",
+                "`/anonimo` — Invia un messaggio anonimo",
+                "`/nascondo` — Nascondi un oggetto in un luogo segreto",
+                "`/lettera` — Invia una lettera privata a un giocatore",
+                "`/sondaggiorp` — Crea un sondaggio roleplay",
+                "`/miafedinapenale` — Visualizza la tua fedina penale",
+                "`/mie-proprieta` — Le tue proprietà registrate",
+                "`/controlla-saldo` - Controlla il saldo dei cittadini",
+            ]
+        elif cat == "contrabbando":
+            embed = discord.Embed(title="🚫 COMANDI CONTRABBANDO", color=discord.Color(0x2C2C2C))
+            cmds = [
+                "`/inizio-raccolta` — Inizia una sessione di raccolta droga",
+                "`/fine-raccolta` — Termina la sessione e calcola il tempo",
+                "`/inizio-vendita` — Inizia una sessione di vendita droga",
+                "`/fine-vendita` — Termina la sessione di vendita e calcola il tempo",
+                "`/rapina` — Avvia una rapina nel Far West",
             ]
         else:
             return

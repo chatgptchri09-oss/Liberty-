@@ -99,6 +99,14 @@ async def init_db():
                 required_role INTEGER DEFAULT NULL
             )
         """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS weapon_durability (
+                user_id   TEXT NOT NULL,
+                item_name TEXT NOT NULL,
+                usura     INTEGER DEFAULT 100,
+                PRIMARY KEY (user_id, item_name)
+            )
+        """)
 
         # Upgrade sicuro su db già esistenti
         for stmt in [

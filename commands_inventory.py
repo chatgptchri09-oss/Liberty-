@@ -150,8 +150,11 @@ def setup_inventory_commands(bot):
     @app_commands.describe(item="L'item da acquistare", quantita="Quantità")
     @app_commands.autocomplete(item=_shop_autocomplete)
     async def item_sell(interaction: discord.Interaction, item: str, quantita: int = 1):
+        # defer SUBITO — evita timeout Discord durante le query DB
+        await interaction.response.defer(ephemeral=True)
+
         if quantita < 1:
-            await interaction.response.send_message("❌ La quantità deve essere almeno 1.", ephemeral=True)
+            await interaction.followup.send("❌ La quantità deve essere almeno 1.", ephemeral=True)
             return
 
         shop_item = await database.get_shop_item(item)
@@ -161,7 +164,7 @@ def setup_inventory_commands(bot):
             if matches:
                 shop_item = await database.get_shop_item(matches[0])
         if not shop_item:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "❌ Item non trovato nell'emporio. Controlla `/listino-emporio`.", ephemeral=True
             )
             return
@@ -170,7 +173,7 @@ def setup_inventory_commands(bot):
         if role_id:
             if not isinstance(interaction.user, discord.Member) or \
                not any(r.id == role_id for r in interaction.user.roles):
-                await interaction.response.send_message(
+                await interaction.followup.send(
                     f"❌ Per acquistare **{shop_item['item_name']}** devi avere il ruolo <@&{role_id}>.",
                     ephemeral=True
                 )
@@ -179,7 +182,7 @@ def setup_inventory_commands(bot):
         totale = shop_item["price"] * quantita
         user   = await database.get_user(str(interaction.user.id))
         if user["cash"] < totale:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 f"❌ Contanti insufficienti!\nCosto: **${totale:,}** — Tuoi: **${user['cash']:,}**",
                 ephemeral=True
             )
@@ -194,12 +197,12 @@ def setup_inventory_commands(bot):
 
         embed = discord.Embed(title="🛒 𝐀𝐜𝐪𝐮𝐢𝐬𝐭𝐨 𝐂𝐨𝐦𝐩𝐥𝐞𝐭𝐚𝐭𝐨", color=discord.Color(0x8B4513),
                               timestamp=discord.utils.utcnow())
-        embed.add_field(name="📦 Item",     value=shop_item["item_name"], inline=True)
-        embed.add_field(name="🔢 Quantità", value=str(quantita),          inline=True)
-        embed.add_field(name="💵 Pagato",   value=f"${totale:,}",         inline=True)
+        embed.add_field(name="📦 Item",     value=shop_item["item_name"],      inline=True)
+        embed.add_field(name="🔢 Quantità", value=str(quantita),               inline=True)
+        embed.add_field(name="💵 Pagato",   value=f"${totale:,}",              inline=True)
         embed.add_field(name="💰 Rimasto",  value=f"${user['cash']-totale:,}", inline=True)
         embed.set_footer(text="🤠 Red Dead Redemption II — Emporio")
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.followup.send(embed=embed, ephemeral=True)
 
     # ── /crea-item ────────────────────────────────────────────────────────────
     @bot.tree.command(name="crea-item", description="[Staff] Crea un nuovo item nell'emporio")

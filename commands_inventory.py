@@ -187,6 +187,10 @@ def setup_inventory_commands(bot):
 
         await database.update_balance(str(interaction.user.id), cash=user["cash"] - totale)
         await database.add_item(str(interaction.user.id), shop_item["item_name"], quantita)
+        # Se è un'arma, inizializza l'usura al 100%
+        from commands_usura import set_usura, _tipo_arma
+        if _tipo_arma(shop_item["item_name"]):
+            await set_usura(str(interaction.user.id), shop_item["item_name"], 100)
 
         embed = discord.Embed(title="🛒 𝐀𝐜𝐪𝐮𝐢𝐬𝐭𝐨 𝐂𝐨𝐦𝐩𝐥𝐞𝐭𝐚𝐭𝐨", color=discord.Color(0x8B4513),
                               timestamp=discord.utils.utcnow())

@@ -34,6 +34,9 @@ async def on_ready():
     print(f"✅ Logged in as {bot.user} (ID: {bot.user.id})", flush=True)
     print(f"✅ Server: {len(bot.guilds)}", flush=True)
     await database.init_db()
+    from commands_usura import init_usura_table, task_usura_giornaliera
+    await init_usura_table()
+    asyncio.create_task(task_usura_giornaliera(bot))
     # Registra le View persistenti (devono stare qui, dentro il loop)
     try:
         from commands_admin import BackgroundView
@@ -59,7 +62,7 @@ _modules = [
     ("commands_theft",           "setup_theft_commands"),
     ("commands_banca",           "setup_banca_commands"),
     ("backup",                   "setup_backup_commands"),
-    ("commands_rp_status",       "setup_rpoff_commands"),
+    ("commands_usura",           "setup_usura_commands"),
 ]
 
 _loaded = {}
@@ -181,7 +184,8 @@ class ListaSelect(discord.ui.Select):
                 "`/lettera` — Invia una lettera privata a un giocatore",
                 "`/miafedinapenale` — Visualizza la tua fedina penale",
                 "`/mie-proprieta` — Le tue proprietà registrate",
-                "`/controlla-saldo` - Controlla il saldo dei cittadini",
+                "`/pulisci-arma` — Pulisci un'arma con Olio per Armi / Cote",
+                "`/visualizza-stato-arma` — Visualizza l'usura delle tue armi",
             ]
         elif cat == "contrabbando":
             embed = discord.Embed(title="🚫 COMANDI CONTRABBANDO", color=discord.Color(0x2C2C2C))

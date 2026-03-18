@@ -341,27 +341,33 @@ def setup_usura_commands(bot):
     # ── /visualizza-stato-arma ────────────────────────────────────────────────
     @bot.tree.command(name="visualizza-stato-arma", description="Visualizza l'usura delle tue armi")
     async def visualizza_stato_arma(interaction: discord.Interaction):
-        # Risposta IMMEDIATA — carica tutto subito in una query sola
+        print(f"[vis-arma] START uid={interaction.user.id}", flush=True)
         uid = str(interaction.user.id)
 
-        # Una singola query che prende inventario + usura in join
-        async with aiosqlite.connect(DATABASE_NAME) as db:
-            db.row_factory = aiosqlite.Row
-            async with db.execute(
-                """SELECT i.item_name,
-                          COALESCE(w.usura, 100) as usura
-                   FROM inventory i
-                   LEFT JOIN weapon_durability w
-                          ON w.user_id = i.user_id AND w.item_name = i.item_name
-                   WHERE i.user_id = ? AND i.quantity > 0""",
-                (uid,)
-            ) as c:
-                rows = await c.fetchall()
+        try:
+            async with aiosqlite.connect(DATABASE_NAME) as db:
+                db.row_factory = aiosqlite.Row
+                async with db.execute(
+                    """SELECT i.item_name,
+                              COALESCE(w.usura, 100) as usura
+                       FROM inventory i
+                       LEFT JOIN weapon_durability w
+                              ON w.user_id = i.user_id AND w.item_name = i.item_name
+                       WHERE i.user_id = ? AND i.quantity > 0""",
+                    (uid,)
+                ) as c:
+                    rows = await c.fetchall()
+            print(f"[vis-arma] query ok, righe={len(rows)}", flush=True)
+        except Exception as e:
+            print(f"[vis-arma] ERRORE query: {e}", flush=True)
+            await interaction.response.send_message("❌ Errore interno. Riprova.", ephemeral=True)
+            return
 
         armi_usura = [
             {"item_name": r["item_name"], "usura": r["usura"]}
             for r in rows if r["item_name"] in ALL_ARMI
         ]
+        print(f"[vis-arma] armi trovate={len(armi_usura)}", flush=True)
 
         if not armi_usura:
             await interaction.response.send_message(
@@ -424,8 +430,10 @@ def setup_usura_commands(bot):
                 await itr.response.edit_message(embed=_build_embed(self_v.p), view=self_v)
 
         view = UsuraView(0) if tot_pag > 1 else discord.ui.View(timeout=120)
+        print(f"[vis-arma] invio risposta pag 1/{tot_pag}", flush=True)
         await interaction.response.send_message(
             embed=_build_embed(0),
             view=view,
             ephemeral=True
         )
+        print(f"[vis-arma] DONE", flush=True)

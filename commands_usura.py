@@ -2,18 +2,15 @@ import discord
 from discord import app_commands
 import aiosqlite
 import asyncio
-from datetime import datetime, timezone
 from constants import LOG_CHANNEL_ID, DATABASE_NAME
 
 # ── Costanti ──────────────────────────────────────────────────────────────────
-OLIO_ITEM   = "<:OlioArmi:1483872658574544988> • Olio per Armi"
-COTE_ITEM   = "<:Cote:1483873630986174484> • Cote"
-
+OLIO_ITEM    = "<:OlioArmi:1483872658574544988> • Olio per Armi"
+COTE_ITEM    = "<:Cote:1483873630986174484> • Cote"
 AVVISI_USURA = {75, 50, 25, 10, 5, 0}
 
-# ── Armi da FUOCO (calo 5%/24h, 2% per passaggio) ────────────────────────────
+# ── Armi da FUOCO (-5%/24h, -2% per passaggio) ───────────────────────────────
 ARMI_FUOCO = {
-    # Revolver
     "<:Revolver:1457468114575822918> • Revolver d'Azzardo",
     "<:Revolver:1457468114575822918> • Revolver d'Azzardo (M.N.)",
     "<:Revolver:1457468114575822918> • Revolver Cattleman",
@@ -24,26 +21,20 @@ ARMI_FUOCO = {
     "<:Revolver:1457468114575822918> • Revolver Schofield (M.N.)",
     "<:Revolver:1457468114575822918> • Revolver Navy",
     "<:Revolver:1457468114575822918> • Revolver Navy (M.N.)",
-    # Pistole
     "<:Volcanic:1457650683837677653> • Pistola Volcanic",
     "<:Volcanic:1457650683837677653> • Pistola Volcanic (M.N.)",
-    # Fucili a canne mozze
     "<:DoppiettaaCanneMozze:1457657137533550685> • Fucile a Canne Mozze Lisce",
     "<:DoppiettaaCanneMozze:1457657137533550685> • Fucile a Canne Mozze Lisce (M.N.)",
-    # Doppiette
     "<:Doppietta:1457655998562041947> • Doppietta a Canne Lisce",
     "<:Doppietta:1457655998562041947> • Doppietta a Canne Lisce (M.N.)",
-    # Fucili a pompa
     "<:Doppietta:1457655998562041947> • Fucile a Canna Liscia a Pompa",
     "<:Doppietta:1457655998562041947> • Fucile a Canna Liscia a Pompa (M.N.)",
     "<:Doppietta:1457655998562041947> • Fucile a Canna Liscia Semiautomatico",
     "<:Doppietta:1457655998562041947> • Fucile a Canna Liscia Semiautomatico (M.N.)",
-    # Carabine e ripetizioni
     "<:Litchfield:1457518211716087961> • Carabina a Ripetizione",
     "<:Litchfield:1457518211716087961> • Carabina a Ripetizione (M.N.)",
     "<:Litchfield:1457518211716087961> • Lancaster a Ripetizione",
     "<:Litchfield:1457518211716087961> • Lancaster a Ripetizione (M.N.)",
-    # Fucili a canna rigata
     "<:Springfield:1457642354717622362> • Varmint a Canna Rigata",
     "<:Springfield:1457642354717622362> • Varmint a Canna Rigata (M.N.)",
     "<:Springfield:1457642354717622362> • Springfield a Canna Rigata",
@@ -52,7 +43,7 @@ ARMI_FUOCO = {
     "<:Springfield:1457642354717622362> • Bolt-Action a Canna Rigata (M.N.)",
 }
 
-# ── Armi da MISCHIA (calo 2%/24h, 1% per passaggio) — escluso lazo ───────────
+# ── Armi da MISCHIA (-2%/24h, -1% per passaggio) — lazo ESCLUSO ──────────────
 ARMI_MISCHIA = {
     "🪓 • Accetta",
     "🪓 • Accetta da Caccia",
@@ -68,12 +59,11 @@ ARMI_MISCHIA = {
     "<:Arco:1457700407282241671> • Arco",
     "<:ArcoMigliorato:1457701357342687335> • Arco Migliorato",
     "📿 • Bolas",
-    # Lazo e Lazo Rinforzato ESCLUSI
 }
 
 ALL_ARMI = ARMI_FUOCO | ARMI_MISCHIA
 
-# ── Helper: tipo arma ─────────────────────────────────────────────────────────
+# ── Helper tipo/calo ──────────────────────────────────────────────────────────
 def _tipo_arma(nome: str) -> str | None:
     if nome in ARMI_FUOCO:   return "fuoco"
     if nome in ARMI_MISCHIA: return "mischia"
@@ -88,9 +78,22 @@ def _calo_passaggio(tipo: str) -> int:
 def _item_pulizia(tipo: str) -> str:
     return OLIO_ITEM if tipo == "fuoco" else COTE_ITEM
 
+def _barra(v: int) -> str:
+    piena = round(v / 10)
+    if v >= 75:   blocco = "🟩"
+    elif v >= 50: blocco = "🟨"
+    elif v >= 25: blocco = "🟧"
+    else:         blocco = "🟥"
+    return blocco * piena + "⬛" * (10 - piena) + f"  **{v}%**"
+
+def _colore_usura(v: int) -> discord.Color:
+    if v >= 75:   return discord.Color.green()
+    if v >= 50:   return discord.Color.yellow()
+    if v >= 25:   return discord.Color.orange()
+    return discord.Color.red()
+
 # ── DB helpers ────────────────────────────────────────────────────────────────
 async def init_usura_table():
-    """Crea la tabella usura se non esiste (chiamare da on_ready o init_db)."""
     async with aiosqlite.connect(DATABASE_NAME) as db:
         await db.execute("""
             CREATE TABLE IF NOT EXISTS weapon_durability (
@@ -129,19 +132,7 @@ async def delete_usura(user_id: str, item_name: str):
         )
         await db.commit()
 
-async def get_tutte_usure_utente(user_id: str) -> list[dict]:
-    """Ritorna lista {item_name, usura} per le armi dell'utente."""
-    async with aiosqlite.connect(DATABASE_NAME) as db:
-        db.row_factory = aiosqlite.Row
-        async with db.execute(
-            "SELECT item_name, usura FROM weapon_durability WHERE user_id=?",
-            (user_id,)
-        ) as c:
-            rows = await c.fetchall()
-    return [{"item_name": r["item_name"], "usura": r["usura"]} for r in rows]
-
 async def get_armi_inventario(user_id: str) -> list[str]:
-    """Ritorna i nomi delle armi (fra ALL_ARMI) presenti nell'inventario dell'utente."""
     async with aiosqlite.connect(DATABASE_NAME) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
@@ -151,27 +142,26 @@ async def get_armi_inventario(user_id: str) -> list[str]:
             rows = await c.fetchall()
     return [r["item_name"] for r in rows if r["item_name"] in ALL_ARMI]
 
-# ── Helper: barra usura ───────────────────────────────────────────────────────
-def _barra(v: int) -> str:
-    piena = round(v / 10)
-    if v >= 75:   colore = "🟩"
-    elif v >= 50: colore = "🟨"
-    elif v >= 25: colore = "🟧"
-    else:         colore = "🟥"
-    return colore * piena + "⬛" * (10 - piena) + f"  **{v}%**"
-
-def _colore_usura(v: int) -> discord.Color:
-    if v >= 75:   return discord.Color.green()
-    if v >= 50:   return discord.Color.yellow()
-    if v >= 25:   return discord.Color.orange()
-    return discord.Color.red()
+async def get_armi_con_usura(user_id: str) -> list[dict]:
+    """Carica armi + usura in una sola passata per evitare N query separate."""
+    armi = await get_armi_inventario(user_id)
+    if not armi:
+        return []
+    placeholders = ",".join("?" for _ in armi)
+    async with aiosqlite.connect(DATABASE_NAME) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            f"SELECT item_name, usura FROM weapon_durability WHERE user_id=? AND item_name IN ({placeholders})",
+            (user_id, *armi)
+        ) as c:
+            rows = await c.fetchall()
+    usura_map = {r["item_name"]: r["usura"] for r in rows}
+    return [{"item_name": a, "usura": usura_map.get(a, 100)} for a in armi]
 
 # ── Notifica usura ────────────────────────────────────────────────────────────
 async def _notifica_usura(bot, user_id: str, item_name: str, usura: int):
-    """Manda DM + log quando usura raggiunge una soglia."""
     if usura not in AVVISI_USURA:
         return
-
     tipo = _tipo_arma(item_name)
     if usura == 0:
         titolo = "💀 Arma Distrutta!"
@@ -179,54 +169,33 @@ async def _notifica_usura(bot, user_id: str, item_name: str, usura: int):
         color  = discord.Color.red()
     else:
         titolo = f"⚠️ Usura Arma — {usura}%"
-        item_p = _item_pulizia(tipo)
         desc   = (
             f"La tua arma **{item_name}** ha raggiunto il **{usura}%** di usura.\n"
-            f"Usa `/pulisci-arma` con **{item_p}** per ripristinarla."
+            f"Usa `/pulisci-arma` con **{_item_pulizia(tipo)}** per ripristinarla."
         )
         color = _colore_usura(usura)
 
     embed = discord.Embed(title=titolo, description=desc, color=color, timestamp=discord.utils.utcnow())
-    embed.add_field(name="🔫 Arma",  value=item_name,   inline=True)
+    embed.add_field(name="🔫 Arma",  value=item_name,     inline=True)
     embed.add_field(name="⚙️ Usura", value=_barra(usura), inline=True)
     embed.set_footer(text="🤠 Red Dead Redemption II — Sistema Usura")
 
-    # DM
     try:
         user = await bot.fetch_user(int(user_id))
         if user:
             await user.send(embed=embed)
     except Exception:
         pass
-
-    # Log
     try:
         ch = bot.get_channel(LOG_CHANNEL_ID)
         if ch:
-            log = discord.Embed(
-                title=f"🔧 LOG USURA — {usura}%",
-                color=color,
-                timestamp=discord.utils.utcnow()
-            )
-            log.add_field(name="👤 Utente",  value=f"<@{user_id}>", inline=True)
-            log.add_field(name="🔫 Arma",    value=item_name,        inline=True)
-            log.add_field(name="⚙️ Usura",   value=f"{usura}%",      inline=True)
+            log = discord.Embed(title=f"🔧 LOG USURA — {usura}%", color=color, timestamp=discord.utils.utcnow())
+            log.add_field(name="👤 Utente", value=f"<@{user_id}>", inline=True)
+            log.add_field(name="🔫 Arma",   value=item_name,        inline=True)
+            log.add_field(name="⚙️ Usura",  value=f"{usura}%",      inline=True)
             await ch.send(embed=log)
     except Exception:
         pass
-
-# ── Applica calo usura (usato da /dai-item) ───────────────────────────────────
-async def applica_calo_passaggio(bot, user_id: str, item_name: str):
-    """Riduce l'usura al passaggio. Se scende a 0 rimuove l'arma."""
-    tipo = _tipo_arma(item_name)
-    if not tipo:
-        return
-    usura_attuale = await get_usura(user_id, item_name)
-    nuova         = max(0, usura_attuale - _calo_passaggio(tipo))
-    await set_usura(user_id, item_name, nuova)
-    await _notifica_usura(bot, user_id, item_name, nuova)
-    if nuova == 0:
-        await _rimuovi_arma_db(user_id, item_name)
 
 async def _rimuovi_arma_db(user_id: str, item_name: str):
     async with aiosqlite.connect(DATABASE_NAME) as db:
@@ -237,15 +206,25 @@ async def _rimuovi_arma_db(user_id: str, item_name: str):
         await db.commit()
     await delete_usura(user_id, item_name)
 
+# ── Calo al passaggio (chiamato da /dai-item) ─────────────────────────────────
+async def applica_calo_passaggio(bot, user_id: str, item_name: str):
+    tipo = _tipo_arma(item_name)
+    if not tipo:
+        return
+    usura_attuale = await get_usura(user_id, item_name)
+    nuova         = max(0, usura_attuale - _calo_passaggio(tipo))
+    await set_usura(user_id, item_name, nuova)
+    await _notifica_usura(bot, user_id, item_name, nuova)
+    if nuova == 0:
+        await _rimuovi_arma_db(user_id, item_name)
+
 # ── Task 24h ──────────────────────────────────────────────────────────────────
 async def task_usura_giornaliera(bot):
-    """Loop ogni 24h: cala l'usura di tutte le armi di tutti gli utenti."""
     await bot.wait_until_ready()
     while not bot.is_closed():
-        await asyncio.sleep(86400)  # 24 ore
+        await asyncio.sleep(86400)
         print("🔧 Avvio calo usura giornaliero...", flush=True)
         try:
-            # Prendo tutti gli utenti con armi in inventario
             async with aiosqlite.connect(DATABASE_NAME) as db:
                 db.row_factory = aiosqlite.Row
                 async with db.execute(
@@ -254,9 +233,9 @@ async def task_usura_giornaliera(bot):
                     rows = await c.fetchall()
 
             for row in rows:
-                uid   = row["user_id"]
-                item  = row["item_name"]
-                tipo  = _tipo_arma(item)
+                uid  = row["user_id"]
+                item = row["item_name"]
+                tipo = _tipo_arma(item)
                 if not tipo:
                     continue
                 usura_attuale = await get_usura(uid, item)
@@ -272,33 +251,32 @@ async def task_usura_giornaliera(bot):
         except Exception as e:
             print(f"❌ Errore task usura: {e}", flush=True)
 
-
 # ── Setup comandi ─────────────────────────────────────────────────────────────
 def setup_usura_commands(bot):
 
     # ── /pulisci-arma ─────────────────────────────────────────────────────────
     async def _ac_pulisci(interaction: discord.Interaction, current: str):
-        uid   = str(interaction.user.id)
-        armi  = await get_armi_inventario(uid)
+        uid  = str(interaction.user.id)
+        armi = await get_armi_con_usura(uid)
         scelte = []
-        for arma in armi:
-            usura = await get_usura(uid, arma)
-            if usura < 100:
-                label = f"{arma} ({usura}%)"[:100]
-                scelte.append(app_commands.Choice(name=label, value=arma))
+        for a in armi:
+            if a["usura"] < 100:
+                label = f"{a['item_name']} ({a['usura']}%)"[:100]
+                scelte.append(app_commands.Choice(name=label, value=a["item_name"]))
         return [c for c in scelte if current.lower() in c.name.lower()][:25]
 
     @bot.tree.command(name="pulisci-arma", description="Pulisci un'arma dalla bisaccia per ripristinare l'usura")
-    @app_commands.describe(arma="L'arma da pulire (solo quelle sotto 100%)")
+    @app_commands.describe(arma="L'arma da pulire")
     @app_commands.autocomplete(arma=_ac_pulisci)
     async def pulisci_arma(interaction: discord.Interaction, arma: str):
+        await interaction.response.defer(ephemeral=True)
         uid  = str(interaction.user.id)
         tipo = _tipo_arma(arma)
+
         if not tipo:
-            await interaction.response.send_message("❌ Quest'arma non è nel sistema usura.", ephemeral=True)
+            await interaction.followup.send("❌ Quest'arma non è nel sistema usura.", ephemeral=True)
             return
 
-        # Verifica che abbia l'arma
         async with aiosqlite.connect(DATABASE_NAME) as db:
             async with db.execute(
                 "SELECT quantity FROM inventory WHERE user_id=? AND item_name=?",
@@ -306,10 +284,14 @@ def setup_usura_commands(bot):
             ) as c:
                 row = await c.fetchone()
         if not row or row[0] < 1:
-            await interaction.response.send_message(f"❌ Non hai **{arma}** nella bisaccia.", ephemeral=True)
+            await interaction.followup.send(f"❌ Non hai **{arma}** nella bisaccia.", ephemeral=True)
             return
 
-        # Verifica item pulizia
+        usura_attuale = await get_usura(uid, arma)
+        if usura_attuale >= 100:
+            await interaction.followup.send(f"✅ **{arma}** è già al 100% di usura.", ephemeral=True)
+            return
+
         item_p = _item_pulizia(tipo)
         async with aiosqlite.connect(DATABASE_NAME) as db:
             async with db.execute(
@@ -318,28 +300,18 @@ def setup_usura_commands(bot):
             ) as c:
                 row_p = await c.fetchone()
         if not row_p or row_p[0] < 1:
-            nome_item = "Olio per Armi" if tipo == "fuoco" else "Cote"
-            await interaction.response.send_message(
-                f"❌ Hai bisogno di **{item_p}** per pulire quest'arma.\n"
-                f"Acquistalo dall'emporio.",
+            await interaction.followup.send(
+                f"❌ Hai bisogno di **{item_p}** per pulire quest'arma.\nAcquistalo dall'emporio.",
                 ephemeral=True
             )
             return
 
-        usura_vecchia = await get_usura(uid, arma)
-        if usura_vecchia >= 100:
-            await interaction.response.send_message(f"✅ **{arma}** è già al 100% di usura.", ephemeral=True)
-            return
-
-        # Consuma item pulizia
         async with aiosqlite.connect(DATABASE_NAME) as db:
             await db.execute(
                 "UPDATE inventory SET quantity=quantity-1 WHERE user_id=? AND item_name=?",
                 (uid, item_p)
             )
             await db.commit()
-
-        # Ripristina usura
         await set_usura(uid, arma, 100)
 
         embed = discord.Embed(
@@ -348,21 +320,20 @@ def setup_usura_commands(bot):
             timestamp=discord.utils.utcnow()
         )
         embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
-        embed.add_field(name="🔫 Arma",         value=arma,              inline=False)
-        embed.add_field(name="⚙️ Usura prima",  value=_barra(usura_vecchia), inline=True)
-        embed.add_field(name="✅ Usura dopo",   value=_barra(100),       inline=True)
-        embed.add_field(name="🧴 Usato",        value=item_p,            inline=False)
+        embed.add_field(name="🔫 Arma",       value=arma,                  inline=False)
+        embed.add_field(name="⚙️ Prima",      value=_barra(usura_attuale), inline=True)
+        embed.add_field(name="✅ Dopo",       value=_barra(100),            inline=True)
+        embed.add_field(name="🧴 Utilizzato", value=item_p,                inline=False)
         embed.set_footer(text="🤠 Red Dead Redemption II — Sistema Usura")
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed, ephemeral=True)
 
-        # Log
         try:
             ch = bot.get_channel(LOG_CHANNEL_ID)
             if ch:
                 log = discord.Embed(title="🔧 LOG — Arma Pulita", color=discord.Color.green(), timestamp=discord.utils.utcnow())
-                log.add_field(name="👤 Utente", value=interaction.user.mention, inline=True)
-                log.add_field(name="🔫 Arma",   value=arma,                     inline=True)
-                log.add_field(name="📈 Usura",  value=f"{usura_vecchia}% → 100%", inline=True)
+                log.add_field(name="👤 Utente", value=interaction.user.mention,    inline=True)
+                log.add_field(name="🔫 Arma",   value=arma,                        inline=True)
+                log.add_field(name="📈 Usura",  value=f"{usura_attuale}% → 100%",  inline=True)
                 await ch.send(embed=log)
         except Exception:
             pass
@@ -370,38 +341,42 @@ def setup_usura_commands(bot):
     # ── /visualizza-stato-arma ────────────────────────────────────────────────
     @bot.tree.command(name="visualizza-stato-arma", description="Visualizza l'usura delle tue armi")
     async def visualizza_stato_arma(interaction: discord.Interaction):
-        uid  = str(interaction.user.id)
-        armi = await get_armi_inventario(uid)
+        await interaction.response.defer(ephemeral=True)
+        uid        = str(interaction.user.id)
+        armi_usura = await get_armi_con_usura(uid)
 
-        if not armi:
-            await interaction.response.send_message(
-                "❌ Non hai armi nella bisaccia.", ephemeral=True
-            )
+        if not armi_usura:
+            await interaction.followup.send("❌ Non hai armi nella bisaccia.", ephemeral=True)
             return
 
-        # Costruisce le opzioni del menu
-        options = []
-        for arma in armi[:25]:
-            usura = await get_usura(uid, arma)
-            label = f"{arma} — {usura}%"[:100]
-            options.append(discord.SelectOption(label=label, value=arma))
+        embed_ini = discord.Embed(
+            title="🔫 𝐒𝐭𝐚𝐭𝐨 𝐀𝐫𝐦𝐢",
+            description="Seleziona un'arma dal menu per i dettagli.",
+            color=discord.Color(0x8B4513),
+            timestamp=discord.utils.utcnow()
+        )
+        embed_ini.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
+        righe = [f"{a['item_name']} — {_barra(a['usura'])}" for a in armi_usura[:25]]
+        embed_ini.add_field(name="📋 Le tue armi", value="\n".join(righe), inline=False)
+        embed_ini.set_footer(text="🤠 Red Dead Redemption II — Sistema Usura")
+
+        options = [
+            discord.SelectOption(
+                label=f"{a['item_name']} — {a['usura']}%"[:100],
+                value=a["item_name"]
+            )
+            for a in armi_usura[:25]
+        ]
 
         class ArmaSelect(discord.ui.Select):
             def __init__(self_s):
-                super().__init__(
-                    placeholder="Seleziona un'arma...",
-                    options=options,
-                    min_values=1,
-                    max_values=1
-                )
+                super().__init__(placeholder="Seleziona un'arma per i dettagli...", options=options)
 
             async def callback(self_s, itr: discord.Interaction):
+                await itr.response.defer(ephemeral=True)
                 arma_sel = self_s.values[0]
                 tipo_sel = _tipo_arma(arma_sel)
                 usura    = await get_usura(uid, arma_sel)
-                item_p   = _item_pulizia(tipo_sel) if tipo_sel else "—"
-                calo_g   = _calo_24h(tipo_sel) if tipo_sel else 0
-                calo_p   = _calo_passaggio(tipo_sel) if tipo_sel else 0
 
                 embed = discord.Embed(
                     title="🔫 𝐒𝐭𝐚𝐭𝐨 𝐀𝐫𝐦𝐚",
@@ -409,38 +384,19 @@ def setup_usura_commands(bot):
                     timestamp=discord.utils.utcnow()
                 )
                 embed.set_author(name=itr.user.display_name, icon_url=itr.user.display_avatar.url)
-                embed.add_field(name="🔫 Arma",           value=arma_sel,          inline=False)
-                embed.add_field(name="⚙️ Usura",          value=_barra(usura),     inline=False)
-                embed.add_field(name="📉 Calo ogni 24h",  value=f"-{calo_g}%",     inline=True)
-                embed.add_field(name="🤝 Calo passaggio", value=f"-{calo_p}%",     inline=True)
-                embed.add_field(name="🧴 Per pulire",     value=item_p,            inline=True)
+                embed.add_field(name="🔫 Arma",           value=arma_sel,                   inline=False)
+                embed.add_field(name="⚙️ Usura",          value=_barra(usura),              inline=False)
+                embed.add_field(name="📉 Calo ogni 24h",  value=f"-{_calo_24h(tipo_sel)}%", inline=True)
+                embed.add_field(name="🤝 Calo passaggio", value=f"-{_calo_passaggio(tipo_sel)}%", inline=True)
+                embed.add_field(name="🧴 Per pulire",     value=_item_pulizia(tipo_sel),    inline=True)
                 if usura <= 25:
-                    embed.add_field(
-                        name="⚠️ Avviso",
-                        value="Questa arma è in cattive condizioni! Puliscila presto.",
-                        inline=False
-                    )
+                    embed.add_field(name="⚠️ Avviso", value="Arma in cattive condizioni! Puliscila presto.", inline=False)
                 embed.set_footer(text="🤠 Red Dead Redemption II — Sistema Usura")
-                await itr.response.edit_message(embed=embed, view=ArmaView())
+                await itr.followup.send(embed=embed, ephemeral=True)
 
         class ArmaView(discord.ui.View):
             def __init__(self_v):
                 super().__init__(timeout=120)
                 self_v.add_item(ArmaSelect())
 
-        embed_ini = discord.Embed(
-            title="🔫 𝐒𝐭𝐚𝐭𝐨 𝐀𝐫𝐦𝐢",
-            description="Seleziona un'arma dal menu per vedere l'usura dettagliata.",
-            color=discord.Color(0x8B4513),
-            timestamp=discord.utils.utcnow()
-        )
-        embed_ini.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
-        # Anteprima rapida di tutte le armi
-        righe = []
-        for arma in armi[:25]:
-            usura = await get_usura(uid, arma)
-            righe.append(f"{arma} — {_barra(usura)}")
-        embed_ini.add_field(name="📋 Le tue armi", value="\n".join(righe), inline=False)
-        embed_ini.set_footer(text="🤠 Red Dead Redemption II — Sistema Usura")
-
-        await interaction.response.send_message(embed=embed_ini, view=ArmaView(), ephemeral=True)
+        await interaction.followup.send(embed=embed_ini, view=ArmaView(), ephemeral=True)

@@ -3,6 +3,7 @@ from discord import app_commands
 import database
 import aiosqlite
 from constants import DATABASE_NAME, has_staff, LOG_CHANNEL_ID
+from commands_usura import set_usura, _tipo_arma
 
 
 # ── Fuzzy match ───────────────────────────────────────────────────────────────
@@ -145,27 +146,44 @@ def setup_inventory_commands(bot):
         else:
             await interaction.response.send_message(embed=embed)
 
+    # Cache in memoria degli shop items — si aggiorna ogni volta che qualcuno
+    # usa l'autocomplete. Evita query DB al momento del click.
+    _shop_cache: dict = {}   # item_name → shop_item dict
+
+    async def _shop_autocomplete_sell(interaction: discord.Interaction, current: str):
+        items = await database.get_shop_items()
+        # Aggiorna cache
+        for it in items:
+            _shop_cache[it["item_name"]] = it
+        names = [i["item_name"] for i in items]
+        matches = _fuzzy(current, names)
+        return [app_commands.Choice(name=m, value=m) for m in matches[:25]]
+
     # ── /item-sell ────────────────────────────────────────────────────────────
     @bot.tree.command(name="item-sell", description="Acquista uno o più item dall'emporio")
     @app_commands.describe(item="L'item da acquistare", quantita="Quantità")
-    @app_commands.autocomplete(item=_shop_autocomplete)
+    @app_commands.autocomplete(item=_shop_autocomplete_sell)
     async def item_sell(interaction: discord.Interaction, item: str, quantita: int = 1):
-        # defer SUBITO — evita timeout Discord durante le query DB
-        await interaction.response.defer(ephemeral=True)
+        # Risposta IMMEDIATA — nessuna query DB qui
+        uid = str(interaction.user.id)
 
         if quantita < 1:
-            await interaction.followup.send("❌ La quantità deve essere almeno 1.", ephemeral=True)
+            await interaction.response.send_message("❌ La quantità deve essere almeno 1.", ephemeral=True)
             return
 
-        shop_item = await database.get_shop_item(item)
+        # Prova prima dalla cache (già caricata durante autocomplete)
+        shop_item = _shop_cache.get(item)
+
+        # Se non è in cache (es. scritto a mano) cerca con fuzzy
         if not shop_item:
-            all_items = await database.get_shop_items()
-            matches = _fuzzy(item, [i["item_name"] for i in all_items])
+            names = list(_shop_cache.keys())
+            matches = _fuzzy(item, names)
             if matches:
-                shop_item = await database.get_shop_item(matches[0])
+                shop_item = _shop_cache.get(matches[0])
+
         if not shop_item:
-            await interaction.followup.send(
-                "❌ Item non trovato nell'emporio. Controlla `/listino-emporio`.", ephemeral=True
+            await interaction.response.send_message(
+                "❌ Item non trovato. Usa l'autocomplete per scegliere un item valido.", ephemeral=True
             )
             return
 
@@ -173,36 +191,71 @@ def setup_inventory_commands(bot):
         if role_id:
             if not isinstance(interaction.user, discord.Member) or \
                not any(r.id == role_id for r in interaction.user.roles):
-                await interaction.followup.send(
+                await interaction.response.send_message(
                     f"❌ Per acquistare **{shop_item['item_name']}** devi avere il ruolo <@&{role_id}>.",
                     ephemeral=True
                 )
                 return
 
-        totale = shop_item["price"] * quantita
-        user   = await database.get_user(str(interaction.user.id))
-        if user["cash"] < totale:
-            await interaction.followup.send(
-                f"❌ Contanti insufficienti!\nCosto: **${totale:,}** — Tuoi: **${user['cash']:,}**",
-                ephemeral=True
-            )
-            return
+        # Mostra pulsante conferma — ancora nessuna query DB
+        totale    = shop_item["price"] * quantita
+        nome_item = shop_item["item_name"]
 
-        await database.update_balance(str(interaction.user.id), cash=user["cash"] - totale)
-        await database.add_item(str(interaction.user.id), shop_item["item_name"], quantita)
-        # Se è un'arma, inizializza l'usura al 100%
-        from commands_usura import set_usura, _tipo_arma
-        if _tipo_arma(shop_item["item_name"]):
-            await set_usura(str(interaction.user.id), shop_item["item_name"], 100)
+        embed = discord.Embed(
+            title="🛒 Conferma Acquisto",
+            color=discord.Color(0xDAA520),
+            timestamp=discord.utils.utcnow()
+        )
+        embed.add_field(name="📦 Item",      value=nome_item,      inline=True)
+        embed.add_field(name="🔢 Quantità",  value=str(quantita),  inline=True)
+        embed.add_field(name="💵 Costo tot.", value=f"${totale:,}", inline=True)
+        embed.set_footer(text="🤠 Premi Conferma per acquistare")
 
-        embed = discord.Embed(title="🛒 𝐀𝐜𝐪𝐮𝐢𝐬𝐭𝐨 𝐂𝐨𝐦𝐩𝐥𝐞𝐭𝐚𝐭𝐨", color=discord.Color(0x8B4513),
-                              timestamp=discord.utils.utcnow())
-        embed.add_field(name="📦 Item",     value=shop_item["item_name"],      inline=True)
-        embed.add_field(name="🔢 Quantità", value=str(quantita),               inline=True)
-        embed.add_field(name="💵 Pagato",   value=f"${totale:,}",              inline=True)
-        embed.add_field(name="💰 Rimasto",  value=f"${user['cash']-totale:,}", inline=True)
-        embed.set_footer(text="🤠 Red Dead Redemption II — Emporio")
-        await interaction.followup.send(embed=embed, ephemeral=True)
+        class ConfermaBuy(discord.ui.View):
+            def __init__(self_v):
+                super().__init__(timeout=60)
+                self_v.done = False
+
+            @discord.ui.button(label="✅ Conferma", style=discord.ButtonStyle.success)
+            async def conferma(self_v, itr: discord.Interaction, btn: discord.ui.Button):
+                if self_v.done:
+                    return
+                self_v.done = True
+                self_v.disable_all_items()
+                # Qui facciamo le query DB — dentro il click del pulsante,
+                # quindi abbiamo 3 secondi freschi dal click
+                await itr.response.defer(ephemeral=True)
+                user_data = await database.get_user(uid)
+                if user_data["cash"] < totale:
+                    await itr.followup.send(
+                        f"❌ Contanti insufficienti! Hai **${user_data['cash']:,}** ma servono **${totale:,}**.",
+                        ephemeral=True
+                    )
+                    return
+                await database.update_balance(uid, cash=user_data["cash"] - totale)
+                await database.add_item(uid, nome_item, quantita)
+                if _tipo_arma(nome_item):
+                    await set_usura(uid, nome_item, 100)
+
+                ok = discord.Embed(
+                    title="✅ 𝐀𝐜𝐪𝐮𝐢𝐬𝐭𝐨 𝐂𝐨𝐦𝐩𝐥𝐞𝐭𝐚𝐭𝐨",
+                    color=discord.Color(0x8B4513),
+                    timestamp=discord.utils.utcnow()
+                )
+                ok.add_field(name="📦 Item",      value=nome_item,                      inline=True)
+                ok.add_field(name="🔢 Quantità",  value=str(quantita),                  inline=True)
+                ok.add_field(name="💵 Pagato",    value=f"${totale:,}",                 inline=True)
+                ok.add_field(name="💰 Rimasto",   value=f"${user_data['cash']-totale:,}", inline=True)
+                ok.set_footer(text="🤠 Red Dead Redemption II — Emporio")
+                await itr.followup.send(embed=ok, ephemeral=True)
+
+            @discord.ui.button(label="❌ Annulla", style=discord.ButtonStyle.danger)
+            async def annulla(self_v, itr: discord.Interaction, btn: discord.ui.Button):
+                self_v.done = True
+                self_v.disable_all_items()
+                await itr.response.edit_message(content="❌ Acquisto annullato.", embed=None, view=None)
+
+        await interaction.response.send_message(embed=embed, view=ConfermaBuy(), ephemeral=True)
 
     # ── /crea-item ────────────────────────────────────────────────────────────
     @bot.tree.command(name="crea-item", description="[Staff] Crea un nuovo item nell'emporio")

@@ -373,7 +373,6 @@ def setup_usura_commands(bot):
                 super().__init__(placeholder="Seleziona un'arma per i dettagli...", options=options)
 
             async def callback(self_s, itr: discord.Interaction):
-                await itr.response.defer(ephemeral=True)
                 arma_sel = self_s.values[0]
                 tipo_sel = _tipo_arma(arma_sel)
                 usura    = await get_usura(uid, arma_sel)
@@ -384,15 +383,16 @@ def setup_usura_commands(bot):
                     timestamp=discord.utils.utcnow()
                 )
                 embed.set_author(name=itr.user.display_name, icon_url=itr.user.display_avatar.url)
-                embed.add_field(name="🔫 Arma",           value=arma_sel,                   inline=False)
-                embed.add_field(name="⚙️ Usura",          value=_barra(usura),              inline=False)
-                embed.add_field(name="📉 Calo ogni 24h",  value=f"-{_calo_24h(tipo_sel)}%", inline=True)
+                embed.add_field(name="🔫 Arma",           value=arma_sel,                        inline=False)
+                embed.add_field(name="⚙️ Usura",          value=_barra(usura),                   inline=False)
+                embed.add_field(name="📉 Calo ogni 24h",  value=f"-{_calo_24h(tipo_sel)}%",      inline=True)
                 embed.add_field(name="🤝 Calo passaggio", value=f"-{_calo_passaggio(tipo_sel)}%", inline=True)
-                embed.add_field(name="🧴 Per pulire",     value=_item_pulizia(tipo_sel),    inline=True)
+                embed.add_field(name="🧴 Per pulire",     value=_item_pulizia(tipo_sel),         inline=True)
                 if usura <= 25:
                     embed.add_field(name="⚠️ Avviso", value="Arma in cattive condizioni! Puliscila presto.", inline=False)
                 embed.set_footer(text="🤠 Red Dead Redemption II — Sistema Usura")
-                await itr.followup.send(embed=embed, ephemeral=True)
+                # edit_message: modifica il messaggio esistente senza aprirne uno nuovo
+                await itr.response.edit_message(embed=embed, view=ArmaView())
 
         class ArmaView(discord.ui.View):
             def __init__(self_v):

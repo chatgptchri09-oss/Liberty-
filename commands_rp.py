@@ -32,6 +32,7 @@ def _ora_italia(dt: datetime) -> str:
         offset = 1
     return (dt + timedelta(hours=offset)).strftime("%H:%M")
 import math
+from commands_usura import applica_calo_passaggio
 from constants import (
     LOG_CHANNEL_ID, DATABASE_NAME, STAFF_ROLES, STAFF_ROLE_ID,
     SCERIFFO_ROLE_ID, DOTTORE_ROLE_ID, ARMIERE_ROLE_ID,
@@ -306,8 +307,6 @@ def setup_rp_commands(bot):
         if not await database.remove_item(str(interaction.user.id), item, quantita):
             await interaction.response.send_message(f"❌ Non hai abbastanza **{item}**.", ephemeral=True); return
         await database.add_item(str(giocatore.id), item, quantita)
-        # Calo usura al passaggio (solo armi)
-        from commands_usura import applica_calo_passaggio
         await applica_calo_passaggio(bot, str(interaction.user.id), item)
         embed = discord.Embed(title="🤝 𝐈𝐭𝐞𝐦 𝐂𝐨𝐧𝐬𝐞𝐠𝐧𝐚𝐭𝐨", color=discord.Color(0x8B4513), timestamp=discord.utils.utcnow())
         embed.add_field(name="📦 Item",     value=item,                     inline=True)

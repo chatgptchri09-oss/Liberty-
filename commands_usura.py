@@ -341,62 +341,91 @@ def setup_usura_commands(bot):
     # ── /visualizza-stato-arma ────────────────────────────────────────────────
     @bot.tree.command(name="visualizza-stato-arma", description="Visualizza l'usura delle tue armi")
     async def visualizza_stato_arma(interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
-        uid        = str(interaction.user.id)
-        armi_usura = await get_armi_con_usura(uid)
+        # Risposta IMMEDIATA — carica tutto subito in una query sola
+        uid = str(interaction.user.id)
 
-        if not armi_usura:
-            await interaction.followup.send("❌ Non hai armi nella bisaccia.", ephemeral=True)
-            return
+        # Una singola query che prende inventario + usura in join
+        async with aiosqlite.connect(DATABASE_NAME) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                """SELECT i.item_name,
+                          COALESCE(w.usura, 100) as usura
+                   FROM inventory i
+                   LEFT JOIN weapon_durability w
+                          ON w.user_id = i.user_id AND w.item_name = i.item_name
+                   WHERE i.user_id = ? AND i.quantity > 0""",
+                (uid,)
+            ) as c:
+                rows = await c.fetchall()
 
-        embed_ini = discord.Embed(
-            title="🔫 𝐒𝐭𝐚𝐭𝐨 𝐀𝐫𝐦𝐢",
-            description="Seleziona un'arma dal menu per i dettagli.",
-            color=discord.Color(0x8B4513),
-            timestamp=discord.utils.utcnow()
-        )
-        embed_ini.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
-        righe = [f"{a['item_name']} — {_barra(a['usura'])}" for a in armi_usura[:25]]
-        embed_ini.add_field(name="📋 Le tue armi", value="\n".join(righe), inline=False)
-        embed_ini.set_footer(text="🤠 Red Dead Redemption II — Sistema Usura")
-
-        options = [
-            discord.SelectOption(
-                label=f"{a['item_name']} — {a['usura']}%"[:100],
-                value=a["item_name"]
-            )
-            for a in armi_usura[:25]
+        armi_usura = [
+            {"item_name": r["item_name"], "usura": r["usura"]}
+            for r in rows if r["item_name"] in ALL_ARMI
         ]
 
-        class ArmaSelect(discord.ui.Select):
-            def __init__(self_s):
-                super().__init__(placeholder="Seleziona un'arma per i dettagli...", options=options)
+        if not armi_usura:
+            await interaction.response.send_message(
+                "❌ Non hai armi nella bisaccia.", ephemeral=True
+            )
+            return
 
-            async def callback(self_s, itr: discord.Interaction):
-                arma_sel = self_s.values[0]
-                tipo_sel = _tipo_arma(arma_sel)
-                usura    = await get_usura(uid, arma_sel)
+        # Tutto pronto — risposta immediata con pulsanti
+        PER_PAG = 5
+        tot_pag = max(1, -(-len(armi_usura) // PER_PAG))
 
-                embed = discord.Embed(
-                    title="🔫 𝐒𝐭𝐚𝐭𝐨 𝐀𝐫𝐦𝐚",
-                    color=_colore_usura(usura),
-                    timestamp=discord.utils.utcnow()
+        def _build_embed(pagina: int) -> discord.Embed:
+            embed = discord.Embed(
+                title="🔫 𝐒𝐭𝐚𝐭𝐨 𝐀𝐫𝐦𝐢",
+                color=discord.Color(0x8B4513),
+                timestamp=discord.utils.utcnow()
+            )
+            embed.set_author(
+                name=interaction.user.display_name,
+                icon_url=interaction.user.display_avatar.url
+            )
+            slice_ = armi_usura[pagina * PER_PAG:(pagina + 1) * PER_PAG]
+            for a in slice_:
+                tipo = _tipo_arma(a["item_name"])
+                calo_g = _calo_24h(tipo) if tipo else 0
+                calo_p = _calo_passaggio(tipo) if tipo else 0
+                puliz  = _item_pulizia(tipo) if tipo else "—"
+                avviso = " ⚠️" if a["usura"] <= 25 else ""
+                embed.add_field(
+                    name=f"{a['item_name']}{avviso}",
+                    value=(
+                        f"{_barra(a['usura'])}\n"
+                        f"📉 -{calo_g}%/giorno  🤝 -{calo_p}% passaggio  🧴 {puliz}"
+                    ),
+                    inline=False
                 )
-                embed.set_author(name=itr.user.display_name, icon_url=itr.user.display_avatar.url)
-                embed.add_field(name="🔫 Arma",           value=arma_sel,                        inline=False)
-                embed.add_field(name="⚙️ Usura",          value=_barra(usura),                   inline=False)
-                embed.add_field(name="📉 Calo ogni 24h",  value=f"-{_calo_24h(tipo_sel)}%",      inline=True)
-                embed.add_field(name="🤝 Calo passaggio", value=f"-{_calo_passaggio(tipo_sel)}%", inline=True)
-                embed.add_field(name="🧴 Per pulire",     value=_item_pulizia(tipo_sel),         inline=True)
-                if usura <= 25:
-                    embed.add_field(name="⚠️ Avviso", value="Arma in cattive condizioni! Puliscila presto.", inline=False)
-                embed.set_footer(text="🤠 Red Dead Redemption II — Sistema Usura")
-                # edit_message: modifica il messaggio esistente senza aprirne uno nuovo
-                await itr.response.edit_message(embed=embed, view=ArmaView())
+            embed.set_footer(text=f"🤠 Red Dead Redemption II — Usura | Pagina {pagina+1}/{tot_pag}")
+            return embed
 
-        class ArmaView(discord.ui.View):
-            def __init__(self_v):
+        class UsuraView(discord.ui.View):
+            def __init__(self_v, p: int = 0):
                 super().__init__(timeout=120)
-                self_v.add_item(ArmaSelect())
+                self_v.p = p
+                self_v._aggiorna()
 
-        await interaction.followup.send(embed=embed_ini, view=ArmaView(), ephemeral=True)
+            def _aggiorna(self_v):
+                self_v.prev_btn.disabled = self_v.p == 0
+                self_v.next_btn.disabled = self_v.p >= tot_pag - 1
+
+            @discord.ui.button(label="⬅️", style=discord.ButtonStyle.primary)
+            async def prev_btn(self_v, itr: discord.Interaction, btn):
+                self_v.p -= 1
+                self_v._aggiorna()
+                await itr.response.edit_message(embed=_build_embed(self_v.p), view=self_v)
+
+            @discord.ui.button(label="➡️", style=discord.ButtonStyle.primary)
+            async def next_btn(self_v, itr: discord.Interaction, btn):
+                self_v.p += 1
+                self_v._aggiorna()
+                await itr.response.edit_message(embed=_build_embed(self_v.p), view=self_v)
+
+        view = UsuraView(0) if tot_pag > 1 else discord.ui.View(timeout=120)
+        await interaction.response.send_message(
+            embed=_build_embed(0),
+            view=view,
+            ephemeral=True
+        )

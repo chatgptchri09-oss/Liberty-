@@ -347,25 +347,37 @@ def setup_usura_commands(bot):
         try:
             async with aiosqlite.connect(DATABASE_NAME) as db:
                 db.row_factory = aiosqlite.Row
+                await db.execute("""
+                    CREATE TABLE IF NOT EXISTS weapon_durability (
+                        user_id TEXT NOT NULL, item_name TEXT NOT NULL,
+                        usura INTEGER DEFAULT 100, PRIMARY KEY (user_id, item_name)
+                    )
+                """)
+                await db.commit()
                 async with db.execute(
-                    """SELECT i.item_name,
-                              COALESCE(w.usura, 100) as usura
-                       FROM inventory i
-                       LEFT JOIN weapon_durability w
-                              ON w.user_id = i.user_id AND w.item_name = i.item_name
-                       WHERE i.user_id = ? AND i.quantity > 0""",
+                    "SELECT item_name FROM inventory WHERE user_id=? AND quantity>0",
                     (uid,)
                 ) as c:
-                    rows = await c.fetchall()
-            print(f"[vis-arma] query ok, righe={len(rows)}", flush=True)
+                    inv_rows = await c.fetchall()
+                armi_nomi = [r["item_name"] for r in inv_rows if r["item_name"] in ALL_ARMI]
+                usura_map = {}
+                if armi_nomi:
+                    ph = ",".join("?" for _ in armi_nomi)
+                    async with db.execute(
+                        f"SELECT item_name, usura FROM weapon_durability WHERE user_id=? AND item_name IN ({ph})",
+                        (uid, *armi_nomi)
+                    ) as c2:
+                        for r in await c2.fetchall():
+                            usura_map[r["item_name"]] = r["usura"]
+            print(f"[vis-arma] query ok, armi={len(armi_nomi)}", flush=True)
         except Exception as e:
             print(f"[vis-arma] ERRORE query: {e}", flush=True)
             await interaction.response.send_message("❌ Errore interno. Riprova.", ephemeral=True)
             return
 
         armi_usura = [
-            {"item_name": r["item_name"], "usura": r["usura"]}
-            for r in rows if r["item_name"] in ALL_ARMI
+            {"item_name": a, "usura": usura_map.get(a, 100)}
+            for a in armi_nomi
         ]
         print(f"[vis-arma] armi trovate={len(armi_usura)}", flush=True)
 

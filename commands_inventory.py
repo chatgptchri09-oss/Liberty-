@@ -3,7 +3,6 @@ from discord import app_commands
 import database
 import aiosqlite
 from constants import DATABASE_NAME, has_staff, LOG_CHANNEL_ID
-from commands_usura import set_usura, _tipo_arma
 
 
 # ── Fuzzy match ───────────────────────────────────────────────────────────────
@@ -200,9 +199,13 @@ def setup_inventory_commands(bot):
         print(f"[item-sell] acquisto...", flush=True)
         await database.update_balance(uid, cash=user_data["cash"] - totale)
         await database.add_item(uid, nome_item, quantita)
-        if _tipo_arma(nome_item):
-            print(f"[item-sell] set_usura arma...", flush=True)
-            await set_usura(uid, nome_item, 100)
+        try:
+            import commands_usura as _cu
+            if _cu._tipo_arma(nome_item):
+                print(f"[item-sell] set_usura arma...", flush=True)
+                await _cu.set_usura(uid, nome_item, 100)
+        except Exception as e:
+            print(f"[item-sell] usura skip (non critico): {e}", flush=True)
 
         print(f"[item-sell] OK, invio embed", flush=True)
         embed = discord.Embed(

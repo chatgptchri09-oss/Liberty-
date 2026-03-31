@@ -342,10 +342,10 @@ def setup_admin_commands(bot):
         color    = discord.Color.green() if positivo else discord.Color.red()
 
         TITOLI = {
-            "bg_positivo": "✅ 𝐁𝐚𝐜𝐤𝐠𝐫𝐨𝐮𝐧𝐝 𝐏𝐨𝐬𝐢𝐭𝐢𝐯𝐨",
-            "bg_negativo": "❌ 𝐁𝐚𝐜𝐤𝐠𝐫𝐨𝐮𝐧𝐝 𝐍𝐞𝐠𝐚𝐭𝐢𝐯𝐨",
-            "wl_positiva": "✅ 𝐖𝐡𝐢𝐭𝐞𝐥𝐢𝐬𝐭 𝐏𝐨𝐬𝐢𝐭𝐢𝐯𝐚",
-            "wl_negativa": "❌ 𝐖𝐡𝐢𝐭𝐞𝐥𝐢𝐬𝐭 𝐍𝐞𝐠𝐚𝐭𝐢𝐯𝐚",
+            "bg_positivo": "✅ 𝐁𝐚𝐜𝐤𝐠𝐫𝐨𝐮𝐧𝐝 𝐀𝐜𝐜𝐞𝐭𝐭𝐚𝐭𝐨",
+            "bg_negativo": "❌ 𝐁𝐚𝐜𝐤𝐠𝐫𝐨𝐮𝐧𝐝 𝐑𝐢𝐟𝐢𝐮𝐭𝐚𝐭𝐨 ",
+            "wl_positiva": "✅ 𝐖𝐡𝐢𝐭𝐞𝐥𝐢𝐬𝐭 𝐀𝐜𝐜𝐞𝐭𝐭𝐚𝐭𝐚 ",
+            "wl_negativa": "❌ 𝐖𝐡𝐢𝐭𝐞𝐥𝐢𝐬𝐭 𝐑𝐢𝐟𝐢𝐮𝐭𝐚𝐭𝐚  ",
         }
 
         embed = discord.Embed(title=TITOLI[esito], color=color, timestamp=discord.utils.utcnow())
@@ -360,7 +360,7 @@ def setup_admin_commands(bot):
         # Menzione sopra l'embed per notifica
         await interaction.followup.send(content=giocatore.mention, embed=embed)
 
-        # Assegna ruoli
+        # Assegna/rimuovi ruoli
         guild = interaction.guild
         if guild:
             try:
@@ -369,9 +369,14 @@ def setup_admin_commands(bot):
                     if r: await giocatore.add_roles(r, reason="Background Positivo")
 
                 elif esito == "wl_positiva":
+                    # Aggiunge i ruoli WL positiva
                     for rid in WL_POSITIVA_ROLES:
                         r = guild.get_role(rid)
                         if r: await giocatore.add_roles(r, reason="Whitelist Positiva")
+                    # Rimuove il ruolo BG Positivo
+                    bg_role = guild.get_role(BG_POSITIVO_ROLE_ID)
+                    if bg_role: await giocatore.remove_roles(bg_role, reason="Whitelist Positiva — rimozione BG Positivo")
+                    # Aggiunge ruolo sesso
                     if sesso == "uomo":
                         r = guild.get_role(SESSO_UOMO_ROLE_ID)
                         if r: await giocatore.add_roles(r, reason="Sesso: Uomo")

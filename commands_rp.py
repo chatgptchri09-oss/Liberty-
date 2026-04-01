@@ -112,7 +112,7 @@ def setup_rp_commands(bot):
         new_t  = max(0, user["thirst"] - t_drop)
         await database.update_hunger_thirst(uid, hunger=new_h, thirst=new_t)
         embed = discord.Embed(
-            description=f"*{interaction.user.display_name} {azione}*",
+            description=f"*{interaction.user.mention} {azione}*",
             color=_color(new_h, new_t),
             timestamp=discord.utils.utcnow()
         )
@@ -209,7 +209,7 @@ def setup_rp_commands(bot):
 
         all_items = await database.get_inventory(str(target.id))
         user      = await database.get_user(str(target.id))
-        titolo    = f"🎒 Bisaccia di {target.display_name}" if utente else "🎒 La tua Bisaccia"
+        titolo    = f"🎒 Bisaccia di {target.mention}" if utente else "🎒 La tua Bisaccia"
         B_PER_PAGE = 5
         tot = max(1, -(-len(all_items) // B_PER_PAGE))
 
@@ -222,7 +222,7 @@ def setup_rp_commands(bot):
             if not all_items:
                 embed.add_field(name="📦 Contenuto", value="*Bisaccia vuota.*", inline=False)
             else:
-                desc = "\n".join(f"**{i['item_name']}** — x{i['quantity']}" for i in page_items)
+                desc = "\n".join(f"** x{i['quantity']} {i['item_name']}** " for i in page_items)
                 embed.add_field(name="📦 Contenuto", value=desc, inline=False)
             embed.set_footer(text=f"🤠 Red Dead Redemption II — Bisaccia | Pagina {p+1}/{tot}")
             return embed
@@ -372,7 +372,7 @@ def setup_rp_commands(bot):
         }
 
         embed = discord.Embed(
-            title="🟢 𝐓𝐔𝐑𝐍𝐎 𝐈𝐍𝐈𝐙𝐈𝐀𝐓𝐎",
+            title="<a:online:1459627385702973572> 𝐓𝐔𝐑𝐍𝐎 𝐈𝐍𝐈𝐙𝐈𝐀𝐓𝐎 <a:online:1459627385702973572>",
             color=discord.Color.green(),
             timestamp=discord.utils.utcnow()
         )
@@ -427,7 +427,7 @@ def setup_rp_commands(bot):
 
         # ── Embed fine turno (nel canale corrente) ───────────────────────────
         embed_fine = discord.Embed(
-            title="🔴 𝐓𝐔𝐑𝐍𝐎 𝐓𝐄𝐑𝐌𝐈𝐍𝐀𝐓𝐎",
+            title="<a:offline:1459628872197738641> 𝐓𝐔𝐑𝐍𝐎 𝐓𝐄𝐑𝐌𝐈𝐍𝐀𝐓𝐎 <a:offline:1459628872197738641>",
             color=discord.Color.red(),
             timestamp=discord.utils.utcnow()
         )
@@ -493,10 +493,10 @@ def setup_rp_commands(bot):
     async def campeggio(interaction: discord.Interaction, azione: str, luogo: str = "", foto: discord.Attachment = None):
         if azione == "monta":
             title = "⛺ 𝐀𝐜𝐜𝐚𝐦𝐩𝐚𝐦𝐞𝐧𝐭𝐨 𝐌𝐨𝐧𝐭𝐚𝐭𝐨"
-            desc  = f"*{interaction.user.display_name} monta il proprio accampamento" + (f" a **{luogo}**.*" if luogo else ".*")
+            desc  = f"*{interaction.user.mention} monta il proprio accampamento" + (f" a **{luogo}**.*" if luogo else ".*")
         else:
             title = "🏕️ 𝐀𝐜𝐜𝐚𝐦𝐩𝐚𝐦𝐞𝐧𝐭𝐨 𝐒𝐦𝐨𝐧𝐭𝐚𝐭𝐨"
-            desc  = f"*{interaction.user.display_name} smonta il proprio accampamento" + (f" da **{luogo}**.*" if luogo else ".*")
+            desc  = f"*{interaction.user.mention} smonta il proprio accampamento" + (f" da **{luogo}**.*" if luogo else ".*")
         embed = discord.Embed(title=title, description=desc, color=discord.Color(0x556B2F), timestamp=discord.utils.utcnow())
         embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
         if foto and foto.content_type and foto.content_type.startswith("image/"):
@@ -592,23 +592,7 @@ def setup_rp_commands(bot):
         embed.set_footer(text="🤠 Red Dead Redemption II — Nascosto")
         await interaction.response.send_message(embed=embed)
 
-    # ── /sondaggiorp ─────────────────────────────────────────────────────────
-    @bot.tree.command(name="sondaggiorp", description="[Staff] Crea un sondaggio roleplay")
-    @app_commands.describe(domanda="La domanda", opzione1="Prima opzione", opzione2="Seconda opzione")
-    async def sondaggiorp(interaction: discord.Interaction, domanda: str, opzione1: str, opzione2: str):
-        if not isinstance(interaction.user, discord.Member) or \
-           not any(r.id in STAFF_ROLES for r in interaction.user.roles):
-            await interaction.response.send_message("❌ Non hai i permessi.", ephemeral=True); return
-        embed = discord.Embed(title="📜 𝐒𝐨𝐧𝐝𝐚𝐠𝐠𝐢𝐨 𝐑𝐨𝐥𝐞𝐩𝐥𝐚𝐲", description=f"**{domanda}**",
-                              color=discord.Color(0xDAA520), timestamp=discord.utils.utcnow())
-        embed.add_field(name="1️⃣ Opzione A", value=opzione1, inline=False)
-        embed.add_field(name="2️⃣ Opzione B", value=opzione2, inline=False)
-        embed.set_footer(text="🤠 Red Dead Redemption II — Sondaggio RP")
-        msg = await interaction.channel.send(embed=embed)
-        await msg.add_reaction("1️⃣")
-        await msg.add_reaction("2️⃣")
-        await interaction.response.send_message("✅ Sondaggio creato!", ephemeral=True)
-
+    # 
     # ── /lettera ─────────────────────────────────────────────────────────────
     @bot.tree.command(name="lettera", description="Invia una lettera privata a un altro giocatore")
     @app_commands.describe(destinatario="Il giocatore che riceverà la lettera")

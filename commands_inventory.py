@@ -24,7 +24,7 @@ ITEMS_PER_PAGE = 5
 # ── Helper embed emporio ──────────────────────────────────────────────────────
 def _build_shop_embed(page_items: list, page: int, tot: int) -> discord.Embed:
     embed = discord.Embed(
-        title="🏪 𝐄𝐦𝐩𝐨𝐫𝐢𝐨 𝐝𝐞𝐥 𝐅𝐚𝐫 𝐖𝐞𝐬𝐭",
+        title="🏪 𝐍𝐞𝐠𝐨𝐳𝐢𝐨 𝐝𝐞𝐥 𝐅𝐚𝐫 𝐖𝐞𝐬𝐭",
         description="Benvenuto, cowboy! Acquista con `/item-sell`." if page_items else "*L'emporio è vuoto per ora...*",
         color=discord.Color(0xDAA520),
         timestamp=discord.utils.utcnow()
@@ -135,7 +135,7 @@ def setup_inventory_commands(bot):
         return [app_commands.Choice(name=m, value=m) for m in matches[:25]]
 
     # ── /listino-emporio ──────────────────────────────────────────────────────
-    @bot.tree.command(name="listino-emporio", description="Visualizza il negozio degli item disponibili")
+    @bot.tree.command(name="negozio", description="Visualizza il negozio degli item disponibili")
     async def itemshop(interaction: discord.Interaction):
         all_items = await database.get_shop_items()
         tot = max(1, -(-len(all_items) // ITEMS_PER_PAGE))

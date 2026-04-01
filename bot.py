@@ -175,7 +175,7 @@ class ListaSelect(discord.ui.Select):
                 "`/vendibisaccia` — Vendi la tua bisaccia a un altro giocatore",
                 "`/dai-item` — Dai un item a un altro giocatore",
                 "`/utilizza-item` — Utilizza un item dalla bisaccia",
-                "`/listino-emporio` — Visualizza il listino dell'emporio",
+                "`/negozio` — Visualizza il listino dell'emporio",
                 "`/item-sell` — Acquista un item dall'emporio",
                 "`/inizio-turno` / `/fine-turno` — Registra turno di lavoro",
                 "`/campeggio` — Monta/smonta accampamento",
@@ -212,7 +212,7 @@ class ListaView(discord.ui.View):
 @bot.tree.command(name="lista-comandi", description="Visualizza tutti i comandi disponibili")
 async def lista_comandi(interaction: discord.Interaction):
     embed = discord.Embed(
-        title="📜 LISTA COMANDI — RED DEAD REDEMPTION II",
+        title="<:regolamento:1459626703411478560> LISTA COMANDI — COLORADO FULL RP <:regolamento:1459626703411478560>",
         description="Seleziona una categoria dal menu qui sotto.",
         color=discord.Color(0xDAA520), timestamp=discord.utils.utcnow()
     )

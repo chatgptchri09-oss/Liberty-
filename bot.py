@@ -165,6 +165,7 @@ class ListaSelect(discord.ui.Select):
                 "`/deposita-fondocassa` — Deposita nel fondo cassa",
                 "`/preleva-fondocassa` — Preleva dal fondo cassa",
                 "`/tiro-dadi` — Tira i dadi (gioco d'azzardo)",
+                "`/assegno` - Fornisci un assegno ad un utente",
             ]
         elif cat == "roleplay":
             embed = discord.Embed(title="🤠 COMANDI ROLEPLAY", color=discord.Color.purple())

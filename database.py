@@ -362,10 +362,29 @@ async def get_invoice(invoice_id: int) -> dict | None:
             row = await c.fetchone()
             return dict(row) if row else None
 
+async def get_invoices_by_user(user_id: str) -> list:
+    """Ritorna tutte le fatture NON pagate intestate a user_id."""
+    async with aiosqlite.connect(DATABASE_NAME) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM invoices WHERE to_user=? AND paid=0 ORDER BY id ASC",
+            (user_id,)
+        ) as c:
+            return [dict(r) for r in await c.fetchall()]
+
 async def pay_invoice(invoice_id: int):
     async with aiosqlite.connect(DATABASE_NAME) as db:
         await db.execute("UPDATE invoices SET paid=1 WHERE id=?", (invoice_id,))
         await db.commit()
+
+async def get_all_users_sorted() -> list:
+    """Ritorna tutti gli utenti reali ordinati per cash+bank decrescente (esclude STATO)."""
+    async with aiosqlite.connect(DATABASE_NAME) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT user_id, cash, bank FROM users WHERE user_id != 'STATO' ORDER BY (cash+bank) DESC"
+        ) as c:
+            return [dict(r) for r in await c.fetchall()]
 
 
 # ── FONDO CASSA ───────────────────────────────────────────────────────────────

@@ -42,7 +42,7 @@ def setup_invoice_commands(bot):
             dm = discord.Embed(
                 title="📜 Hai ricevuto una fattura!",
                 description=(
-                    f"**{interaction.user.display_name}** ti ha inviato una fattura di **${importo:,}**.\n\n"
+                    f"**{interaction.user.mention}** ti ha inviato una fattura di **${importo:,}**.\n\n"
                     f"**Servizio:** {descrizione}\n"
                     f"Usa `/pagafattura` con il numero **#{invoice_id}** per pagare."
                 ),

@@ -3,25 +3,16 @@ from discord import app_commands
 from discord.ext import commands
 import asyncio
 
-# ====================
-# COSTANTI
-# ====================
-AUTHORIZED_ROLE_ID = 1404051877212979302  # Ruolo autorizzato per /rpoff e /rpon
-CITIZEN_ROLE_ID = 1404052056028872775  # Ruolo cittadino da menzionare
-LOG_CHANNEL_ID = 1479158931610931414  # Canale di log
-
-# ====================
-# FUNZIONI DI SUPPORTO
-# ====================
+AUTHORIZED_ROLE_ID = 1404051877212979302
+CITIZEN_ROLE_ID = 1404052056028872775
+LOG_CHANNEL_ID = 1479158931610931414
 
 def has_role(interaction: discord.Interaction, role_id: int) -> bool:
-    """Verifica se l'utente ha un determinato ruolo."""
     if not isinstance(interaction.user, discord.Member):
         return False
     return any(role.id == role_id for role in interaction.user.roles)
 
 async def log_command(bot, channel_id: int, message: str = None, embed: discord.Embed = None):
-    """Invia un log nel canale specificato."""
     try:
         channel = bot.get_channel(channel_id)
         if channel and hasattr(channel, 'send'):
@@ -32,24 +23,13 @@ async def log_command(bot, channel_id: int, message: str = None, embed: discord.
     except Exception as e:
         print(f"Errore nel log: {e}")
 
-# ====================
-# COMANDI RP STATUS
-# ====================
-
 def setup_rpoff_commands(bot: commands.Bot):
-    """Registra i comandi RP Status."""
-    
+
     @bot.tree.command(name="rpoff", description="Termina la sessione di roleplay")
     async def rpoff(interaction: discord.Interaction):
-        # Controllo permessi
         if not has_role(interaction, AUTHORIZED_ROLE_ID):
-            await interaction.response.send_message(
-                "❌ Non hai i permessi per utilizzare questo comando!",
-                ephemeral=True
-            )
+            await interaction.response.send_message("❌ Non hai i permessi per utilizzare questo comando!", ephemeral=True)
             return
-        
-        # Creazione embed principale
         embed = discord.Embed(
             title="<a:offline:1459628872197738641> ROLEPLAY OFF",
             description=(
@@ -59,41 +39,24 @@ def setup_rpoff_commands(bot: commands.Bot):
             ),
             color=discord.Color.red()
         )
-        
-        # Aggiungi immagine (sostituisci con il tuo URL)
         embed.set_image(url="https://cdn.discordapp.com/attachments/1235599658928308264/1250595400226963527/ServerOff.gif?ex=6918667a&is=691714fa&hm=be7932a6069a0f969d08a7d17d61584ba0a23c3ce21c6399e56355909bf56a1e&")
         embed.set_footer(text="Colorado RP")
         embed.timestamp = discord.utils.utcnow()
-        
-        # Invia l'embed
         await interaction.response.send_message(embed=embed)
-        
-        # Ottieni il canale
         channel = interaction.channel
-        
-        # Invia i messaggi successivi con delay
         await asyncio.sleep(1)
         await channel.send("<@&1404052056028872775> LA SESSIONE È STATA CHIUSA GRAZIE A TUTTI PER AVER GIOCATO")
-        
         await asyncio.sleep(1)
         await channel.send("<@&1404052056028872775> TI ASPETTIAMO NELLA PROSSIMA SESSIONE!")
-        
         await asyncio.sleep(1)
         await channel.send("<@&1404052056028872775> NON PERDETEVI IL TURNO! TERMINA IL TUO CON `/fine-turno`")
-        
 
     @bot.tree.command(name="rpon", description="Avvia la sessione di roleplay")
     @app_commands.describe(idps4="L'ID PS4 dell'utente che avvia la sessione")
     async def rpon(interaction: discord.Interaction, idps4: str):
-        # Controllo permessi
         if not has_role(interaction, AUTHORIZED_ROLE_ID):
-            await interaction.response.send_message(
-                "❌ Non hai i permessi per utilizzare questo comando!",
-                ephemeral=True
-            )
+            await interaction.response.send_message("❌ Non hai i permessi per utilizzare questo comando!", ephemeral=True)
             return
-        
-        # Creazione embed principale
         embed = discord.Embed(
             title="<a:online:1459627385702973572> ROLEPLAY ON",
             description=(
@@ -103,44 +66,27 @@ def setup_rpoff_commands(bot: commands.Bot):
             ),
             color=discord.Color.green()
         )
-        
-        # Aggiungi immagine ROLEPLAY ON (sostituisci con il tuo URL)
         embed.set_image(url="https://cdn.discordapp.com/attachments/1235599658928308264/1250595400616771614/ServerOn.gif?ex=6918667a&is=691714fa&hm=040de693ddd56f45ef5ee93116185cad03061f91bf9a02b04b5eda504779cd22&")
         embed.set_footer(text="Colorado RP")
         embed.timestamp = discord.utils.utcnow()
-        
-        # Invia l'embed
         await interaction.response.send_message(embed=embed)
-        
-        # Ottieni il canale
         channel = interaction.channel
-        
-        # Primo messaggio: unisciti alla sessione con ID PS4
         await asyncio.sleep(1)
         await channel.send(f"<@&{CITIZEN_ROLE_ID}> Unisciti alla sessione di Roleplay! ID PS4: **{idps4}**")
-        
-        
-        
-        
-        
-        # Terzo messaggio: non perdetevi la sessione
         await asyncio.sleep(1)
         await channel.send(f"<@&{CITIZEN_ROLE_ID}> NON PERDETEVI LA SESSIONE! INIZIA IL TUO TURNO CON `/inizio-turno`")
 
     @bot.tree.command(name="sondaggiorp", description="Crea un sondaggio per la disponibilità al roleplay")
-    @app_commands.describe(orario="L'orario della sessione di roleplay (es. 21:30)")
-    async def sondaggiorp(interaction: discord.Interaction, orario: str):
-        # Controllo permessi
+    @app_commands.describe(
+        data="La data della sessione (es. 28/03)",
+        orario="L'orario della sessione di roleplay (es. 21:30)"
+    )
+    async def sondaggiorp(interaction: discord.Interaction, data: str, orario: str):
         if not has_role(interaction, AUTHORIZED_ROLE_ID):
-            await interaction.response.send_message(
-                "❌ Non hai i permessi per utilizzare questo comando!",
-                ephemeral=True
-            )
+            await interaction.response.send_message("❌ Non hai i permessi per utilizzare questo comando!", ephemeral=True)
             return
-        
-        # Creazione embed del sondaggio
         embed = discord.Embed(
-            title=f"🎭 Roleplay attivo alle ore {orario}?",
+            title=f"🎭 Roleplay attivo per {data} alle {orario}?",
             description=(
                 "Rispondi con una delle seguenti reazioni:\n\n"
                 "✅ **Sì**\n"
@@ -149,22 +95,13 @@ def setup_rpoff_commands(bot: commands.Bot):
                 "Non disponibile.\n\n"
                 "⏳ **Forse più tardi**\n"
                 "Potrei unirmi più tardi.\n\n"
-                
             ),
             color=discord.Color.green()
         )
         embed.set_footer(text="Reagisci con l'emoji corrispondente per indicare la tua disponibilità.")
         embed.timestamp = discord.utils.utcnow()
-        
-        # Invia l'embed DIRETTAMENTE come risposta al comando (così si vede chi lo usa)
         await interaction.response.send_message(content="<@&1404052056028872775>", embed=embed)
-        
-        # Recupera il messaggio per aggiungere le reazioni
         message = await interaction.original_response()
-        
-        # Aggiungi le reazioni automaticamente
         await message.add_reaction("✅")
         await message.add_reaction("❌")
         await message.add_reaction("⏳")
-        
-    

@@ -32,7 +32,6 @@ def _ora_italia(dt: datetime) -> str:
         offset = 1
     return (dt + timedelta(hours=offset)).strftime("%H:%M")
 import math
-from commands_usura import applica_calo_passaggio
 from constants import (
     LOG_CHANNEL_ID, DATABASE_NAME, STAFF_ROLES, STAFF_ROLE_ID,
     SCERIFFO_ROLE_ID, DOTTORE_ROLE_ID, ARMIERE_ROLE_ID,
@@ -55,6 +54,15 @@ FOOD_ITEMS = {
     "🍝 • Pasta al sugo":                             9,
     "🍝 • Pasta al pesto":                           10,
     "🥩 • Stufato di bistecca con verdure":          15,
+    "🥫 • Cibo in scatola":                           8,
+    "🍎 • Frutta":                                    6,
+    "🌽 • Verdura":                                   5,
+    "🧀 • Formaggio":                                10,
+    "🥚 • Uova":                                      7,
+    "🥩 • Salumi":                                   12,
+    "🍪 • Biscotti":                                  6,
+    "🥖 • Pane":                                      8,
+    "🍫 • Dolciumi":                                  5,
 }
 
 DRINK_ITEMS = {
@@ -63,11 +71,17 @@ DRINK_ITEMS = {
     "🍵 • Tè":          3,
     "☕ • Caffè":       2,
     "🥛 • Latte caldo": 4,
+    "🥃 • Rum":        12,
+    "🍶 • Gin":        10,
+    "🍹 • Brandy":     10,
 }
 
 ALCOHOLIC = {
     "🍺 • Birra",
     "🥃 • Whisky",
+    "🥃 • Rum",
+    "🍶 • Gin",
+    "🍹 • Brandy",
 }
 
 # ── Helper ────────────────────────────────────────────────────────────────────
@@ -112,11 +126,11 @@ def setup_rp_commands(bot):
         new_t  = max(0, user["thirst"] - t_drop)
         await database.update_hunger_thirst(uid, hunger=new_h, thirst=new_t)
         embed = discord.Embed(
-            description=f"*{interaction.user.mention} {azione}*",
+            description=f"*{interaction.user.display_name} {azione}*",
             color=_color(new_h, new_t),
             timestamp=discord.utils.utcnow()
         )
-        embed.set_author(name=interaction.user.mention, icon_url=interaction.user.display_avatar.url)
+        embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
         embed.add_field(name="🍔 Fame", value=_bar(new_h), inline=True)
         embed.add_field(name="💦 Sete", value=_bar(new_t), inline=True)
         warns = []
@@ -209,7 +223,7 @@ def setup_rp_commands(bot):
 
         all_items = await database.get_inventory(str(target.id))
         user      = await database.get_user(str(target.id))
-        titolo    = f"🎒 Bisaccia di {target.mention}" if utente else "🎒 La tua Bisaccia"
+        titolo    = f"🎒 Bisaccia di {target.display_name}" if utente else "🎒 La tua Bisaccia"
         B_PER_PAGE = 5
         tot = max(1, -(-len(all_items) // B_PER_PAGE))
 
@@ -222,7 +236,7 @@ def setup_rp_commands(bot):
             if not all_items:
                 embed.add_field(name="📦 Contenuto", value="*Bisaccia vuota.*", inline=False)
             else:
-                desc = "\n".join(f"** x{i['quantity']} {i['item_name']}** " for i in page_items)
+                desc = "\n".join(f"**{i['item_name']}** — x{i['quantity']}" for i in page_items)
                 embed.add_field(name="📦 Contenuto", value=desc, inline=False)
             embed.set_footer(text=f"🤠 Red Dead Redemption II — Bisaccia | Pagina {p+1}/{tot}")
             return embed
@@ -307,7 +321,11 @@ def setup_rp_commands(bot):
         if not await database.remove_item(str(interaction.user.id), item, quantita):
             await interaction.response.send_message(f"❌ Non hai abbastanza **{item}**.", ephemeral=True); return
         await database.add_item(str(giocatore.id), item, quantita)
-        await applica_calo_passaggio(bot, str(interaction.user.id), item)
+        try:
+            import commands_usura as _cu
+            await _cu.applica_calo_passaggio(bot, str(interaction.user.id), item)
+        except Exception as e:
+            print(f"[dai-item] usura skip: {e}", flush=True)
         embed = discord.Embed(title="🤝 𝐈𝐭𝐞𝐦 𝐂𝐨𝐧𝐬𝐞𝐠𝐧𝐚𝐭𝐨", color=discord.Color(0x8B4513), timestamp=discord.utils.utcnow())
         embed.add_field(name="📦 Item",     value=item,                     inline=True)
         embed.add_field(name="🔢 Quantità", value=str(quantita),            inline=True)
@@ -505,7 +523,7 @@ def setup_rp_commands(bot):
         await interaction.response.send_message(embed=embed)
 
     # ── /caccia ──────────────────────────────────────────────────────────────
-    
+  
 
     # ── /anonimo ─────────────────────────────────────────────────────────────
     @bot.tree.command(name="anonimo", description="Invia un messaggio anonimo nel canale")
@@ -562,6 +580,7 @@ def setup_rp_commands(bot):
         await interaction.response.send_message(embed=embed)
 
     # 
+
     # ── /lettera ─────────────────────────────────────────────────────────────
     @bot.tree.command(name="lettera", description="Invia una lettera privata a un altro giocatore")
     @app_commands.describe(destinatario="Il giocatore che riceverà la lettera")

@@ -43,7 +43,7 @@ class BackgroundView(discord.ui.View):
         self.bot = bot
 
     @discord.ui.button(
-        label="Inizia Background",
+        label="🏁 Inizia Background",
         style=discord.ButtonStyle.success,
         custom_id="bg_inizia"
     )
@@ -173,23 +173,32 @@ class BackgroundView(discord.ui.View):
         # OOC — ogni risposta come field separato (label / valore su riga successiva)
         embed_bg.add_field(name="\u200b", value="╞═════𖠁 **OOC** 𖠁═════╡", inline=False)
         for l, r in risposte_ooc:
-            embed_bg.add_field(name=l, value=r or "—", inline=False)
+            embed_bg.add_field(name=l, value=(r or "—")[:1024], inline=False)
         # Separatore IC
         embed_bg.add_field(name="\u200b", value="\u200b", inline=False)
         embed_bg.add_field(name="\u200b", value="╞═════𖠁 **IC** 𖠁═════╡", inline=False)
         for l, r in risposte_ic:
-            embed_bg.add_field(name=l, value=r or "—", inline=False)
+            embed_bg.add_field(name=l, value=(r or "—")[:1024], inline=False)
         embed_bg.set_footer(text="🤠 Red Dead Redemption II — Background PG")
 
         try:
             bg_ch = bot.get_channel(BACKGROUND_CHANNEL_ID)
+            if not bg_ch:
+                # Fallback: fetch diretto se non in cache
+                try:
+                    bg_ch = await bot.fetch_channel(BACKGROUND_CHANNEL_ID)
+                except Exception as e:
+                    print(f"[BG] fetch_channel fallito: {e}", flush=True)
             if bg_ch:
                 await bg_ch.send(
                     content=f"<@&{WHITELISTER_ROLE_ID}>",
                     embed=embed_bg
                 )
-        except Exception:
-            pass
+                print(f"[BG] Log background inviato per {member.id}", flush=True)
+            else:
+                print(f"[BG] Canale {BACKGROUND_CHANNEL_ID} non trovato!", flush=True)
+        except Exception as e:
+            print(f"[BG] Errore invio log: {e}", flush=True)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -342,10 +351,10 @@ def setup_admin_commands(bot):
         color    = discord.Color.green() if positivo else discord.Color.red()
 
         TITOLI = {
-            "bg_positivo": "✅ 𝐁𝐚𝐜𝐤𝐠𝐫𝐨𝐮𝐧𝐝 𝐀𝐜𝐜𝐞𝐭𝐭𝐚𝐭𝐨",
-            "bg_negativo": "❌ 𝐁𝐚𝐜𝐤𝐠𝐫𝐨𝐮𝐧𝐝 𝐑𝐢𝐟𝐢𝐮𝐭𝐚𝐭𝐨 ",
-            "wl_positiva": "✅ 𝐖𝐡𝐢𝐭𝐞𝐥𝐢𝐬𝐭 𝐀𝐜𝐜𝐞𝐭𝐭𝐚𝐭𝐚 ",
-            "wl_negativa": "❌ 𝐖𝐡𝐢𝐭𝐞𝐥𝐢𝐬𝐭 𝐑𝐢𝐟𝐢𝐮𝐭𝐚𝐭𝐚  ",
+            "bg_positivo": "✅ 𝐁𝐚𝐜𝐤𝐠𝐫𝐨𝐮𝐧𝐝 𝐏𝐨𝐬𝐢𝐭𝐢𝐯𝐨",
+            "bg_negativo": "❌ 𝐁𝐚𝐜𝐤𝐠𝐫𝐨𝐮𝐧𝐝 𝐍𝐞𝐠𝐚𝐭𝐢𝐯𝐨",
+            "wl_positiva": "✅ 𝐖𝐡𝐢𝐭𝐞𝐥𝐢𝐬𝐭 𝐏𝐨𝐬𝐢𝐭𝐢𝐯𝐚",
+            "wl_negativa": "❌ 𝐖𝐡𝐢𝐭𝐞𝐥𝐢𝐬𝐭 𝐍𝐞𝐠𝐚𝐭𝐢𝐯𝐚",
         }
 
         embed = discord.Embed(title=TITOLI[esito], color=color, timestamp=discord.utils.utcnow())
@@ -360,22 +369,29 @@ def setup_admin_commands(bot):
         # Menzione sopra l'embed per notifica
         await interaction.followup.send(content=giocatore.mention, embed=embed)
 
-        # Assegna/rimuovi ruoli
+        # Assegna ruoli
         guild = interaction.guild
         if guild:
             try:
+                NON_WL_ID = 1404052057630965841
+                non_wl_role = guild.get_role(NON_WL_ID)
+
                 if esito == "bg_positivo":
+                    # Aggiunge BG Positivo
                     r = guild.get_role(BG_POSITIVO_ROLE_ID)
                     if r: await giocatore.add_roles(r, reason="Background Positivo")
+                    # Rimuove Non Whitelisted
+                    if non_wl_role: await giocatore.remove_roles(non_wl_role, reason="Background Positivo")
 
                 elif esito == "wl_positiva":
-                    # Aggiunge i ruoli WL positiva
+                    # Aggiunge ruoli WL positiva
                     for rid in WL_POSITIVA_ROLES:
                         r = guild.get_role(rid)
                         if r: await giocatore.add_roles(r, reason="Whitelist Positiva")
-                    # Rimuove il ruolo BG Positivo
+                    # Rimuove BG Positivo e Non Whitelisted
                     bg_role = guild.get_role(BG_POSITIVO_ROLE_ID)
-                    if bg_role: await giocatore.remove_roles(bg_role, reason="Whitelist Positiva — rimozione BG Positivo")
+                    if bg_role: await giocatore.remove_roles(bg_role, reason="Whitelist Positiva")
+                    if non_wl_role: await giocatore.remove_roles(non_wl_role, reason="Whitelist Positiva")
                     # Aggiunge ruolo sesso
                     if sesso == "uomo":
                         r = guild.get_role(SESSO_UOMO_ROLE_ID)
@@ -488,7 +504,7 @@ def setup_admin_commands(bot):
             return
 
         embed = discord.Embed(
-            title="𝐌𝐀𝐊𝐄 𝐘𝐎𝐔𝐑 𝐍𝐀𝐌𝐄 𝐈𝐍 𝐓𝐇𝐄 𝐖𝐄𝐒𝐓",
+            title="🤠 Background PG",
             description=(
                 "Prima di mettere piede nelle terre selvagge e iniziare la tua nuova vita, "
                 "ogni anima deve lasciare traccia della propria storia.\n\n"

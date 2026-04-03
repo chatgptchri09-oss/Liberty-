@@ -13,7 +13,7 @@ import backup
 from constants import (
     STAFF_ROLE_ID, SCERIFFO_ROLE_ID, DOTTORE_ROLE_ID, ARMIERE_ROLE_ID,
     STALLA_ROLE_ID, SALOON_ROLE_ID, EMPORIO_ROLE_ID, CONTRABBANDO_ID,
-    STATO_ROLE_ID, DILIGENZA_ROLE_ID, CO-OWNER_ROLE_ID, BANKER_ROLE_ID,
+    STATO_ROLE_ID, DILIGENZA_ROLE_ID, BANKER_ROLE_ID,
     LOG_CHANNEL_ID, BANK_CHANNEL_ID, DATABASE_NAME, STAFF_ROLES,
     has_staff, has_sceriffo, has_role_id
 )
@@ -84,7 +84,7 @@ print("✅ Tutti i moduli caricati!", flush=True)
 # ── /sync ─────────────────────────────────────────────────────────────────────
 @bot.tree.command(name="sync", description="[Owner] Sincronizza i comandi slash")
 async def sync(interaction: discord.Interaction):
-    if not has_role_id(interaction, CO-OWNER_ROLE_ID):
+    if not has_role_id(interaction, STAFF_ROLE_ID):
         await interaction.response.send_message("❌ Solo i creatori del server.", ephemeral=True); return
     await interaction.response.defer(ephemeral=True)
     try:

@@ -43,7 +43,7 @@ class BackgroundView(discord.ui.View):
         self.bot = bot
 
     @discord.ui.button(
-        label="🏁 Inizia Background",
+        label="Inizia Background",
         style=discord.ButtonStyle.success,
         custom_id="bg_inizia"
     )
@@ -504,7 +504,7 @@ def setup_admin_commands(bot):
             return
 
         embed = discord.Embed(
-            title="🤠 Background PG",
+            title="𝐌𝐀𝐊𝐄 𝐘𝐎𝐔𝐑 𝐍𝐀𝐌𝐄 𝐈𝐍 𝐓𝐇𝐄 𝐖𝐄𝐒𝐓",
             description=(
                 "Prima di mettere piede nelle terre selvagge e iniziare la tua nuova vita, "
                 "ogni anima deve lasciare traccia della propria storia.\n\n"

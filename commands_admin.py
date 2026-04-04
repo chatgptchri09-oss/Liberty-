@@ -170,15 +170,23 @@ class BackgroundView(discord.ui.View):
         embed_bg.set_thumbnail(url=member.display_avatar.url)
         embed_bg.add_field(name="👤 Candidato", value=member.mention, inline=False)
 
+        def _aggiungi_campo(embed, label, testo):
+            """Spezza risposte lunghe in più field da max 1024 chars ciascuno."""
+            testo = testo or "—"
+            chunks = [testo[i:i+1024] for i in range(0, len(testo), 1024)]
+            embed.add_field(name=label, value=chunks[0], inline=False)
+            for chunk in chunks[1:]:
+                embed.add_field(name=f"↳ {label}", value=chunk, inline=False)
+
         # OOC — ogni risposta come field separato (label / valore su riga successiva)
         embed_bg.add_field(name="\u200b", value="╞═════𖠁 **OOC** 𖠁═════╡", inline=False)
         for l, r in risposte_ooc:
-            embed_bg.add_field(name=l, value=(r or "—")[:1024], inline=False)
+            _aggiungi_campo(embed_bg, l, r)
         # Separatore IC
         embed_bg.add_field(name="\u200b", value="\u200b", inline=False)
         embed_bg.add_field(name="\u200b", value="╞═════𖠁 **IC** 𖠁═════╡", inline=False)
         for l, r in risposte_ic:
-            embed_bg.add_field(name=l, value=(r or "—")[:1024], inline=False)
+            _aggiungi_campo(embed_bg, l, r)
         embed_bg.set_footer(text="🤠 Red Dead Redemption II — Background PG")
 
         try:

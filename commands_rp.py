@@ -74,6 +74,7 @@ DRINK_ITEMS = {
     "🥃 • Rum":        12,
     "🍶 • Gin":        10,
     "🍹 • Brandy":     10,
+    "💧 • Acqua":      30,
 }
 
 ALCOHOLIC = {
@@ -130,7 +131,7 @@ def setup_rp_commands(bot):
             color=_color(new_h, new_t),
             timestamp=discord.utils.utcnow()
         )
-        embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
+        embed.set_author(name=interaction.user.mention, icon_url=interaction.user.display_avatar.url)
         embed.add_field(name="🍔 Fame", value=_bar(new_h), inline=True)
         embed.add_field(name="💦 Sete", value=_bar(new_t), inline=True)
         warns = []

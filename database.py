@@ -416,6 +416,57 @@ async def add_arrest(user_id: str, reason: str, duration: str, officer: str):
         await db.commit()
 
 
+# ── TURNI ATTIVI (persistenti) ────────────────────────────────────────────────
+
+async def save_turno(user_id: str, role_id: int, role_name: str, stipendio: int, inizio_ts: float):
+    async with aiosqlite.connect(DATABASE_NAME) as db:
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS turni_attivi (
+                user_id   TEXT PRIMARY KEY,
+                role_id   INTEGER,
+                role_name TEXT,
+                stipendio INTEGER,
+                inizio_ts REAL
+            )
+        """)
+        await db.execute("""
+            INSERT INTO turni_attivi (user_id, role_id, role_name, stipendio, inizio_ts)
+            VALUES (?,?,?,?,?)
+            ON CONFLICT(user_id) DO UPDATE SET
+                role_id=excluded.role_id, role_name=excluded.role_name,
+                stipendio=excluded.stipendio, inizio_ts=excluded.inizio_ts
+        """, (user_id, role_id, role_name, stipendio, inizio_ts))
+        await db.commit()
+
+async def delete_turno(user_id: str):
+    async with aiosqlite.connect(DATABASE_NAME) as db:
+        await db.execute("DELETE FROM turni_attivi WHERE user_id=?", (user_id,))
+        await db.commit()
+
+async def get_all_turni() -> list:
+    async with aiosqlite.connect(DATABASE_NAME) as db:
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS turni_attivi (
+                user_id   TEXT PRIMARY KEY,
+                role_id   INTEGER,
+                role_name TEXT,
+                stipendio INTEGER,
+                inizio_ts REAL
+            )
+        """)
+        await db.commit()
+        db.row_factory = aiosqlite.Row
+        async with db.execute("SELECT * FROM turni_attivi") as c:
+            return [dict(r) for r in await c.fetchall()]
+
+async def get_turno(user_id: str) -> dict | None:
+    async with aiosqlite.connect(DATABASE_NAME) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute("SELECT * FROM turni_attivi WHERE user_id=?", (user_id,)) as c:
+            row = await c.fetchone()
+            return dict(row) if row else None
+
+
 # ── WIPE ──────────────────────────────────────────────────────────────────────
 
 async def wipe_user(user_id: str):

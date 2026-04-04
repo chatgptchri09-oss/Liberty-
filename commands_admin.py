@@ -328,7 +328,8 @@ def setup_admin_commands(bot):
         giocatore="Il candidato",
         esito="Tipo di esito",
         sesso="Sesso del personaggio (solo per Whitelist Positiva)",
-        motivazione="Motivazione (opzionale)"
+        motivazione="Motivazione (opzionale)",
+        id_psn="ID PSN del giocatore (opzionale) — verrà impostato come nickname nel server"
     )
     @app_commands.choices(esito=[
         app_commands.Choice(name="✅ Background Positivo", value="bg_positivo"),
@@ -345,7 +346,8 @@ def setup_admin_commands(bot):
         giocatore: discord.Member,
         esito: str,
         sesso: str = "",
-        motivazione: str = ""
+        motivazione: str = "",
+        id_psn: str = ""
     ):
         if not _has_role(interaction, WHITELISTER_ROLE_ID):
             await interaction.response.send_message(
@@ -407,6 +409,15 @@ def setup_admin_commands(bot):
                     elif sesso == "donna":
                         r = guild.get_role(SESSO_DONNA_ROLE_ID)
                         if r: await giocatore.add_roles(r, reason="Sesso: Donna")
+            except Exception:
+                pass
+
+        # Cambio nickname se id_psn fornito
+        if id_psn:
+            try:
+                await giocatore.edit(nick=id_psn, reason=f"ID PSN impostato da whitelister {interaction.user}")
+            except discord.Forbidden:
+                pass
             except Exception:
                 pass
 

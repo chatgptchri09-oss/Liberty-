@@ -42,8 +42,9 @@ from constants import (
 # Canale dove va la notifica stipendio per lo staff
 STIPENDIO_CHANNEL_ID = 1422986030650228766
 
-# Turni attivi in memoria: user_id → {role, stipendio, inizio}
-_turni_attivi: dict = {}
+# Turni attivi: ora persistenti nel DB (tabella turni_attivi)
+# Il dizionario in memoria serve solo come cache per i role object Discord
+_turni_cache: dict = {}  # user_id → discord.Role object (non serializzabile)
 
 # ── Cibi (Listino Saloon) ─────────────────────────────────────────────────────
 FOOD_ITEMS = {
@@ -74,7 +75,6 @@ DRINK_ITEMS = {
     "🥃 • Rum":        12,
     "🍶 • Gin":        10,
     "🍹 • Brandy":     10,
-    "💧 • Acqua":      30,
 }
 
 ALCOHOLIC = {
@@ -127,11 +127,11 @@ def setup_rp_commands(bot):
         new_t  = max(0, user["thirst"] - t_drop)
         await database.update_hunger_thirst(uid, hunger=new_h, thirst=new_t)
         embed = discord.Embed(
-            description=f"*{interaction.user.display_name} {azione}*",
+            description=f"*{interaction.user.mention} {azione}*",
             color=_color(new_h, new_t),
             timestamp=discord.utils.utcnow()
         )
-        embed.set_author(name=interaction.user.mention, icon_url=interaction.user.display_avatar.url)
+        embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
         embed.add_field(name="🍔 Fame", value=_bar(new_h), inline=True)
         embed.add_field(name="💦 Sete", value=_bar(new_t), inline=True)
         warns = []
@@ -224,7 +224,7 @@ def setup_rp_commands(bot):
 
         all_items = await database.get_inventory(str(target.id))
         user      = await database.get_user(str(target.id))
-        titolo    = f"🎒 Bisaccia di {target.display_name}" if utente else "🎒 La tua Bisaccia"
+        titolo    = f"🎒 Bisaccia di {target.mention}" if utente else "🎒 La tua Bisaccia"
         B_PER_PAGE = 5
         tot = max(1, -(-len(all_items) // B_PER_PAGE))
 
@@ -312,8 +312,15 @@ def setup_rp_commands(bot):
         await interaction.response.send_message(embed=embed)
 
     # ── /dai-item ────────────────────────────────────────────────────────────
+    async def _dai_item_ac(interaction: discord.Interaction, current: str):
+        uid   = str(interaction.user.id)
+        items = await database.get_inventory(uid)
+        names = [i["item_name"] for i in items]
+        return [app_commands.Choice(name=m, value=m) for m in _fuzzy(current, names)[:25]]
+
     @bot.tree.command(name="dai-item", description="Dai un item dalla tua bisaccia a un altro giocatore")
     @app_commands.describe(giocatore="Il giocatore", item="L'item da dare", quantita="Quantità")
+    @app_commands.autocomplete(item=_dai_item_ac)
     async def dai_item(interaction: discord.Interaction, giocatore: discord.Member, item: str, quantita: int = 1):
         if giocatore.id == interaction.user.id:
             await interaction.response.send_message("❌ Non puoi darti item da solo!", ephemeral=True); return
@@ -360,12 +367,14 @@ def setup_rp_commands(bot):
     async def inizio_turno(interaction: discord.Interaction, lavoro: discord.Role, stipendio: int):
         uid = str(interaction.user.id)
 
-        # Blocco doppio turno
-        if uid in _turni_attivi:
-            t = _turni_attivi[uid]
+        # Blocco doppio turno — controlla nel DB
+        turno_esistente = await database.get_turno(uid)
+        if turno_esistente:
+            from datetime import datetime as _dt
+            inizio_cached = _dt.fromtimestamp(turno_esistente["inizio_ts"], tz=timezone.utc)
             await interaction.response.send_message(
-                f"❌ Hai già un turno attivo come **{t['role'].name}** iniziato alle "
-                f"**{_ora_italia(t['inizio'])}**.\n"
+                f"❌ Hai già un turno attivo come **{turno_esistente['role_name']}** iniziato alle "
+                f"**{_ora_italia(inizio_cached)}**.\n"
                 f"Usa `/fine-turno` prima di iniziarne un altro.",
                 ephemeral=True
             )
@@ -384,11 +393,8 @@ def setup_rp_commands(bot):
             await interaction.response.send_message("❌ Lo stipendio orario deve essere positivo.", ephemeral=True); return
 
         now = datetime.now(timezone.utc)
-        _turni_attivi[uid] = {
-            "role":      lavoro,
-            "stipendio": stipendio,
-            "inizio":    now,
-        }
+        _turni_cache[uid] = lavoro  # salva l'oggetto Role in cache
+        await database.save_turno(uid, lavoro.id, lavoro.name, stipendio, now.timestamp())
 
         embed = discord.Embed(
             title="<a:online:1459627385702973572> 𝐓𝐔𝐑𝐍𝐎 𝐈𝐍𝐈𝐙𝐈𝐀𝐓𝐎 <a:online:1459627385702973572>",
@@ -416,33 +422,36 @@ def setup_rp_commands(bot):
     async def fine_turno(interaction: discord.Interaction, lavoro: discord.Role):
         uid = str(interaction.user.id)
 
-        if uid not in _turni_attivi:
+        turno_db = await database.get_turno(uid)
+        if not turno_db:
             await interaction.response.send_message(
                 "❌ Non hai nessun turno attivo. Usa `/inizio-turno` prima.", ephemeral=True
             )
             return
 
-        turno = _turni_attivi[uid]
-        if turno["role"].id != lavoro.id:
+        if turno_db["role_id"] != lavoro.id:
             await interaction.response.send_message(
-                f"❌ Il tuo turno attivo è per **{turno['role'].name}**, non per {lavoro.mention}.",
+                f"❌ Il tuo turno attivo è per **{turno_db['role_name']}**, non per {lavoro.mention}.",
                 ephemeral=True
             )
             return
 
+        from datetime import datetime as _dt
         now          = datetime.now(timezone.utc)
-        inizio       = turno["inizio"]
+        inizio       = _dt.fromtimestamp(turno_db["inizio_ts"], tz=timezone.utc)
         durata_s     = (now - inizio).total_seconds()
-        ore_esatte   = durata_s / 3600
-        ore_fatturate = max(1, round(ore_esatte))   # >=30min per eccesso, <30min per difetto (minimo 1h)
+        ore_esatte    = durata_s / 3600
+        # Arrotonda alla mezz'ora più vicina (minimo 30 min = 0.5h)
+        ore_fatturate = max(0.5, math.floor(ore_esatte * 2 + 0.5) / 2)
 
-        stipendio_totale = turno["stipendio"] * ore_fatturate
+        stipendio_totale = round(turno_db["stipendio"] * ore_fatturate)
 
         h_display  = int(durata_s // 3600)
         m_display  = int((durata_s % 3600) // 60)
         durata_str = f"{h_display}h {m_display}min" if h_display > 0 else f"{m_display}min"
 
-        del _turni_attivi[uid]
+        await database.delete_turno(uid)
+        _turni_cache.pop(uid, None)
 
         # ── Embed fine turno (nel canale corrente) ───────────────────────────
         embed_fine = discord.Embed(
@@ -461,7 +470,7 @@ def setup_rp_commands(bot):
         embed_fine.add_field(name="⏱️ Durata reale",     value=durata_str,                             inline=True)
         embed_fine.add_field(name="📋 Ore fatturate",    value=f"{ore_fatturate}h (arrot. mezz'ora)",  inline=True)
         embed_fine.add_field(name="​", value="​", inline=False)
-        embed_fine.add_field(name="💵 Stipendio/ora",    value=f"${turno['stipendio']:,}",             inline=True)
+        embed_fine.add_field(name="💵 Stipendio/ora",    value=f"${turno_db['stipendio']:,}",          inline=True)
         embed_fine.add_field(name="💰 Totale da pagare", value=f"**${stipendio_totale:,}**",           inline=True)
         embed_fine.set_footer(text="🤠 Red Dead Redemption II — Turno di Lavoro")
 
@@ -489,7 +498,7 @@ def setup_rp_commands(bot):
         embed_staff.add_field(name="⏱️ Durata",           value=durata_str,                             inline=True)
         embed_staff.add_field(name="📋 Ore fatturate",    value=f"{ore_fatturate}h",                    inline=True)
         embed_staff.add_field(name="​", value="​", inline=False)
-        embed_staff.add_field(name="💵 Stipendio/ora",    value=f"${turno['stipendio']:,}",             inline=True)
+        embed_staff.add_field(name="💵 Stipendio/ora",    value=f"${turno_db['stipendio']:,}",          inline=True)
         embed_staff.add_field(name="💰 Da pagare",        value=f"**${stipendio_totale:,}**",           inline=True)
         embed_staff.set_footer(text="🤠 Red Dead Redemption II — Usa /paga-stipendio per pagare")
 
@@ -524,6 +533,10 @@ def setup_rp_commands(bot):
         await interaction.response.send_message(embed=embed)
 
     # ── /caccia ──────────────────────────────────────────────────────────────
+  
+        
+
+    # ── /pesca ───────────────────────────────────────────────────────────────
   
 
     # ── /anonimo ─────────────────────────────────────────────────────────────
@@ -580,7 +593,8 @@ def setup_rp_commands(bot):
         embed.set_footer(text="🤠 Red Dead Redemption II — Nascosto")
         await interaction.response.send_message(embed=embed)
 
-    # 
+    # ── /sondaggiorp ─────────────────────────────────────────────────────────
+    
 
     # ── /lettera ─────────────────────────────────────────────────────────────
     @bot.tree.command(name="lettera", description="Invia una lettera privata a un altro giocatore")

@@ -75,6 +75,7 @@ DRINK_ITEMS = {
     "🥃 • Rum":        12,
     "🍶 • Gin":        10,
     "🍹 • Brandy":     10,
+    "💧 • Acqua":      30,
 }
 
 ALCOHOLIC = {
@@ -350,7 +351,7 @@ def setup_rp_commands(bot):
             await interaction.response.send_message(f"❌ Non hai **{item}** nella bisaccia.", ephemeral=True); return
         embed = discord.Embed(
             title="✅ 𝐈𝐭𝐞𝐦 𝐔𝐭𝐢𝐥𝐢𝐳𝐳𝐚𝐭𝐨",
-            description=f"*{interaction.user.display_name} utilizza **{item}**.*",
+            description=f"*{interaction.user.mention} utilizza **{item}**.*",
             color=discord.Color(0x8B4513), timestamp=discord.utils.utcnow()
         )
         embed.set_footer(text="🤠 Red Dead Redemption II — Bisaccia")

@@ -122,8 +122,8 @@ def setup_rp_commands(bot):
             )
             return
 
-        h_drop = random.randint(4, 10)
-        t_drop = random.randint(4, 10)
+        h_drop = random.randint(1, 5)
+        t_drop = random.randint(1, 10)
         new_h  = max(0, user["hunger"] - h_drop)
         new_t  = max(0, user["thirst"] - t_drop)
         await database.update_hunger_thirst(uid, hunger=new_h, thirst=new_t)
@@ -344,8 +344,15 @@ def setup_rp_commands(bot):
         await interaction.response.send_message(embed=embed)
 
     # ── /utilizza-item ───────────────────────────────────────────────────────
+    async def _utilizza_item_ac(interaction: discord.Interaction, current: str):
+        uid   = str(interaction.user.id)
+        items = await database.get_inventory(uid)
+        names = [i["item_name"] for i in items]
+        return [app_commands.Choice(name=m, value=m) for m in _fuzzy(current, names)[:25]]
+
     @bot.tree.command(name="utilizza-item", description="Utilizza un item dalla tua bisaccia")
     @app_commands.describe(item="L'item da utilizzare")
+    @app_commands.autocomplete(item=_utilizza_item_ac)
     async def utilizza_item(interaction: discord.Interaction, item: str):
         if not await database.remove_item(str(interaction.user.id), item, 1):
             await interaction.response.send_message(f"❌ Non hai **{item}** nella bisaccia.", ephemeral=True); return
@@ -534,11 +541,10 @@ def setup_rp_commands(bot):
         await interaction.response.send_message(embed=embed)
 
     # ── /caccia ──────────────────────────────────────────────────────────────
-  
-        
+   
 
     # ── /pesca ───────────────────────────────────────────────────────────────
-  
+    
 
     # ── /anonimo ─────────────────────────────────────────────────────────────
     @bot.tree.command(name="anonimo", description="Invia un messaggio anonimo nel canale")
@@ -588,14 +594,14 @@ def setup_rp_commands(bot):
     @app_commands.describe(oggetto="L'oggetto", luogo="Il luogo segreto")
     async def nascondo(interaction: discord.Interaction, oggetto: str, luogo: str):
         embed = discord.Embed(title="🙈 𝐎𝐠𝐠𝐞𝐭𝐭𝐨 𝐍𝐚𝐬𝐜𝐨𝐬𝐭𝐨", color=discord.Color(0x556B2F), timestamp=discord.utils.utcnow())
-        embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
+        embed.set_author(name=interaction.user.mention, icon_url=interaction.user.display_avatar.url)
         embed.add_field(name="📦 Oggetto", value=oggetto, inline=False)
         embed.add_field(name="📍 Luogo",   value=luogo,   inline=False)
         embed.set_footer(text="🤠 Red Dead Redemption II — Nascosto")
         await interaction.response.send_message(embed=embed)
 
     # ── /sondaggiorp ─────────────────────────────────────────────────────────
-    
+   
 
     # ── /lettera ─────────────────────────────────────────────────────────────
     @bot.tree.command(name="lettera", description="Invia una lettera privata a un altro giocatore")

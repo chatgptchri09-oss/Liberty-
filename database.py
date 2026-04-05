@@ -440,6 +440,12 @@ async def save_turno(user_id: str, role_id: int, role_name: str, stipendio: int,
 
 async def delete_turno(user_id: str):
     async with aiosqlite.connect(DATABASE_NAME) as db:
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS turni_attivi (
+                user_id TEXT PRIMARY KEY, role_id INTEGER,
+                role_name TEXT, stipendio INTEGER, inizio_ts REAL
+            )
+        """)
         await db.execute("DELETE FROM turni_attivi WHERE user_id=?", (user_id,))
         await db.commit()
 
@@ -461,6 +467,13 @@ async def get_all_turni() -> list:
 
 async def get_turno(user_id: str) -> dict | None:
     async with aiosqlite.connect(DATABASE_NAME) as db:
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS turni_attivi (
+                user_id TEXT PRIMARY KEY, role_id INTEGER,
+                role_name TEXT, stipendio INTEGER, inizio_ts REAL
+            )
+        """)
+        await db.commit()
         db.row_factory = aiosqlite.Row
         async with db.execute("SELECT * FROM turni_attivi WHERE user_id=?", (user_id,)) as c:
             row = await c.fetchone()

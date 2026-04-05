@@ -122,13 +122,13 @@ def setup_rp_commands(bot):
             )
             return
 
-        h_drop = random.randint(4, 10)
-        t_drop = random.randint(4, 10)
+        h_drop = random.randint(1, 5)
+        t_drop = random.randint(1, 10)
         new_h  = max(0, user["hunger"] - h_drop)
         new_t  = max(0, user["thirst"] - t_drop)
         await database.update_hunger_thirst(uid, hunger=new_h, thirst=new_t)
         embed = discord.Embed(
-            description=f"*{interaction.user.mention} {azione}*",
+            description=f"*{interaction.user.mention} : {azione}*",
             color=_color(new_h, new_t),
             timestamp=discord.utils.utcnow()
         )
@@ -344,8 +344,15 @@ def setup_rp_commands(bot):
         await interaction.response.send_message(embed=embed)
 
     # ── /utilizza-item ───────────────────────────────────────────────────────
+    async def _utilizza_item_ac(interaction: discord.Interaction, current: str):
+        uid   = str(interaction.user.id)
+        items = await database.get_inventory(uid)
+        names = [i["item_name"] for i in items]
+        return [app_commands.Choice(name=m, value=m) for m in _fuzzy(current, names)[:25]]
+
     @bot.tree.command(name="utilizza-item", description="Utilizza un item dalla tua bisaccia")
     @app_commands.describe(item="L'item da utilizzare")
+    @app_commands.autocomplete(item=_utilizza_item_ac)
     async def utilizza_item(interaction: discord.Interaction, item: str):
         if not await database.remove_item(str(interaction.user.id), item, 1):
             await interaction.response.send_message(f"❌ Non hai **{item}** nella bisaccia.", ephemeral=True); return
@@ -534,11 +541,7 @@ def setup_rp_commands(bot):
         await interaction.response.send_message(embed=embed)
 
     # ── /caccia ──────────────────────────────────────────────────────────────
-  
-        
-
-    # ── /pesca ───────────────────────────────────────────────────────────────
-  
+ 
 
     # ── /anonimo ─────────────────────────────────────────────────────────────
     @bot.tree.command(name="anonimo", description="Invia un messaggio anonimo nel canale")

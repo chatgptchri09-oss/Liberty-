@@ -332,10 +332,10 @@ def setup_admin_commands(bot):
         id_psn="ID PSN del giocatore (opzionale) — verrà impostato come nickname nel server"
     )
     @app_commands.choices(esito=[
-        app_commands.Choice(name="✅ Background Positivo", value="bg_positivo"),
-        app_commands.Choice(name="❌ Background Negativo", value="bg_negativo"),
-        app_commands.Choice(name="✅ Whitelist Positiva",  value="wl_positiva"),
-        app_commands.Choice(name="❌ Whitelist Negativa",  value="wl_negativa"),
+        app_commands.Choice(name="✅ Background Accettato", value="bg_positivo"),
+        app_commands.Choice(name="❌ Background Rifiutato", value="bg_negativo"),
+        app_commands.Choice(name="✅ Whitelist Accettata",  value="wl_positiva"),
+        app_commands.Choice(name="❌ Whitelist Rifiutata",  value="wl_negativa"),
     ])
     @app_commands.choices(sesso=[
         app_commands.Choice(name="👨 Uomo",  value="uomo"),
@@ -361,10 +361,10 @@ def setup_admin_commands(bot):
         color    = discord.Color.green() if positivo else discord.Color.red()
 
         TITOLI = {
-            "bg_positivo": "✅ 𝐁𝐚𝐜𝐤𝐠𝐫𝐨𝐮𝐧𝐝 𝐏𝐨𝐬𝐢𝐭𝐢𝐯𝐨",
-            "bg_negativo": "❌ 𝐁𝐚𝐜𝐤𝐠𝐫𝐨𝐮𝐧𝐝 𝐍𝐞𝐠𝐚𝐭𝐢𝐯𝐨",
-            "wl_positiva": "✅ 𝐖𝐡𝐢𝐭𝐞𝐥𝐢𝐬𝐭 𝐏𝐨𝐬𝐢𝐭𝐢𝐯𝐚",
-            "wl_negativa": "❌ 𝐖𝐡𝐢𝐭𝐞𝐥𝐢𝐬𝐭 𝐍𝐞𝐠𝐚𝐭𝐢𝐯𝐚",
+            "bg_positivo": "✅ 𝐁𝐚𝐜𝐤𝐠𝐫𝐨𝐮𝐧𝐝 𝐀𝐜𝐜𝐞𝐭𝐭𝐚𝐭𝐨",
+            "bg_negativo": "❌ 𝐁𝐚𝐜𝐤𝐠𝐫𝐨𝐮𝐧𝐝 𝐑𝐢𝐟𝐢𝐮𝐭𝐚𝐭𝐨",
+            "wl_positiva": "✅ 𝐖𝐡𝐢𝐭𝐞𝐥𝐢𝐬𝐭 𝐀𝐜𝐜𝐞𝐭𝐭𝐚𝐭𝐚",
+            "wl_negativa": "❌ 𝐖𝐡𝐢𝐭𝐞𝐥𝐢𝐬𝐭 𝐑𝐢𝐟𝐢𝐮𝐭𝐚𝐭𝐚",
         }
 
         embed = discord.Embed(title=TITOLI[esito], color=color, timestamp=discord.utils.utcnow())

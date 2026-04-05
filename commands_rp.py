@@ -225,7 +225,7 @@ def setup_rp_commands(bot):
 
         all_items = await database.get_inventory(str(target.id))
         user      = await database.get_user(str(target.id))
-        titolo    = f"🎒 Bisaccia di {target.mention}" if utente else "🎒 La tua Bisaccia"
+        titolo    = f"🎒 Bisaccia di {target.display_name}" if utente else "🎒 La tua Bisaccia"
         B_PER_PAGE = 5
         tot = max(1, -(-len(all_items) // B_PER_PAGE))
 
@@ -373,6 +373,7 @@ def setup_rp_commands(bot):
         stipendio="Il tuo stipendio orario in $"
     )
     async def inizio_turno(interaction: discord.Interaction, lavoro: discord.Role, stipendio: int):
+        await interaction.response.defer(ephemeral=True)
         uid = str(interaction.user.id)
 
         # Blocco doppio turno — controlla nel DB
@@ -380,7 +381,7 @@ def setup_rp_commands(bot):
         if turno_esistente:
             from datetime import datetime as _dt
             inizio_cached = _dt.fromtimestamp(turno_esistente["inizio_ts"], tz=timezone.utc)
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 f"❌ Hai già un turno attivo come **{turno_esistente['role_name']}** iniziato alle "
                 f"**{_ora_italia(inizio_cached)}**.\n"
                 f"Usa `/fine-turno` prima di iniziarne un altro.",
@@ -391,14 +392,14 @@ def setup_rp_commands(bot):
         # Controllo: l'utente possiede il ruolo indicato
         if not isinstance(interaction.user, discord.Member) or \
            not any(r.id == lavoro.id for r in interaction.user.roles):
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 f"❌ Non hai il ruolo {lavoro.mention} per iniziare questo turno.",
                 ephemeral=True
             )
             return
 
         if stipendio <= 0:
-            await interaction.response.send_message("❌ Lo stipendio orario deve essere positivo.", ephemeral=True); return
+            await interaction.followup.send("❌ Lo stipendio orario deve essere positivo.", ephemeral=True); return
 
         now = datetime.now(timezone.utc)
         _turni_cache[uid] = lavoro  # salva l'oggetto Role in cache
@@ -415,7 +416,7 @@ def setup_rp_commands(bot):
         embed.add_field(name="💵 Stipendio/ora", value=f"${stipendio:,}",        inline=False)
         embed.add_field(name="🕐 Inizio turno",  value=_ora_italia(now), inline=False)
         embed.set_footer(text="🤠 Red Dead Redemption II — Turno di Lavoro")
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
         try:
             ch = bot.get_channel(LOG_CHANNEL_ID)
@@ -428,17 +429,18 @@ def setup_rp_commands(bot):
     @bot.tree.command(name="fine-turno", description="Termina il tuo turno di lavoro")
     @app_commands.describe(lavoro="Tag del ruolo lavorativo con cui hai iniziato il turno")
     async def fine_turno(interaction: discord.Interaction, lavoro: discord.Role):
+        await interaction.response.defer()
         uid = str(interaction.user.id)
 
         turno_db = await database.get_turno(uid)
         if not turno_db:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "❌ Non hai nessun turno attivo. Usa `/inizio-turno` prima.", ephemeral=True
             )
             return
 
         if turno_db["role_id"] != lavoro.id:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 f"❌ Il tuo turno attivo è per **{turno_db['role_name']}**, non per {lavoro.mention}.",
                 ephemeral=True
             )
@@ -482,7 +484,7 @@ def setup_rp_commands(bot):
         embed_fine.add_field(name="💰 Totale da pagare", value=f"**${stipendio_totale:,}**",           inline=True)
         embed_fine.set_footer(text="🤠 Red Dead Redemption II — Turno di Lavoro")
 
-        await interaction.response.send_message(embed=embed_fine)
+        await interaction.followup.send(embed=embed_fine)
 
         try:
             ch = bot.get_channel(LOG_CHANNEL_ID)
@@ -541,7 +543,7 @@ def setup_rp_commands(bot):
         await interaction.response.send_message(embed=embed)
 
     # ── /caccia ──────────────────────────────────────────────────────────────
- 
+
 
     # ── /anonimo ─────────────────────────────────────────────────────────────
     @bot.tree.command(name="anonimo", description="Invia un messaggio anonimo nel canale")
@@ -598,8 +600,7 @@ def setup_rp_commands(bot):
         await interaction.response.send_message(embed=embed)
 
     # ── /sondaggiorp ─────────────────────────────────────────────────────────
-    
-
+ 
     # ── /lettera ─────────────────────────────────────────────────────────────
     @bot.tree.command(name="lettera", description="Invia una lettera privata a un altro giocatore")
     @app_commands.describe(destinatario="Il giocatore che riceverà la lettera")

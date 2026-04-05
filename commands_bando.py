@@ -46,7 +46,8 @@ def setup_bando_commands(bot):
     @bot.tree.command(name="esito-bando", description="[Staff] Comunica l'esito di un bando lavorativo")
     @app_commands.describe(
         giocatore="Il candidato",
-        ruolo="Il ruolo lavorativo da assegnare (tag del ruolo)",
+        lavoro="Il ruolo lavorativo da assegnare (tag del ruolo)",
+        grado="Il grado/rango del lavoro da assegnare (tag del ruolo)",
         esito="Esito del bando",
         motivazione="Motivazione (opzionale)"
     )
@@ -59,7 +60,8 @@ def setup_bando_commands(bot):
     async def esito_bando(
         interaction: discord.Interaction,
         giocatore: discord.Member,
-        ruolo: discord.Role,
+        lavoro: discord.Role,
+        grado: discord.Role,
         esito: str,
         motivazione: str = ""
     ):
@@ -67,13 +69,14 @@ def setup_bando_commands(bot):
             await interaction.response.send_message("❌ Non hai i permessi.", ephemeral=True)
             return
 
-        # Assegna il ruolo solo se assunto
+        # Assegna i 2 ruoli solo se assunto
         if esito == "assunto":
             try:
-                await giocatore.add_roles(ruolo, reason=f"Bando lavorativo — assunto da {interaction.user}")
+                await giocatore.add_roles(lavoro, reason=f"Bando lavorativo — assunto da {interaction.user}")
+                await giocatore.add_roles(grado,  reason=f"Bando lavorativo — grado assegnato da {interaction.user}")
             except discord.Forbidden:
                 await interaction.response.send_message(
-                    "❌ Non ho i permessi per assegnare quel ruolo.", ephemeral=True
+                    "❌ Non ho i permessi per assegnare quei ruoli.", ephemeral=True
                 )
                 return
 
@@ -87,7 +90,8 @@ def setup_bando_commands(bot):
         )
         embed.set_thumbnail(url=giocatore.display_avatar.url)
         embed.add_field(name="👤 Candidato",   value=giocatore.mention,        inline=True)
-        embed.add_field(name="🤠 Ruolo",       value=ruolo.mention,            inline=True)
+        embed.add_field(name="🤠 Lavoro",      value=lavoro.mention,           inline=True)
+        embed.add_field(name="🎖️ Grado",      value=grado.mention,            inline=True)
         embed.add_field(name="📋 Esito",       value=esito.capitalize(),       inline=True)
         if motivazione:
             embed.add_field(name="📝 Motivazione", value=motivazione, inline=False)
@@ -105,12 +109,13 @@ def setup_bando_commands(bot):
                 timestamp=discord.utils.utcnow()
             )
             dm_embed.set_thumbnail(url=interaction.guild.icon.url if interaction.guild.icon else None)
-            dm_embed.add_field(name="🤠 Ruolo",   value=ruolo.name,         inline=True)
+            dm_embed.add_field(name="🤠 Lavoro",  value=lavoro.name,        inline=True)
+            dm_embed.add_field(name="🎖️ Grado",  value=grado.name,         inline=True)
             dm_embed.add_field(name="📋 Esito",   value=esito.capitalize(),  inline=True)
             if esito == "assunto":
                 dm_embed.add_field(
                     name="🎉 Congratulazioni!",
-                    value=f"Sei stato assunto come **{ruolo.name}**! Il ruolo ti è stato assegnato automaticamente.",
+                    value=f"Sei stato assunto come **{lavoro.name}** con il grado **{grado.name}**! I ruoli ti sono stati assegnati automaticamente.",
                     inline=False
                 )
             else:
@@ -125,7 +130,7 @@ def setup_bando_commands(bot):
             dm_embed.set_footer(text="🤠 Red Dead Redemption II — Bando Lavorativo")
             await giocatore.send(embed=dm_embed)
         except discord.Forbidden:
-            pass  # DM disabilitati dall'utente
+            pass
 
         # Log
         try:

@@ -158,11 +158,12 @@ def setup_invoice_commands(bot):
                             color=discord.Color.green(),
                             timestamp=discord.utils.utcnow()
                         )
-                        log.add_field(name="🧾 Fattura",  value=f"#{invoice_id}",       inline=True)
-                        log.add_field(name="👤 Pagante",  value=f"<@{uid}>",             inline=True)
-                        log.add_field(name="💵 Totale",   value=f"${importo:,}",         inline=True)
-                        log.add_field(name="💰 Emittente",value=f"${quota_emittente:,}", inline=True)
-                        log.add_field(name="🏛️ Stato",   value=f"${quota_stato:,}",     inline=True)
+                        log.add_field(name="🧾 Fattura",   value=f"#{invoice_id}",              inline=True)
+                        log.add_field(name="👤 Pagante",   value=f"<@{uid}>",                  inline=True)
+                        log.add_field(name="🧑‍💼 Emesso da", value=f"<@{invoice['from_user']}>", inline=True)
+                        log.add_field(name="💵 Totale",    value=f"${importo:,}",              inline=True)
+                        log.add_field(name="💰 Emittente", value=f"${quota_emittente:,}",      inline=True)
+                        log.add_field(name="🏛️ Stato",    value=f"${quota_stato:,}",          inline=True)
                         await ch.send(embed=log)
                 except Exception:
                     pass
@@ -212,7 +213,7 @@ def setup_invoice_commands(bot):
             righe  = []
             for i, u in enumerate(slice_, start=pagina * PER_PAG + 1):
                 member = guild.get_member(int(u["user_id"])) if guild else None
-                nome   = member.mention if member else f"<@{u['user_id']}>"
+                nome   = member.display_name if member else f"<@{u['user_id']}>"
                 totale = u["cash"] + u["bank"]
                 if i == 1:   medaglia = "🥇"
                 elif i == 2: medaglia = "🥈"

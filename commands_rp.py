@@ -225,7 +225,7 @@ def setup_rp_commands(bot):
 
         all_items = await database.get_inventory(str(target.id))
         user      = await database.get_user(str(target.id))
-        titolo    = f"🎒 Bisaccia di {target.display_name}" if utente else "🎒 La tua Bisaccia"
+        titolo    = f"🎒 Bisaccia di {target.mention}" if utente else "🎒 La tua Bisaccia"
         B_PER_PAGE = 5
         tot = max(1, -(-len(all_items) // B_PER_PAGE))
 
@@ -373,7 +373,7 @@ def setup_rp_commands(bot):
         stipendio="Il tuo stipendio orario in $"
     )
     async def inizio_turno(interaction: discord.Interaction, lavoro: discord.Role, stipendio: int):
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer()
         uid = str(interaction.user.id)
 
         # Blocco doppio turno — controlla nel DB
@@ -416,7 +416,7 @@ def setup_rp_commands(bot):
         embed.add_field(name="💵 Stipendio/ora", value=f"${stipendio:,}",        inline=False)
         embed.add_field(name="🕐 Inizio turno",  value=_ora_italia(now), inline=False)
         embed.set_footer(text="🤠 Red Dead Redemption II — Turno di Lavoro")
-        await interaction.followup.send(embed=embed)
+        await interaction.followup.send(embed=embed, ephemeral=False)
 
         try:
             ch = bot.get_channel(LOG_CHANNEL_ID)
@@ -543,8 +543,7 @@ def setup_rp_commands(bot):
         await interaction.response.send_message(embed=embed)
 
     # ── /caccia ──────────────────────────────────────────────────────────────
-
-
+   
     # ── /anonimo ─────────────────────────────────────────────────────────────
     @bot.tree.command(name="anonimo", description="Invia un messaggio anonimo nel canale")
     @app_commands.describe(messaggio="Il messaggio anonimo")
@@ -600,7 +599,8 @@ def setup_rp_commands(bot):
         await interaction.response.send_message(embed=embed)
 
     # ── /sondaggiorp ─────────────────────────────────────────────────────────
- 
+  
+    
     # ── /lettera ─────────────────────────────────────────────────────────────
     @bot.tree.command(name="lettera", description="Invia una lettera privata a un altro giocatore")
     @app_commands.describe(destinatario="Il giocatore che riceverà la lettera")

@@ -94,7 +94,6 @@ class Step2View(discord.ui.View):
             occhi       = discord.ui.TextInput(label="Colore Occhi",   style=discord.TextStyle.short, required=True,  max_length=30)
 
             async def on_submit(self2, inter: discord.Interaction):
-                # Rispondi SUBITO al modal prima di qualsiasi operazione
                 data2 = {
                     "residenza":   self2.residenza.value,
                     "nazionalita": self2.nazionalita.value,
@@ -108,8 +107,7 @@ class Step2View(discord.ui.View):
                     view=view3, ephemeral=True
                 )
 
-        await interaction.response.edit_message(view=self)
-        await interaction.followup.send_modal(Modal2())
+        await interaction.response.send_modal(Modal2())
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -138,7 +136,6 @@ class Step3View(discord.ui.View):
             segni      = discord.ui.TextInput(label="Segni Particolari", style=discord.TextStyle.short, required=False, max_length=100, placeholder="Lascia vuoto se nessuno")
 
             async def on_submit(self3, inter: discord.Interaction):
-                # Rispondi SUBITO al modal — poi fai le operazioni db in background
                 full = {
                     **data12,
                     "carnagione": self3.carnagione.value,
@@ -150,10 +147,6 @@ class Step3View(discord.ui.View):
                     await inter.response.send_message("❌ Età non valida.", ephemeral=True)
                     return
 
-                # Risposta immediata al modal
-                await inter.response.defer(ephemeral=True, thinking=True)
-
-                # Operazioni DB dopo la risposta
                 await database.set_document(
                     str(cittadino.id),
                     full["nome"], full["cognome"], eta_int,
@@ -172,7 +165,7 @@ class Step3View(discord.ui.View):
 
                 embed = _build_doc_embed(cittadino, emittente, full, foto_url)
                 view  = MostraDocumentoView(embed, inter.user)
-                await inter.followup.send(
+                await inter.response.send_message(
                     content="✅ **Documento registrato con successo!**",
                     embed=embed, view=view, ephemeral=True
                 )
@@ -190,8 +183,7 @@ class Step3View(discord.ui.View):
                 except Exception:
                     pass
 
-        await interaction.response.edit_message(view=self)
-        await interaction.followup.send_modal(Modal3())
+        await interaction.response.send_modal(Modal3())
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -212,16 +204,14 @@ def setup_document_commands(bot):
     ):
         if not has_stato(interaction):
             await interaction.response.send_message(
-                "❌ Solo il ruolo **Stato** può emettere documenti d'identità.", ephemeral=True)
-            return
+                "❌ Solo il ruolo **Stato** può emettere documenti d'identità.", ephemeral=True); return
 
         if not foto.content_type or not foto.content_type.startswith("image/"):
             await interaction.response.send_message(
-                "❌ Il file caricato non è un'immagine valida. Carica un'immagine (jpg, png...).", ephemeral=True)
-            return
+                "❌ Il file caricato non è un'immagine valida. Carica un'immagine (jpg, png...).", ephemeral=True); return
 
-        foto_url  = foto.url
-        emittente = interaction.user
+        foto_url   = foto.url
+        emittente  = interaction.user
 
         class Modal1(discord.ui.Modal, title="📒 Modulo Documenti — Parte 1"):
             psn_id       = discord.ui.TextInput(label="ID PSN",         style=discord.TextStyle.short, required=True, max_length=50)
@@ -231,7 +221,6 @@ def setup_document_commands(bot):
             eta          = discord.ui.TextInput(label="Età",             style=discord.TextStyle.short, required=True, max_length=3)
 
             async def on_submit(self, inter: discord.Interaction):
-                # Risposta immediata — nessuna operazione pesante qui
                 data1 = {
                     "psn_id":       self.psn_id.value,
                     "nome":         self.nome.value,
@@ -252,8 +241,7 @@ def setup_document_commands(bot):
     @app_commands.describe(cittadino="Il cittadino")
     async def rimuovi_documento(interaction: discord.Interaction, cittadino: discord.Member):
         if not has_stato(interaction):
-            await interaction.response.send_message("❌ Non hai i permessi.", ephemeral=True)
-            return
+            await interaction.response.send_message("❌ Non hai i permessi.", ephemeral=True); return
 
         async with aiosqlite.connect(DATABASE_NAME) as db:
             await db.execute("DELETE FROM documents WHERE user_id=?", (str(cittadino.id),))
@@ -274,8 +262,7 @@ def setup_document_commands(bot):
     async def mostra_documento(interaction: discord.Interaction):
         doc = await database.get_document(str(interaction.user.id))
         if not doc:
-            await interaction.response.send_message("❌ Non hai un documento registrato.", ephemeral=True)
-            return
+            await interaction.response.send_message("❌ Non hai un documento registrato.", ephemeral=True); return
 
         extra = doc.get("extra") or {}
         data  = {
@@ -302,8 +289,7 @@ def setup_document_commands(bot):
     async def cercapersona(interaction: discord.Interaction, cittadino: discord.Member):
         if not (has_sceriffo(interaction) or has_stato(interaction)):
             await interaction.response.send_message(
-                "❌ Solo lo Sceriffo o lo Stato possono consultare il registro.", ephemeral=True)
-            return
+                "❌ Solo lo Sceriffo o lo Stato possono consultare il registro.", ephemeral=True); return
 
         await interaction.response.defer(ephemeral=True)
 
@@ -373,13 +359,11 @@ def setup_document_commands(bot):
         embed = _build_doc_embed(cittadino, interaction.user, data, doc.get("foto_url"))
         await interaction.followup.send(embed=embed, ephemeral=True)
 
-        # DM al cittadino — notifica che lo staff ha visto il documento
+        # DM al cittadino
         try:
             dm = discord.Embed(
                 title="👁️ Il tuo documento è stato consultato",
-                description=(
-                    f"Lo staff **{interaction.user.mention}** ha visualizzato il tuo documento d'identità."
-                ),
+                description=f"Lo staff {interaction.user.mention} ha visualizzato il tuo documento d'identità.",
                 color=discord.Color(0x8B4513),
                 timestamp=discord.utils.utcnow()
             )

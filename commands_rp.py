@@ -122,13 +122,13 @@ def setup_rp_commands(bot):
             )
             return
 
-        h_drop = random.randint(1, 5)
-        t_drop = random.randint(1, 10)
+        h_drop = random.randint(4, 10)
+        t_drop = random.randint(4, 10)
         new_h  = max(0, user["hunger"] - h_drop)
         new_t  = max(0, user["thirst"] - t_drop)
         await database.update_hunger_thirst(uid, hunger=new_h, thirst=new_t)
         embed = discord.Embed(
-            description=f"*{interaction.user.mention} : {azione}*",
+            description=f"*{interaction.user.display_name} {azione}*",
             color=_color(new_h, new_t),
             timestamp=discord.utils.utcnow()
         )
@@ -225,7 +225,7 @@ def setup_rp_commands(bot):
 
         all_items = await database.get_inventory(str(target.id))
         user      = await database.get_user(str(target.id))
-        titolo    = f"🎒 Bisaccia di {target.mentuon}" if utente else "🎒 La tua Bisaccia"
+        titolo    = f"🎒 Bisaccia di {target.mention}" if utente else "🎒 La tua Bisaccia"
         B_PER_PAGE = 5
         tot = max(1, -(-len(all_items) // B_PER_PAGE))
 
@@ -543,8 +543,7 @@ def setup_rp_commands(bot):
         await interaction.response.send_message(embed=embed)
 
     # ── /caccia ──────────────────────────────────────────────────────────────
-    
-
+ 
     # ── /anonimo ─────────────────────────────────────────────────────────────
     @bot.tree.command(name="anonimo", description="Invia un messaggio anonimo nel canale")
     @app_commands.describe(messaggio="Il messaggio anonimo")
@@ -600,7 +599,7 @@ def setup_rp_commands(bot):
         await interaction.response.send_message(embed=embed)
 
     # ── /sondaggiorp ─────────────────────────────────────────────────────────
-  
+
 
     # ── /lettera ─────────────────────────────────────────────────────────────
     @bot.tree.command(name="lettera", description="Invia una lettera privata a un altro giocatore")

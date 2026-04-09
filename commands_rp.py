@@ -225,7 +225,7 @@ def setup_rp_commands(bot):
 
         all_items = await database.get_inventory(str(target.id))
         user      = await database.get_user(str(target.id))
-        titolo    = f"🎒 Bisaccia di {target.mention}" if utente else "🎒 La tua Bisaccia"
+        titolo    = f"🎒 Bisaccia di {target.mentuon}" if utente else "🎒 La tua Bisaccia"
         B_PER_PAGE = 5
         tot = max(1, -(-len(all_items) // B_PER_PAGE))
 
@@ -247,22 +247,22 @@ def setup_rp_commands(bot):
             def __init__(self_v, p=0):
                 super().__init__(timeout=120)
                 self_v.p = p
-                self_v._refresh()
+                self_v._aggiorna()
 
-            def _refresh(self_v):
+            def _aggiorna(self_v):
                 self_v.prev_btn.disabled = self_v.p == 0
                 self_v.next_btn.disabled = self_v.p >= tot - 1
 
             @discord.ui.button(label="⬅️ Pagina", style=discord.ButtonStyle.primary)
             async def prev_btn(self_v, itr: discord.Interaction, btn):
                 self_v.p -= 1
-                self_v._refresh()
+                self_v._aggiorna()
                 await itr.response.edit_message(embed=build_bisaccia_embed(self_v.p), view=self_v)
 
             @discord.ui.button(label="➡️ Pagina", style=discord.ButtonStyle.primary)
             async def next_btn(self_v, itr: discord.Interaction, btn):
                 self_v.p += 1
-                self_v._refresh()
+                self_v._aggiorna()
                 await itr.response.edit_message(embed=build_bisaccia_embed(self_v.p), view=self_v)
 
         if tot > 1:
@@ -543,7 +543,8 @@ def setup_rp_commands(bot):
         await interaction.response.send_message(embed=embed)
 
     # ── /caccia ──────────────────────────────────────────────────────────────
-   
+    
+
     # ── /anonimo ─────────────────────────────────────────────────────────────
     @bot.tree.command(name="anonimo", description="Invia un messaggio anonimo nel canale")
     @app_commands.describe(messaggio="Il messaggio anonimo")
@@ -600,7 +601,7 @@ def setup_rp_commands(bot):
 
     # ── /sondaggiorp ─────────────────────────────────────────────────────────
   
-    
+
     # ── /lettera ─────────────────────────────────────────────────────────────
     @bot.tree.command(name="lettera", description="Invia una lettera privata a un altro giocatore")
     @app_commands.describe(destinatario="Il giocatore che riceverà la lettera")

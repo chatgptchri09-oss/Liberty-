@@ -48,21 +48,21 @@ _turni_cache: dict = {}  # user_id → discord.Role object (non serializzabile)
 
 # ── Cibi (Listino Saloon) ─────────────────────────────────────────────────────
 FOOD_ITEMS = {
-    "🥪 • Panino col prosciutto":                     4,
-    "🥪 • Panino con lattuga e prosciutto":           5,
-    "🥪 • Panino con lattuga, prosciutto e pomodoro": 6,
-    "🥪 • Panino farcito a piacere":                  0,   # prezzo variabile
-    "🍝 • Pasta al sugo":                             9,
-    "🍝 • Pasta al pesto":                           10,
-    "🥩 • Stufato di bistecca con verdure":          15,
-    "🥫 • Cibo in scatola":                           8,
-    "🍎 • Frutta":                                    6,
-    "🌽 • Verdura":                                   5,
+    "🥪 • Panino col prosciutto":                     15,
+    "🥪 • Panino con lattuga e prosciutto":           10,
+    "🥪 • Panino con lattuga, prosciutto e pomodoro": 13,
+    "🥪 • Panino farcito a piacere":                  9,   # prezzo variabile
+    "🍝 • Pasta al sugo":                             14,
+    "🍝 • Pasta al pesto":                           17,
+    "🥩 • Stufato di bistecca con verdure":          30,
+    "🥫 • Cibo in scatola":                           9,
+    "🍎 • Frutta":                                    8,
+    "🌽 • Verdura":                                   9,
     "🧀 • Formaggio":                                10,
-    "🥚 • Uova":                                      7,
-    "🥩 • Salumi":                                   12,
-    "🍪 • Biscotti":                                  6,
-    "🥖 • Pane":                                      8,
+    "🥚 • Uova":                                      20,
+    "🥩 • Salumi":                                   25,
+    "🍪 • Biscotti":                                  10,
+    "🥖 • Pane":                                      10,
     "🍫 • Dolciumi":                                  5,
 }
 
@@ -543,7 +543,8 @@ def setup_rp_commands(bot):
         await interaction.response.send_message(embed=embed)
 
     # ── /caccia ──────────────────────────────────────────────────────────────
- 
+  
+
     # ── /anonimo ─────────────────────────────────────────────────────────────
     @bot.tree.command(name="anonimo", description="Invia un messaggio anonimo nel canale")
     @app_commands.describe(messaggio="Il messaggio anonimo")
@@ -588,18 +589,132 @@ def setup_rp_commands(bot):
             await interaction.channel.send(embed=embed)
 
     # ── /nascondo ────────────────────────────────────────────────────────────
-    @bot.tree.command(name="nascondo", description="Nascondi un oggetto in un luogo segreto")
-    @app_commands.describe(oggetto="L'oggetto", luogo="Il luogo segreto")
-    async def nascondo(interaction: discord.Interaction, oggetto: str, luogo: str):
-        embed = discord.Embed(title="🙈 𝐎𝐠𝐠𝐞𝐭𝐭𝐨 𝐍𝐚𝐬𝐜𝐨𝐬𝐭𝐨", color=discord.Color(0x556B2F), timestamp=discord.utils.utcnow())
+    async def _nascondo_ac(interaction: discord.Interaction, current: str):
+        uid   = str(interaction.user.id)
+        items = await database.get_inventory(uid)
+        names = [i["item_name"] for i in items]
+        return [app_commands.Choice(name=m, value=m) for m in _fuzzy(current, names)[:25]]
+
+    @bot.tree.command(name="nascondo", description="Nascondi un oggetto dalla tua bisaccia in un luogo segreto")
+    @app_commands.describe(
+        oggetto="L'oggetto da nascondere (dalla tua bisaccia)",
+        luogo="Il luogo segreto",
+        quantita="Quantità da nascondere (default 1)",
+        foto="Foto del luogo (opzionale)"
+    )
+    @app_commands.autocomplete(oggetto=_nascondo_ac)
+    async def nascondo(interaction: discord.Interaction, oggetto: str, luogo: str,
+                       quantita: int = 1, foto: discord.Attachment = None):
+        uid = str(interaction.user.id)
+
+        if quantita < 1:
+            await interaction.response.send_message("❌ Quantità minima: 1.", ephemeral=True)
+            return
+
+        # Verifica che l'utente abbia abbastanza item
+        qty_in_bisaccia = await database.get_item_quantity(uid, oggetto)
+        if qty_in_bisaccia < quantita:
+            await interaction.response.send_message(
+                f"❌ Non hai abbastanza **{oggetto}** nella bisaccia. (Hai: {qty_in_bisaccia})",
+                ephemeral=True
+            )
+            return
+
+        # Rimuove dalla bisaccia e mette in hidden_items
+        await database.remove_item(uid, oggetto, quantita)
+        hide_id = await database.hide_item(uid, oggetto, quantita, luogo)
+
+        embed = discord.Embed(
+            title="🙈 𝐎𝐠𝐠𝐞𝐭𝐭𝐨 𝐍𝐚𝐬𝐜𝐨𝐬𝐭𝐨",
+            color=discord.Color(0x556B2F),
+            timestamp=discord.utils.utcnow()
+        )
         embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
-        embed.add_field(name="📦 Oggetto", value=oggetto, inline=False)
-        embed.add_field(name="📍 Luogo",   value=luogo,   inline=False)
-        embed.set_footer(text="🤠 Red Dead Redemption II — Nascosto")
+        embed.add_field(name="📦 Oggetto",  value=f"{oggetto} x{quantita}", inline=True)
+        embed.add_field(name="🔢 ID Nascondiglio", value=f"#{hide_id}",     inline=True)
+        embed.add_field(name="📍 Luogo",    value=luogo,                    inline=False)
+        if foto and foto.content_type and foto.content_type.startswith("image/"):
+            embed.set_image(url=foto.url)
+        embed.set_footer(text="🤠 Red Dead Redemption II — Usa /recupera-oggetto per riprendere l'oggetto")
         await interaction.response.send_message(embed=embed)
 
-    # ── /sondaggiorp ─────────────────────────────────────────────────────────
+        # Log
+        try:
+            ch = bot.get_channel(LOG_CHANNEL_ID)
+            if ch:
+                log = discord.Embed(title="🙈 LOG — Oggetto Nascosto", color=discord.Color(0x556B2F), timestamp=discord.utils.utcnow())
+                log.add_field(name="👤 Utente",   value=interaction.user.mention,    inline=True)
+                log.add_field(name="📦 Oggetto",  value=f"{oggetto} x{quantita}",    inline=True)
+                log.add_field(name="📍 Luogo",    value=luogo,                       inline=True)
+                log.add_field(name="🔢 ID",       value=f"#{hide_id}",               inline=True)
+                await ch.send(embed=log)
+        except Exception:
+            pass
 
+    # ── /recupera-oggetto ─────────────────────────────────────────────────────
+    async def _recupera_ac(interaction: discord.Interaction, current: str):
+        uid   = str(interaction.user.id)
+        items = await database.get_hidden_items(uid)
+        scelte = []
+        for i in items:
+            label = f"#{i['id']} — {i['item_name']} x{i['quantity']} ({i['luogo']})"[:100]
+            scelte.append(app_commands.Choice(name=label, value=str(i["id"])))
+        if current:
+            scelte = [s for s in scelte if current.lower() in s.name.lower()]
+        return scelte[:25]
+
+    @bot.tree.command(name="recupera-oggetto", description="Recupera un oggetto che hai nascosto")
+    @app_commands.describe(oggetto="L'oggetto nascosto da recuperare")
+    @app_commands.autocomplete(oggetto=_recupera_ac)
+    async def recupera_oggetto(interaction: discord.Interaction, oggetto: str):
+        uid = str(interaction.user.id)
+
+        # oggetto è l'ID del nascondiglio (stringa numerica dall'autocomplete)
+        try:
+            hide_id = int(oggetto)
+        except ValueError:
+            await interaction.response.send_message("❌ Seleziona un oggetto dalla lista.", ephemeral=True)
+            return
+
+        # Verifica che esista e appartenga all'utente
+        hidden_items = await database.get_hidden_items(uid)
+        item = next((i for i in hidden_items if i["id"] == hide_id), None)
+
+        if not item:
+            await interaction.response.send_message(
+                "❌ Non hai nessun oggetto nascosto con questo ID, o non ti appartiene.", ephemeral=True
+            )
+            return
+
+        # Recupera: rimuove da hidden_items e rimette in bisaccia
+        await database.recover_hidden_item(hide_id)
+        await database.add_item(uid, item["item_name"], item["quantity"])
+
+        embed = discord.Embed(
+            title="✅ 𝐎𝐠𝐠𝐞𝐭𝐭𝐨 𝐑𝐞𝐜𝐮𝐩𝐞𝐫𝐚𝐭𝐨",
+            color=discord.Color.green(),
+            timestamp=discord.utils.utcnow()
+        )
+        embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
+        embed.add_field(name="📦 Oggetto",  value=f"{item['item_name']} x{item['quantity']}", inline=True)
+        embed.add_field(name="📍 Era in",   value=item["luogo"],                               inline=True)
+        embed.set_footer(text="🤠 Red Dead Redemption II — Bisaccia")
+        await interaction.response.send_message(embed=embed)
+
+        # Log
+        try:
+            ch = bot.get_channel(LOG_CHANNEL_ID)
+            if ch:
+                log = discord.Embed(title="✅ LOG — Oggetto Recuperato", color=discord.Color.green(), timestamp=discord.utils.utcnow())
+                log.add_field(name="👤 Utente",  value=interaction.user.mention,                   inline=True)
+                log.add_field(name="📦 Oggetto", value=f"{item['item_name']} x{item['quantity']}",  inline=True)
+                log.add_field(name="📍 Era in",  value=item["luogo"],                               inline=True)
+                await ch.send(embed=log)
+        except Exception:
+            pass
+
+    # ── /sondaggiorp ─────────────────────────────────────────────────────────
+  
 
     # ── /lettera ─────────────────────────────────────────────────────────────
     @bot.tree.command(name="lettera", description="Invia una lettera privata a un altro giocatore")

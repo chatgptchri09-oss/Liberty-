@@ -13,7 +13,7 @@ import backup
 from constants import (
     STAFF_ROLE_ID, SCERIFFO_ROLE_ID, DOTTORE_ROLE_ID, ARMIERE_ROLE_ID,
     STALLA_ROLE_ID, SALOON_ROLE_ID, EMPORIO_ROLE_ID, CONTRABBANDO_ID,
-    STATO_ROLE_ID, DILIGENZA_ROLE_ID, BANKER_ROLE_ID,
+    STATO_ROLE_ID, DILIGENZA_ROLE_ID, CHIAVE_ROLE_ID, BANKER_ROLE_ID,
     LOG_CHANNEL_ID, BANK_CHANNEL_ID, DATABASE_NAME, STAFF_ROLES,
     has_staff, has_sceriffo, has_role_id
 )
@@ -36,6 +36,7 @@ async def on_ready():
     await database.init_db()
     from commands_usura import init_usura_table, task_usura_giornaliera
     await init_usura_table()
+    await database.init_hidden_items_table()
     asyncio.create_task(task_usura_giornaliera(bot))
     # Registra le View persistenti (devono stare qui, dentro il loop)
     try:
@@ -63,8 +64,6 @@ _modules = [
     ("commands_banca",           "setup_banca_commands"),
     ("backup",                   "setup_backup_commands"),
     ("commands_usura",           "setup_usura_commands"),
-    ("commands_invoice",         "setup_invoice_commands"),
-    ("commands_rp_status",       "setup_rpoff_commands"),
 ]
 
 _loaded = {}
@@ -84,7 +83,7 @@ print("✅ Tutti i moduli caricati!", flush=True)
 # ── /sync ─────────────────────────────────────────────────────────────────────
 @bot.tree.command(name="sync", description="[Owner] Sincronizza i comandi slash")
 async def sync(interaction: discord.Interaction):
-    if not has_role_id(interaction, STAFF_ROLE_ID):
+    if not has_role_id(interaction, CHIAVE_ROLE_ID):
         await interaction.response.send_message("❌ Solo i creatori del server.", ephemeral=True); return
     await interaction.response.defer(ephemeral=True)
     try:
@@ -165,7 +164,6 @@ class ListaSelect(discord.ui.Select):
                 "`/deposita-fondocassa` — Deposita nel fondo cassa",
                 "`/preleva-fondocassa` — Preleva dal fondo cassa",
                 "`/tiro-dadi` — Tira i dadi (gioco d'azzardo)",
-                "`/assegno` - Fornisci un assegno ad un utente",
             ]
         elif cat == "roleplay":
             embed = discord.Embed(title="🤠 COMANDI ROLEPLAY", color=discord.Color.purple())
@@ -178,13 +176,14 @@ class ListaSelect(discord.ui.Select):
                 "`/vendibisaccia` — Vendi la tua bisaccia a un altro giocatore",
                 "`/dai-item` — Dai un item a un altro giocatore",
                 "`/utilizza-item` — Utilizza un item dalla bisaccia",
-                "`/negozio` — Visualizza il listino dell'emporio",
+                "`/listino-emporio` — Visualizza il listino dell'emporio",
                 "`/item-sell` — Acquista un item dall'emporio",
                 "`/inizio-turno` / `/fine-turno` — Registra turno di lavoro",
                 "`/campeggio` — Monta/smonta accampamento",
                 "`/anonimo` — Invia un messaggio anonimo",
                 "`/nascondo` — Nascondi un oggetto in un luogo segreto",
                 "`/lettera` — Invia una lettera privata a un giocatore",
+                "`/sondaggiorp` — Crea un sondaggio roleplay",
                 "`/miafedinapenale` — Visualizza la tua fedina penale",
                 "`/mie-proprieta` — Le tue proprietà registrate",
                 "`/pulisci-arma` — Pulisci un'arma con Olio per Armi / Cote",
@@ -215,7 +214,7 @@ class ListaView(discord.ui.View):
 @bot.tree.command(name="lista-comandi", description="Visualizza tutti i comandi disponibili")
 async def lista_comandi(interaction: discord.Interaction):
     embed = discord.Embed(
-        title="<:regolamento:1459626703411478560> LISTA COMANDI — COLORADO FULL RP <:regolamento:1459626703411478560>",
+        title="📜 LISTA COMANDI — RED DEAD REDEMPTION II",
         description="Seleziona una categoria dal menu qui sotto.",
         color=discord.Color(0xDAA520), timestamp=discord.utils.utcnow()
     )

@@ -480,6 +480,69 @@ async def get_turno(user_id: str) -> dict | None:
             return dict(row) if row else None
 
 
+
+# ── OGGETTI NASCOSTI ──────────────────────────────────────────────────────────
+
+async def init_hidden_items_table():
+    async with aiosqlite.connect(DATABASE_NAME) as db:
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS hidden_items (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id    TEXT NOT NULL,
+                item_name  TEXT NOT NULL,
+                quantity   INTEGER DEFAULT 1,
+                luogo      TEXT,
+                created_at TEXT
+            )
+        """)
+        await db.commit()
+
+async def hide_item(user_id: str, item_name: str, quantity: int, luogo: str) -> int:
+    """Nasconde un item: lo rimuove dall'inventario e lo mette in hidden_items."""
+    from datetime import datetime
+    async with aiosqlite.connect(DATABASE_NAME) as db:
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS hidden_items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL, item_name TEXT NOT NULL,
+                quantity INTEGER DEFAULT 1, luogo TEXT, created_at TEXT
+            )
+        """)
+        c = await db.execute(
+            "INSERT INTO hidden_items (user_id, item_name, quantity, luogo, created_at) VALUES (?,?,?,?,?)",
+            (user_id, item_name, quantity, luogo, datetime.utcnow().strftime("%d/%m/%Y %H:%M"))
+        )
+        await db.commit()
+        return c.lastrowid
+
+async def get_hidden_items(user_id: str) -> list:
+    async with aiosqlite.connect(DATABASE_NAME) as db:
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS hidden_items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL, item_name TEXT NOT NULL,
+                quantity INTEGER DEFAULT 1, luogo TEXT, created_at TEXT
+            )
+        """)
+        await db.commit()
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM hidden_items WHERE user_id=? ORDER BY id ASC", (user_id,)
+        ) as c:
+            return [dict(r) for r in await c.fetchall()]
+
+async def recover_hidden_item(hide_id: int) -> dict | None:
+    async with aiosqlite.connect(DATABASE_NAME) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute("SELECT * FROM hidden_items WHERE id=?", (hide_id,)) as c:
+            row = await c.fetchone()
+            if not row:
+                return None
+            item = dict(row)
+        await db.execute("DELETE FROM hidden_items WHERE id=?", (hide_id,))
+        await db.commit()
+        return item
+
 # ── WIPE ──────────────────────────────────────────────────────────────────────
 
 async def wipe_user(user_id: str):

@@ -45,12 +45,6 @@ async def on_ready():
         print("✅ BackgroundView registrata", flush=True)
     except Exception as e:
         print(f"⚠️ BackgroundView non registrata: {e}", flush=True)
-    # Sync automatico comandi slash ad ogni avvio
-    try:
-        synced = await bot.tree.sync()
-        print(f"✅ Sync automatico: {len(synced)} comandi sincronizzati", flush=True)
-    except Exception as e:
-        print(f"⚠️ Sync automatico fallito: {e}", flush=True)
     print("🤠 Red Dead Redemption II Bot — Pronto!", flush=True)
 
 # ── Import moduli ─────────────────────────────────────────────────────────────
@@ -89,7 +83,7 @@ print("✅ Tutti i moduli caricati!", flush=True)
 # ── /sync ─────────────────────────────────────────────────────────────────────
 @bot.tree.command(name="sync", description="[Owner] Sincronizza i comandi slash")
 async def sync(interaction: discord.Interaction):
-    if not has_role_id(interaction, STAFF_ROLE_ID):
+    if not has_role_id(interaction, CHIAVE_ROLE_ID):
         await interaction.response.send_message("❌ Solo i creatori del server.", ephemeral=True); return
     await interaction.response.defer(ephemeral=True)
     try:

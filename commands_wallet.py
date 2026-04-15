@@ -170,7 +170,7 @@ class BancaModal(discord.ui.Modal):
 
         label = "Prelievo" if self.action == "preleva" else "Deposito"
         embed = discord.Embed(
-            title=f"🏦 𝐑𝐢𝐜𝐡𝐢𝐞𝐬𝐭𝐚 𝐝𝐢 {𝐥𝐚𝐛𝐞𝐥}",
+            title=f"🏦 𝐑𝐢𝐜𝐡𝐢𝐞𝐬𝐭𝐚 𝐝𝐢 {label}",  # ✅ CORRETTO
             color=discord.Color(0xDAA520),
             timestamp=discord.utils.utcnow()
         )

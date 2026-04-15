@@ -1,5 +1,5 @@
 discord.py==2.4.0
+aiohttp
 aiosqlite
 PyNaCl
 python-dotenv
-

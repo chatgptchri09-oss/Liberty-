@@ -64,8 +64,6 @@ _modules = [
     ("commands_banca",           "setup_banca_commands"),
     ("backup",                   "setup_backup_commands"),
     ("commands_usura",           "setup_usura_commands"),
-    ("commands_rp_status",       "setup_rpoff_commands"),
-    ("commands_invoice",         "setup_invoice_commands"),
 ]
 
 _loaded = {}
@@ -85,7 +83,7 @@ print("✅ Tutti i moduli caricati!", flush=True)
 # ── /sync ─────────────────────────────────────────────────────────────────────
 @bot.tree.command(name="sync", description="[Owner] Sincronizza i comandi slash")
 async def sync(interaction: discord.Interaction):
-    if not has_role_id(interaction, STAFF_ROLE_ID):
+    if not has_role_id(interaction, CHIAVE_ROLE_ID):
         await interaction.response.send_message("❌ Solo i creatori del server.", ephemeral=True); return
     await interaction.response.defer(ephemeral=True)
     try:
@@ -244,22 +242,9 @@ async def main():
     TOKEN = os.getenv("DISCORD_TOKEN")
     if not TOKEN:
         print("❌ DISCORD_TOKEN mancante!", flush=True); return
-    
     asyncio.create_task(backup.backup_database(bot))
     print("✅ Backup automatico avviato (ogni 6 ore)", flush=True)
-    
-    # ✅ Retry diretto senza delay
-    for attempt in range(10):
-        try:
-            await bot.start(TOKEN)
-            break
-        except discord.errors.HTTPException as e:
-            if e.status == 429:
-                wait_time = 60 * (attempt + 1)
-                print(f"⚠️ Rate limited! Tentativo {attempt + 1}/10. Aspetto {wait_time}s...", flush=True)
-                await asyncio.sleep(wait_time)
-            else:
-                raise
+    await bot.start(TOKEN)
 
 if __name__ == "__main__":
     from dotenv import load_dotenv

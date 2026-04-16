@@ -245,12 +245,10 @@ async def main():
     if not TOKEN:
         print("❌ DISCORD_TOKEN mancante!", flush=True); return
     
-    print("⏳ Aspetto 2 minuti prima di connettersi a Discord...", flush=True)
-    await asyncio.sleep(120)
-    
     asyncio.create_task(backup.backup_database(bot))
     print("✅ Backup automatico avviato (ogni 6 ore)", flush=True)
     
+    # ✅ Retry diretto senza delay
     for attempt in range(10):
         try:
             await bot.start(TOKEN)

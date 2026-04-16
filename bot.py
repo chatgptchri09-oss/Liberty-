@@ -244,9 +244,24 @@ async def main():
     TOKEN = os.getenv("DISCORD_TOKEN")
     if not TOKEN:
         print("❌ DISCORD_TOKEN mancante!", flush=True); return
+    
+    print("⏳ Aspetto 2 minuti prima di connettersi a Discord...", flush=True)
+    await asyncio.sleep(120)
+    
     asyncio.create_task(backup.backup_database(bot))
     print("✅ Backup automatico avviato (ogni 6 ore)", flush=True)
-    await bot.start(TOKEN)
+    
+    for attempt in range(10):
+        try:
+            await bot.start(TOKEN)
+            break
+        except discord.errors.HTTPException as e:
+            if e.status == 429:
+                wait_time = 60 * (attempt + 1)
+                print(f"⚠️ Rate limited! Tentativo {attempt + 1}/10. Aspetto {wait_time}s...", flush=True)
+                await asyncio.sleep(wait_time)
+            else:
+                raise
 
 if __name__ == "__main__":
     from dotenv import load_dotenv

@@ -210,6 +210,15 @@ def setup_document_commands(bot):
             await interaction.response.send_message(
                 "❌ Il file caricato non è un'immagine valida. Carica un'immagine (jpg, png...).", ephemeral=True); return
 
+        # Controlla se il cittadino ha già un documento
+        doc_esistente = await database.get_document(str(cittadino.id))
+        if doc_esistente:
+            await interaction.response.send_message(
+                f"❌ {cittadino.mention} ha già un documento d'identità registrato.\nUsa `/rimuovi-documento` prima di crearne uno nuovo.",
+                ephemeral=True
+            )
+            return
+
         foto_url   = foto.url
         emittente  = interaction.user
 

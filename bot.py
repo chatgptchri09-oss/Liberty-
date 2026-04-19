@@ -66,6 +66,7 @@ _modules = [
     ("commands_usura",           "setup_usura_commands"),
     ("commands_rp_status",       "setup_rpoff_commands"),
     ("commands_invoice",         "setup_invoice_commands"),
+    ("commands_wipepg",          "setup_wipepg_commands"),
 ]
 
 _loaded = {}

@@ -13,6 +13,8 @@ COMPANY_EMOJI = {
     "Contrabbando": "🚫",
     "Diligenza":    "🚂",
     "Stato":        "🏛️",
+    "Banchiere":    "🏦",
+    "Distilleria":  "🥃",
 }
 
 _CHOICES = [
@@ -25,6 +27,8 @@ _CHOICES = [
     app_commands.Choice(name="🚫 Contrabbando", value="Contrabbando"),
     app_commands.Choice(name="🚂 Diligenza",    value="Diligenza"),
     app_commands.Choice(name="🏛️ Stato",        value="Stato"),
+    app_commands.Choice(name="🏦 Banca",        value="Banchiere"),
+    app_commands.Choice(name="🥃 Distilleria",  value="Distilleria"),
 ]
 
 

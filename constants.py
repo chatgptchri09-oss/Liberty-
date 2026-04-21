@@ -34,6 +34,7 @@ COMPANY_ROLES = {
     "Emporio":      EMPORIO_ROLE_ID,
     "Contrabbando": CONTRABBANDO_ID,
     "Diligenza":    1421007310771191829,
+    "Banchiere":    BANKER_ROLE_ID,p
 }
 
 # ── Helper permessi ───────────────────────────

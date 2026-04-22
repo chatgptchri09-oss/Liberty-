@@ -550,16 +550,16 @@ def setup_rp_commands(bot):
     @app_commands.describe(messaggio="Il messaggio anonimo")
     async def anonimo(interaction: discord.Interaction, messaggio: str):
         import re as _re
-
+ 
         # Rileva menzioni ruoli (<@&ID>) e utenti (<@ID> o <@!ID>)
         role_ids  = _re.findall(r'<@&(\d+)>',  messaggio)
         user_ids  = _re.findall(r'<@!?(\d+)>', messaggio)
-
+ 
         # Costruisce le mention string per il contenuto sopra l'embed
         guild = interaction.guild
         role_mentions  = []
         member_mentions = []
-
+ 
         if guild:
             for rid in role_ids:
                 role = guild.get_role(int(rid))
@@ -569,7 +569,7 @@ def setup_rp_commands(bot):
                 member = guild.get_member(int(uid))
                 if member:
                     member_mentions.append(member.mention)
-
+ 
         # Testo di avviso sopra l'embed
         avviso = ""
         if role_mentions and member_mentions:
@@ -578,7 +578,7 @@ def setup_rp_commands(bot):
             avviso = f"📝 In questo messaggio sono stati menzionati i ruoli: {' '.join(role_mentions)}"
         elif member_mentions:
             avviso = f"📝 In questo messaggio sono stati menzionati i membri: {' '.join(member_mentions)}"
-
+ 
         embed = discord.Embed(description=f"*\"{messaggio}\"*", color=discord.Color(0x2C2C2C), timestamp=discord.utils.utcnow())
         embed.set_author(name="🎭 𝐌𝐞𝐬𝐬𝐚𝐠𝐠𝐢𝐨 𝐀𝐧𝐨𝐧𝐢𝐦𝐨")
         embed.set_footer(text="🤠 Red Dead Redemption II — Anonimo")
@@ -587,7 +587,22 @@ def setup_rp_commands(bot):
             await interaction.channel.send(content=avviso, embed=embed)
         else:
             await interaction.channel.send(embed=embed)
-
+ 
+        # Log — mostra chi ha usato il comando e in che canale
+        try:
+            ch = bot.get_channel(LOG_CHANNEL_ID)
+            if ch:
+                log = discord.Embed(
+                    title="🎭 LOG — Messaggio Anonimo",
+                    color=discord.Color(0x2C2C2C),
+                    timestamp=discord.utils.utcnow()
+                )
+                log.add_field(name="👤 Autore reale",  value=interaction.user.mention,        inline=True)
+                log.add_field(name="📢 Canale",        value=interaction.channel.mention,     inline=True)
+                log.add_field(name="💬 Messaggio",     value=messaggio[:1024],                inline=False)
+                await ch.send(embed=log)
+        except Exception:
+            pass
     # ── /nascondo ────────────────────────────────────────────────────────────
     async def _nascondo_ac(interaction: discord.Interaction, current: str):
         uid   = str(interaction.user.id)

@@ -249,13 +249,10 @@ def setup_theft_commands(bot):
     #  DISTILLERIA — CREAZIONE ALCOOL
     # ══════════════════════════════════════════════════════════════════════════
 
-    @bot.tree.command(name="inizio-creazione-alcool", description="[Distilleria] Inizia la creazione di una partita di alcool")
-    @app_commands.describe(
-        alcool="Tipo di alcool da creare",
-        foto="Foto della sessione (OBBLIGATORIA)"
-    )
-    @app_commands.choices(alcool=ALCOOL_CHOICES)
-    async def inizio_creazione_alcool(interaction: discord.Interaction, alcool: str, foto: discord.Attachment):
+    @bot.tree.command(name="inizio-creazione-alcool", description="[Distilleria] Inizia la creazione di una partita di Moonshine")
+    @app_commands.describe(foto="Foto della sessione (OBBLIGATORIA)")
+    async def inizio_creazione_alcool(interaction: discord.Interaction, foto: discord.Attachment):
+        alcool = "🌙 Moonshine"
         uid    = str(interaction.user.id)
         member = interaction.user
 
@@ -300,10 +297,8 @@ def setup_theft_commands(bot):
             if ch: await ch.send(embed=embed)
         except Exception: pass
 
-    @bot.tree.command(name="fine-creazione-alcool", description="[Distilleria] Termina la creazione di una partita di alcool")
-    @app_commands.describe(alcool="Tipo di alcool che stavi creando")
-    @app_commands.choices(alcool=ALCOOL_CHOICES)
-    async def fine_creazione_alcool(interaction: discord.Interaction, alcool: str):
+    @bot.tree.command(name="fine-creazione-alcool", description="[Distilleria] Termina la creazione di una partita di Moonshine")
+    async def fine_creazione_alcool(interaction: discord.Interaction):
         uid = str(interaction.user.id)
 
         if uid not in _creazioni_attive:
@@ -312,10 +307,7 @@ def setup_theft_commands(bot):
             return
 
         sessione = _creazioni_attive[uid]
-        if sessione["alcool"] != alcool:
-            await interaction.response.send_message(
-                f"❌ Stai creando **{sessione['alcool']}**, non **{alcool}**.", ephemeral=True)
-            return
+        alcool   = sessione["alcool"]
 
         now      = datetime.now(timezone.utc)
         inizio   = sessione["inizio"]
@@ -349,13 +341,10 @@ def setup_theft_commands(bot):
     #  DISTILLERIA — DISTILLAZIONE
     # ══════════════════════════════════════════════════════════════════════════
 
-    @bot.tree.command(name="inizio-distillazione", description="[Distilleria] Inizia una sessione di distillazione")
-    @app_commands.describe(
-        alcool="Tipo di alcool da distillare",
-        foto="Foto della sessione (OBBLIGATORIA)"
-    )
-    @app_commands.choices(alcool=ALCOOL_CHOICES)
-    async def inizio_distillazione(interaction: discord.Interaction, alcool: str, foto: discord.Attachment):
+    @bot.tree.command(name="inizio-distillazione", description="[Distilleria] Inizia una sessione di distillazione Moonshine")
+    @app_commands.describe(foto="Foto della sessione (OBBLIGATORIA)")
+    async def inizio_distillazione(interaction: discord.Interaction, foto: discord.Attachment):
+        alcool = "🌙 Moonshine"
         uid    = str(interaction.user.id)
         member = interaction.user
 
@@ -400,10 +389,8 @@ def setup_theft_commands(bot):
             if ch: await ch.send(embed=embed)
         except Exception: pass
 
-    @bot.tree.command(name="fine-distillazione", description="[Distilleria] Termina la sessione di distillazione")
-    @app_commands.describe(alcool="Tipo di alcool che stavi distillando")
-    @app_commands.choices(alcool=ALCOOL_CHOICES)
-    async def fine_distillazione(interaction: discord.Interaction, alcool: str):
+    @bot.tree.command(name="fine-distillazione", description="[Distilleria] Termina la sessione di distillazione Moonshine")
+    async def fine_distillazione(interaction: discord.Interaction):
         uid = str(interaction.user.id)
 
         if uid not in _distillazioni_attive:
@@ -412,10 +399,7 @@ def setup_theft_commands(bot):
             return
 
         sessione = _distillazioni_attive[uid]
-        if sessione["alcool"] != alcool:
-            await interaction.response.send_message(
-                f"❌ Stai distillando **{sessione['alcool']}**, non **{alcool}**.", ephemeral=True)
-            return
+        alcool   = sessione["alcool"]
 
         now      = datetime.now(timezone.utc)
         inizio   = sessione["inizio"]

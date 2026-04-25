@@ -145,10 +145,7 @@ def setup_rp_commands(bot):
         await interaction.response.send_message(embed=embed)
 
     # ── /mangia ──────────────────────────────────────────────────────────────
-    async def _food_ac(interaction: discord.Interaction, current: str):
-        return [app_commands.Choice(name=m, value=m) for m in _fuzzy(current, list(FOOD_ITEMS.keys()))[:25]]
-
-    @bot.tree.command(name="mangia", description="Mangia un cibo dalla bisaccia per ripristinare la fame")
+        @bot.tree.command(name="mangia", description="Mangia un cibo dalla bisaccia per ripristinare la fame")
     @app_commands.describe(cibo="Il cibo da mangiare")
     @app_commands.autocomplete(cibo=_food_ac)
     async def mangia(interaction: discord.Interaction, cibo: str):
@@ -166,18 +163,71 @@ def setup_rp_commands(bot):
         new_h = min(100, old_h + rip)
         await database.update_hunger_thirst(uid, hunger=new_h)
         await database.remove_item(uid, cibo, 1)
-        embed = discord.Embed(title="🍖 𝐏𝐚𝐬𝐭𝐨 𝐜𝐨𝐧𝐬𝐮𝐦𝐚𝐭𝐨", color=discord.Color(0x8B4513), timestamp=discord.utils.utcnow())
-        embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
-        embed.add_field(name="🥘 Cibo",     value=cibo,                               inline=False)
-        embed.add_field(name="🍔 Fame",     value=f"{_bar(old_h)}  →  {_bar(new_h)}", inline=False)
-        embed.add_field(name="➕ Recupero", value=f"+{rip}%",                          inline=False)
-        embed.set_footer(text="🤠 Red Dead Redemption II — Bisaccia")
-        await interaction.response.send_message(embed=embed)
-
+ 
+        # ── Animazione progressiva con più embed ─────────────────────────────
+        FRASI_MANGIA = [
+            (0.10, "🍴 **{u}** dà il primo morso...",                  discord.Color(0xA0522D)),
+            (0.25, "😋 **{u}** mastica con soddisfazione.",            discord.Color(0xCD853F)),
+            (0.45, "🤤 **{u}** sente già le forze tornare...",         discord.Color(0xDAA520)),
+            (0.65, "💪 **{u}** si sente decisamente meglio!",          discord.Color(0xF4A460)),
+            (0.85, "✨ **{u}** ha quasi finito il pasto.",             discord.Color(0xFFD700)),
+            (1.00, "✅ **{u}** ha terminato il pasto con gusto!",     discord.Color(0x228B22)),
+        ]
+ 
+        passi = max(2, min(6, rip // 5 + 1))
+        step  = rip / passi
+        u     = interaction.user.display_name
+ 
+        await interaction.response.defer()
+ 
+        msg = None
+        for idx in range(passi):
+            progresso   = (idx + 1) / passi
+            fame_attuale = min(100, old_h + round(step * (idx + 1)))
+ 
+            # Scegli frase in base al progresso
+            frase_txt, colore = FRASI_MANGIA[0][1], FRASI_MANGIA[0][2]
+            for soglia, testo, col in FRASI_MANGIA:
+                if progresso <= soglia:
+                    frase_txt, colore = testo, col
+                    break
+ 
+            embed = discord.Embed(
+                description=frase_txt.format(u=u),
+                color=colore,
+                timestamp=discord.utils.utcnow()
+            )
+            embed.set_author(name=u, icon_url=interaction.user.display_avatar.url)
+            embed.add_field(name="🥘 Cibo",     value=cibo,                                        inline=True)
+            embed.add_field(name="🍔 Fame",     value=f"{_bar(old_h)}  →  {_bar(fame_attuale)}",  inline=False)
+            embed.add_field(name="➕ Recupero", value=f"+{round(step*(idx+1))}%",                  inline=True)
+            embed.set_footer(text=f"🤠 Red Dead Redemption II — Pasto in corso... ({idx+1}/{passi})")
+ 
+            if msg is None:
+                msg = await interaction.followup.send(embed=embed)
+            else:
+                await msg.edit(embed=embed)
+ 
+            if idx < passi - 1:
+                await asyncio.sleep(1.2)
+ 
+        # Embed finale definitivo
+        embed_finale = discord.Embed(
+            title="🍖 𝐏𝐚𝐬𝐭𝐨 𝐜𝐨𝐧𝐬𝐮𝐦𝐚𝐭𝐨",
+            color=discord.Color(0x228B22),
+            timestamp=discord.utils.utcnow()
+        )
+        embed_finale.set_author(name=u, icon_url=interaction.user.display_avatar.url)
+        embed_finale.add_field(name="🥘 Cibo",     value=cibo,                               inline=False)
+        embed_finale.add_field(name="🍔 Fame",     value=f"{_bar(old_h)}  →  {_bar(new_h)}", inline=False)
+        embed_finale.add_field(name="➕ Recupero", value=f"+{rip}%",                          inline=False)
+        embed_finale.set_footer(text="🤠 Red Dead Redemption II — Bisaccia")
+        await msg.edit(embed=embed_finale)
+ 
     # ── /bevi ────────────────────────────────────────────────────────────────
     async def _drink_ac(interaction: discord.Interaction, current: str):
         return [app_commands.Choice(name=m, value=m) for m in _fuzzy(current, list(DRINK_ITEMS.keys()))[:25]]
-
+ 
     @bot.tree.command(name="bevi", description="Bevi qualcosa dalla bisaccia per ripristinare la sete")
     @app_commands.describe(bevanda="La bevanda da bere")
     @app_commands.autocomplete(bevanda=_drink_ac)
@@ -194,20 +244,83 @@ def setup_rp_commands(bot):
         rip   = DRINK_ITEMS[bevanda]
         old_t = user["thirst"]
         new_t = min(100, old_t + rip)
+        is_alc = bevanda in ALCOHOLIC
         await database.update_hunger_thirst(uid, thirst=new_t)
         await database.remove_item(uid, bevanda, 1)
-        note = ""
-        if bevanda in ALCOHOLIC:
+        if is_alc:
             new_h = max(0, user["hunger"] - 5)
             await database.update_hunger_thirst(uid, hunger=new_h)
-            note = "\n⚠️ *L'alcol ti ha tolto un po' di appetito...*"
-        embed = discord.Embed(title="💧 𝐁𝐞𝐯𝐚𝐧𝐝𝐚 𝐜𝐨𝐧𝐬𝐮𝐦𝐚𝐭𝐚", color=discord.Color(0x4682B4), timestamp=discord.utils.utcnow())
-        embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
-        embed.add_field(name="🥃 Bevanda", value=bevanda,                                    inline=False)
-        embed.add_field(name="💦 Sete",    value=f"{_bar(old_t)}  →  {_bar(new_t)}" + note, inline=False)
-        embed.add_field(name="➕ Recupero",value=f"+{rip}%",                                 inline=False)
-        embed.set_footer(text="🤠 Red Dead Redemption II — Bisaccia")
-        await interaction.response.send_message(embed=embed)
+ 
+        # ── Animazione progressiva con più embed ─────────────────────────────
+        FRASI_BEVI = [
+            (0.10, "💧 **{u}** assaggia il primo sorso...",            discord.Color(0x4169E1)),
+            (0.25, "😌 **{u}** sente la gola inumidirsi.",            discord.Color(0x1E90FF)),
+            (0.45, "💦 **{u}** beve a sorsate regolari.",             discord.Color(0x00BFFF)),
+            (0.65, "😤 **{u}** quasi a metà bicchiere...",            discord.Color(0x87CEEB)),
+            (0.85, "🥤 **{u}** sta finendo la bevanda.",              discord.Color(0xADD8E6)),
+            (1.00, "✅ **{u}** ha svuotato il bicchiere!",            discord.Color(0x228B22)),
+        ]
+        FRASI_ALC = [
+            (0.10, "🍺 **{u}** assaggia il primo sorso...",           discord.Color(0xDAA520)),
+            (0.25, "😏 **{u}** sente il bruciore scendere.",         discord.Color(0xB8860B)),
+            (0.45, "🥴 **{u}** comincia a sentirsi allegro...",      discord.Color(0xCD853F)),
+            (0.65, "😵 **{u}** quasi a metà bicchiere...",           discord.Color(0xA0522D)),
+            (0.85, "🍻 **{u}** sta finendo il bicchiere.",           discord.Color(0x8B4513)),
+            (1.00, "✅ **{u}** ha vuotato il bicchiere d'un fiato!", discord.Color(0x228B22)),
+        ]
+ 
+        frasi = FRASI_ALC if is_alc else FRASI_BEVI
+        passi = max(2, min(6, rip // 5 + 1))
+        step  = rip / passi
+        u     = interaction.user.display_name
+ 
+        await interaction.response.defer()
+ 
+        msg = None
+        for idx in range(passi):
+            progresso    = (idx + 1) / passi
+            sete_attuale = min(100, old_t + round(step * (idx + 1)))
+ 
+            frase_txt, colore = frasi[0][1], frasi[0][2]
+            for soglia, testo, col in frasi:
+                if progresso <= soglia:
+                    frase_txt, colore = testo, col
+                    break
+ 
+            nota_alc = "\n⚠️ *L'alcol ti ha tolto un po' di appetito...*" if is_alc and idx == passi - 1 else ""
+ 
+            embed = discord.Embed(
+                description=frase_txt.format(u=u),
+                color=colore,
+                timestamp=discord.utils.utcnow()
+            )
+            embed.set_author(name=u, icon_url=interaction.user.display_avatar.url)
+            embed.add_field(name="🥃 Bevanda", value=bevanda,                                                  inline=True)
+            embed.add_field(name="💦 Sete",    value=f"{_bar(old_t)}  →  {_bar(sete_attuale)}" + nota_alc,   inline=False)
+            embed.add_field(name="➕ Recupero",value=f"+{round(step*(idx+1))}%",                               inline=True)
+            embed.set_footer(text=f"🤠 Red Dead Redemption II — Bevanda in corso... ({idx+1}/{passi})")
+ 
+            if msg is None:
+                msg = await interaction.followup.send(embed=embed)
+            else:
+                await msg.edit(embed=embed)
+ 
+            if idx < passi - 1:
+                await asyncio.sleep(1.2)
+ 
+        nota_finale = "\n⚠️ *L'alcol ti ha tolto un po' di appetito...*" if is_alc else ""
+        embed_finale = discord.Embed(
+            title="💧 𝐁𝐞𝐯𝐚𝐧𝐝𝐚 𝐜𝐨𝐧𝐬𝐮𝐦𝐚𝐭𝐚",
+            color=discord.Color(0x228B22),
+            timestamp=discord.utils.utcnow()
+        )
+        embed_finale.set_author(name=u, icon_url=interaction.user.display_avatar.url)
+        embed_finale.add_field(name="🥃 Bevanda", value=bevanda,                                         inline=False)
+        embed_finale.add_field(name="💦 Sete",    value=f"{_bar(old_t)}  →  {_bar(new_t)}" + nota_finale, inline=False)
+        embed_finale.add_field(name="➕ Recupero",value=f"+{rip}%",                                       inline=False)
+        embed_finale.set_footer(text="🤠 Red Dead Redemption II — Bisaccia")
+        await msg.edit(embed=embed_finale)
+ 
 
     # ── /bisaccia ────────────────────────────────────────────────────────────
     @bot.tree.command(name="bisaccia", description="Visualizza il contenuto della bisaccia")

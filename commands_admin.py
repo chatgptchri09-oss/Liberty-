@@ -43,7 +43,7 @@ class BackgroundView(discord.ui.View):
         self.bot = bot
 
     @discord.ui.button(
-        label="Inizia Background",
+        label="🏁 Inizia Background",
         style=discord.ButtonStyle.success,
         custom_id="bg_inizia"
     )
@@ -241,25 +241,56 @@ def setup_admin_commands(bot):
 
     # ── /remove-money ─────────────────────────────────────────────────────────
     @bot.tree.command(name="remove-money", description="[Staff] Rimuovi denaro da un giocatore")
-    @app_commands.describe(giocatore="Il giocatore", importo="Importo", dove="Contanti o banca")
+    @app_commands.describe(giocatore="Il giocatore", importo="Importo", dove="Contanti, banca, o automatico (prima contanti poi banca)")
     @app_commands.choices(dove=[
-        app_commands.Choice(name="💵 Contanti", value="cash"),
-        app_commands.Choice(name="🏦 Banca",    value="bank"),
+        app_commands.Choice(name="🔄 Automatico (contanti → banca)", value="auto"),
+        app_commands.Choice(name="💵 Solo Contanti",                  value="cash"),
+        app_commands.Choice(name="🏦 Solo Banca",                     value="bank"),
     ])
-    async def remove_money(interaction: discord.Interaction, giocatore: discord.Member, importo: int, dove: str = "cash"):
+    async def remove_money(interaction: discord.Interaction, giocatore: discord.Member, importo: int, dove: str = "auto"):
         if not has_staff(interaction):
             await interaction.response.send_message("❌ Non hai i permessi.", ephemeral=True); return
+        if importo <= 0:
+            await interaction.response.send_message("❌ Importo non valido.", ephemeral=True); return
+
         user = await database.get_user(str(giocatore.id))
+        totale_disponibile = user["cash"] + user["bank"]
+
         if dove == "cash":
-            await database.update_balance(str(giocatore.id), cash=max(0, user["cash"] - importo))
+            # Solo contanti
+            rimosso_cash = min(importo, user["cash"])
+            await database.update_balance(str(giocatore.id), cash=user["cash"] - rimosso_cash)
+            rimosso_bank = 0
+            label = f"💵 Contanti (rimossi ${rimosso_cash:,})"
+
+        elif dove == "bank":
+            # Solo banca
+            rimosso_bank = min(importo, user["bank"])
+            await database.update_balance(str(giocatore.id), bank=user["bank"] - rimosso_bank)
+            rimosso_cash = 0
+            label = f"🏦 Banca (rimossi ${rimosso_bank:,})"
+
         else:
-            await database.update_balance(str(giocatore.id), bank=max(0, user["bank"] - importo))
-        label = "Contanti" if dove == "cash" else "Banca"
+            # Automatico: prima toglie dai contanti, poi dalla banca
+            rimosso_cash = min(importo, user["cash"])
+            resto         = importo - rimosso_cash
+            rimosso_bank  = min(resto, user["bank"])
+            new_cash = user["cash"] - rimosso_cash
+            new_bank = user["bank"] - rimosso_bank
+            await database.update_balance(str(giocatore.id), cash=new_cash, bank=new_bank)
+            totale_rimosso = rimosso_cash + rimosso_bank
+            if rimosso_cash > 0 and rimosso_bank > 0:
+                label = f"🔄 Contanti **${rimosso_cash:,}** + Banca **${rimosso_bank:,}**"
+            elif rimosso_cash > 0:
+                label = f"💵 Contanti (${rimosso_cash:,})"
+            else:
+                label = f"🏦 Banca (${rimosso_bank:,})"
+
         embed = discord.Embed(title="💸 𝐃𝐞𝐧𝐚𝐫𝐨 𝐑𝐢𝐦𝐨𝐬𝐬𝐨", color=discord.Color.red(), timestamp=discord.utils.utcnow())
-        embed.add_field(name="👤 Giocatore", value=giocatore.mention,       inline=True)
-        embed.add_field(name="💵 Importo",   value=f"${importo:,}",         inline=True)
-        embed.add_field(name="📋 Da",        value=label,                   inline=True)
-        embed.add_field(name="👮 Staff",     value=interaction.user.mention, inline=True)
+        embed.add_field(name="👤 Giocatore",  value=giocatore.mention,        inline=True)
+        embed.add_field(name="💵 Importo",    value=f"${importo:,}",          inline=True)
+        embed.add_field(name="📋 Da",         value=label,                    inline=False)
+        embed.add_field(name="👮 Staff",      value=interaction.user.mention, inline=True)
         embed.set_footer(text="🤠 Red Dead Redemption II — Admin")
         await interaction.response.send_message(embed=embed)
         await _log(bot, embed)
@@ -332,10 +363,10 @@ def setup_admin_commands(bot):
         id_psn="ID PSN del giocatore (opzionale) — verrà impostato come nickname nel server"
     )
     @app_commands.choices(esito=[
-        app_commands.Choice(name="✅ Background Accettato", value="bg_positivo"),
-        app_commands.Choice(name="❌ Background Rifiutato", value="bg_negativo"),
-        app_commands.Choice(name="✅ Whitelist Accettata",  value="wl_positiva"),
-        app_commands.Choice(name="❌ Whitelist Rifiutata",  value="wl_negativa"),
+        app_commands.Choice(name="✅ Background Positivo", value="bg_positivo"),
+        app_commands.Choice(name="❌ Background Negativo", value="bg_negativo"),
+        app_commands.Choice(name="✅ Whitelist Positiva",  value="wl_positiva"),
+        app_commands.Choice(name="❌ Whitelist Negativa",  value="wl_negativa"),
     ])
     @app_commands.choices(sesso=[
         app_commands.Choice(name="👨 Uomo",  value="uomo"),
@@ -361,10 +392,10 @@ def setup_admin_commands(bot):
         color    = discord.Color.green() if positivo else discord.Color.red()
 
         TITOLI = {
-            "bg_positivo": "✅ 𝐁𝐚𝐜𝐤𝐠𝐫𝐨𝐮𝐧𝐝 𝐀𝐜𝐜𝐞𝐭𝐭𝐚𝐭𝐨",
-            "bg_negativo": "❌ 𝐁𝐚𝐜𝐤𝐠𝐫𝐨𝐮𝐧𝐝 𝐑𝐢𝐟𝐢𝐮𝐭𝐚𝐭𝐨",
-            "wl_positiva": "✅ 𝐖𝐡𝐢𝐭𝐞𝐥𝐢𝐬𝐭 𝐀𝐜𝐜𝐞𝐭𝐭𝐚𝐭𝐚",
-            "wl_negativa": "❌ 𝐖𝐡𝐢𝐭𝐞𝐥𝐢𝐬𝐭 𝐑𝐢𝐟𝐢𝐮𝐭𝐚𝐭𝐚",
+            "bg_positivo": "✅ 𝐁𝐚𝐜𝐤𝐠𝐫𝐨𝐮𝐧𝐝 𝐏𝐨𝐬𝐢𝐭𝐢𝐯𝐨",
+            "bg_negativo": "❌ 𝐁𝐚𝐜𝐤𝐠𝐫𝐨𝐮𝐧𝐝 𝐍𝐞𝐠𝐚𝐭𝐢𝐯𝐨",
+            "wl_positiva": "✅ 𝐖𝐡𝐢𝐭𝐞𝐥𝐢𝐬𝐭 𝐏𝐨𝐬𝐢𝐭𝐢𝐯𝐚",
+            "wl_negativa": "❌ 𝐖𝐡𝐢𝐭𝐞𝐥𝐢𝐬𝐭 𝐍𝐞𝐠𝐚𝐭𝐢𝐯𝐚",
         }
 
         embed = discord.Embed(title=TITOLI[esito], color=color, timestamp=discord.utils.utcnow())
@@ -460,6 +491,8 @@ def setup_admin_commands(bot):
         app_commands.Choice(name="🏪 Emporio",      value="Emporio"),
         app_commands.Choice(name="🚫 Contrabbando", value="Contrabbando"),
         app_commands.Choice(name="🚂 Diligenza",    value="Diligenza"),
+        app_commands.Choice(name="🏦 Banca",        value="Banca"),
+        app_commands.Choice(name="🥃 Distilleria",  value="Distilleria"),
     ])
     async def add_fondocassa(interaction: discord.Interaction, compagnia: str, importo: int):
         if not has_staff(interaction):

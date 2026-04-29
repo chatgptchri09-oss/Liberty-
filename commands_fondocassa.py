@@ -7,14 +7,16 @@ COMPANY_EMOJI = {
     "Sceriffo":     "⭐",
     "Dottore":      "🩺",
     "Armiere":      "🔫",
-    "Stalla":       "🐴",
-    "Saloon":       "🍺",
+    "Stalla":       "🐎",
+    "Saloon":       "🍻",
     "Emporio":      "🏪",
     "Contrabbando": "🚫",
     "Diligenza":    "🚂",
     "Stato":        "🏛️",
     "Banchiere":    "🏦",
     "Distilleria":  "🥃",
+    "Macelleria":   "🥩",
+    "Fight Club":   "🥊",
 }
 
 _CHOICES = [
@@ -29,6 +31,8 @@ _CHOICES = [
     app_commands.Choice(name="🏛️ Stato",        value="Stato"),
     app_commands.Choice(name="🏦 Banca",        value="Banchiere"),
     app_commands.Choice(name="🥃 Distilleria",  value="Distilleria"),
+    app_commands.Choice(name="🥩 Macelleria",   value="Macelleria"),
+    app_commands.Choice(name="🥊 Fight Club",   value="FightClub"),
 ]
 
 
@@ -60,7 +64,7 @@ def setup_fondocassa_commands(bot):
         amount = await database.get_fondocassa(compagnia)
         emoji  = COMPANY_EMOJI.get(compagnia, "🏢")
         embed  = discord.Embed(
-            title=f"💼 𝐅𝐨𝐧𝐝𝐨 𝐂𝐚𝐬𝐬𝐚 — {compagnia}",
+            title=f"💶 𝐅𝐨𝐧𝐝𝐨 𝐂𝐚𝐬𝐬𝐚 — {compagnia}",
             color=discord.Color(0xDAA520),
             timestamp=discord.utils.utcnow()
         )

@@ -30,7 +30,7 @@ def setup_arrest_commands(bot):
         try:
             await sospettato.send(embed=discord.Embed(
                 title="<a:manette:1431626831076921507> 𝐒𝐞𝐢 𝐬𝐭𝐚𝐭𝐨 𝐚𝐦𝐦𝐚𝐧𝐞𝐭𝐭𝐚𝐭𝐨!",
-                description=f"L'agente **{interaction.user.display_name}** ti ha fermato.\n**Motivo:** {motivo}",
+                description=f"L'agente **{interaction.user.mention}** ti ha fermato.\n**Motivo:** {motivo}",
                 color=discord.Color.red()
             ))
         except Exception:

@@ -116,7 +116,7 @@ class ListaSelect(discord.ui.Select):
     async def callback(self, interaction: discord.Interaction):
         cat = self.values[0]
         if cat == "staff":
-            embed = discord.Embed(title="⭐ COMANDI STAFF", color=discord.Color.red())
+            embed = discord.Embed(title="👮 COMANDI STAFF", color=discord.Color.red())
             cmds = [
                 "`/add-money` — Aggiungi denaro a un giocatore",
                 "`/remove-money` — Rimuovi denaro",
@@ -200,6 +200,11 @@ class ListaSelect(discord.ui.Select):
                 "`/inizio-vendita` — Inizia una sessione di vendita droga",
                 "`/fine-vendita` — Termina la sessione di vendita e calcola il tempo",
                 "`/rapina` — Avvia una rapina nel Far West",
+                "`/inizio-creazione-alcool` - Inizia la creazione di alcool",
+                "`/fine-creazione-alcool` - Termina la creazione di alcool",
+                "`/inizio-distillazione` - Inizia la distillazione di alcool",
+                "`/fine-distillazione` - Termina la distillazione di alcool",
+                
             ]
         else:
             return

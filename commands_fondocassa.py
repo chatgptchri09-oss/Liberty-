@@ -4,7 +4,7 @@ import database
 from constants import LOG_CHANNEL_ID, has_staff, COMPANY_ROLES
 
 COMPANY_EMOJI = {
-    "Sceriffo":     "⭐",
+    "Sceriffo":     "🤠",
     "Dottore":      "🩺",
     "Armiere":      "🔫",
     "Stalla":       "🐎",

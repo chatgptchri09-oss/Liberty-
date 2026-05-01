@@ -1,479 +1,518 @@
 import discord
 from discord import app_commands
-import aiosqlite
-import asyncio
-from constants import LOG_CHANNEL_ID, DATABASE_NAME
+from datetime import datetime, timezone
+import database
+from constants import LOG_CHANNEL_ID, DISTILL_ROLE_ID
 
-# ── Costanti ──────────────────────────────────────────────────────────────────
-OLIO_ITEM    = "<:OlioArmi:1483872658574544988> • Olio per Armi"
-COTE_ITEM    = "<:Cote:1483873630986174484> • Cote"
-AVVISI_USURA = {75, 50, 25, 10, 5, 0}
-
-# ── Armi da FUOCO (-5%/24h, -2% per passaggio) ───────────────────────────────
-ARMI_FUOCO = {
-    "<:Revolver:1457468114575822918> • Revolver d'Azzardo",
-    "<:Revolver:1457468114575822918> • Revolver d'Azzardo (M.N.)",
-    "<:Revolver:1457468114575822918> • Revolver Cattleman",
-    "<:Revolver:1457468114575822918> • Revolver Cattleman (M.N.)",
-    "<:Revolver:1457468114575822918> • Revolver a Doppia Azione",
-    "<:Revolver:1457468114575822918> • Revolver a Doppia Azione (M.N.)",
-    "<:Revolver:1457468114575822918> • Revolver Schofield",
-    "<:Revolver:1457468114575822918> • Revolver Schofield (M.N.)",
-    "<:Revolver:1457468114575822918> • Revolver Navy",
-    "<:Revolver:1457468114575822918> • Revolver Navy (M.N.)",
-    "<:Volcanic:1457650683837677653> • Pistola Volcanic",
-    "<:Volcanic:1457650683837677653> • Pistola Volcanic (M.N.)",
-    "<:DoppiettaaCanneMozze:1457657137533550685> • Fucile a Canne Mozze Lisce",
-    "<:DoppiettaaCanneMozze:1457657137533550685> • Fucile a Canne Mozze Lisce (M.N.)",
-    "<:Doppietta:1457655998562041947> • Doppietta a Canne Lisce",
-    "<:Doppietta:1457655998562041947> • Doppietta a Canne Lisce (M.N.)",
-    "<:Doppietta:1457655998562041947> • Fucile a Canna Liscia a Pompa",
-    "<:Doppietta:1457655998562041947> • Fucile a Canna Liscia a Pompa (M.N.)",
-    "<:Doppietta:1457655998562041947> • Fucile a Canna Liscia Semiautomatico",
-    "<:Doppietta:1457655998562041947> • Fucile a Canna Liscia Semiautomatico (M.N.)",
-    "<:Litchfield:1457518211716087961> • Carabina a Ripetizione",
-    "<:Litchfield:1457518211716087961> • Carabina a Ripetizione (M.N.)",
-    "<:Litchfield:1457518211716087961> • Lancaster a Ripetizione",
-    "<:Litchfield:1457518211716087961> • Lancaster a Ripetizione (M.N.)",
-    "<:Springfield:1457642354717622362> • Varmint a Canna Rigata",
-    "<:Springfield:1457642354717622362> • Varmint a Canna Rigata (M.N.)",
-    "<:Springfield:1457642354717622362> • Springfield a Canna Rigata",
-    "<:Springfield:1457642354717622362> • Springfield a Canna Rigata (M.N.)",
-    "<:Springfield:1457642354717622362> • Bolt-Action a Canna Rigata",
-    "<:Springfield:1457642354717622362> • Bolt-Action a Canna Rigata (M.N.)",
+# ── Ruoli richiesti per tipo di droga ────────────────────────────────────────
+DROGA_CONFIG = {
+    "🍃 Tabacco":           1421166296850235602,
+    "🍁 Canapa":            1421166461988114532,
+    "🌿 Foglie di Cocaina": 1421166604447776780,
+    "💉 Eroina":            1404052027570524181,
 }
 
-# ── Armi da MISCHIA (-2%/24h, -1% per passaggio) — lazo ESCLUSO ──────────────
-ARMI_MISCHIA = {
-    "🪓 • Accetta",
-    "🪓 • Accetta da Caccia",
-    "🪓 • Mannaia",
-    "🔨 • Martello",
-    "🪓 • Tomahawk",
-    "<:Coltello:1457696753892720760> • Coltello",
-    "<:Coltello:1457696753892720760> • Coltello a Lancia",
-    "<:Coltello:1457696753892720760> • Coltello Mandibola",
-    "<:Coltello:1457696753892720760> • Coltello da Lancio",
-    "<:Machete:1457700008244674593> • Machete",
-    "<:FaretraConFreccie:1457707105078214879> • Faretra con Frecce",
-    "<:Arco:1457700407282241671> • Arco",
-    "<:ArcoMigliorato:1457701357342687335> • Arco Migliorato",
-    "📿 • Bolas",
-}
+ITEM_FORBICI = "✂️ • Forbici per raccolta droga"
 
-ALL_ARMI = ARMI_FUOCO | ARMI_MISCHIA
+# Sessioni attive in memoria
+_raccolte_attive:    dict = {}
+_vendite_attive:     dict = {}
+_creazioni_attive:   dict = {}   # /inizio-creazione-alcool
+_distillazioni_attive: dict = {} # /inizio-distillazione
+_vendite_moonshine_attive: dict = {}  # /inizio-vendita-moonshine
 
-# ── Helper tipo/calo ──────────────────────────────────────────────────────────
-def _tipo_arma(nome: str) -> str | None:
-    if nome in ARMI_FUOCO:   return "fuoco"
-    if nome in ARMI_MISCHIA: return "mischia"
-    return None
 
-def _calo_24h(tipo: str) -> int:
-    return 5 if tipo == "fuoco" else 2
+def _durata_str(secondi: float) -> str:
+    h = int(secondi // 3600)
+    m = int((secondi % 3600) // 60)
+    s = int(secondi % 60)
+    if h > 0:   return f"{h}h {m}min {s}s"
+    elif m > 0: return f"{m}min {s}s"
+    return f"{s}s"
 
-def _calo_passaggio(tipo: str) -> int:
-    return 2 if tipo == "fuoco" else 1
 
-def _item_pulizia(tipo: str) -> str:
-    return OLIO_ITEM if tipo == "fuoco" else COTE_ITEM
+# ── Tipi di alcool per la distilleria ────────────────────────────────────────
+ALCOOL_CHOICES = [
+    app_commands.Choice(name="🥃 Whisky",  value="🥃 Whisky"),
+    app_commands.Choice(name="🍺 Birra",   value="🍺 Birra"),
+    app_commands.Choice(name="🍶 Gin",     value="🍶 Gin"),
+    app_commands.Choice(name="🍹 Brandy",  value="🍹 Brandy"),
+    app_commands.Choice(name="🥃 Rum",     value="🥃 Rum"),
+]
 
-def _barra(v: int) -> str:
-    piena = round(v / 10)
-    if v >= 75:   blocco = "🟩"
-    elif v >= 50: blocco = "🟨"
-    elif v >= 25: blocco = "🟧"
-    else:         blocco = "🟥"
-    return blocco * piena + "⬛" * (10 - piena) + f"  **{v}%**"
 
-def _colore_usura(v: int) -> discord.Color:
-    if v >= 75:   return discord.Color.green()
-    if v >= 50:   return discord.Color.yellow()
-    if v >= 25:   return discord.Color.orange()
-    return discord.Color.red()
+def setup_theft_commands(bot):
 
-# ── DB helpers ────────────────────────────────────────────────────────────────
-async def init_usura_table():
-    async with aiosqlite.connect(DATABASE_NAME) as db:
-        await db.execute("""
-            CREATE TABLE IF NOT EXISTS weapon_durability (
-                user_id   TEXT NOT NULL,
-                item_name TEXT NOT NULL,
-                usura     INTEGER DEFAULT 100,
-                PRIMARY KEY (user_id, item_name)
-            )
-        """)
-        await db.commit()
+    # ══════════════════════════════════════════════════════════════════════════
+    #  RACCOLTA DROGA
+    # ══════════════════════════════════════════════════════════════════════════
 
-async def get_usura(user_id: str, item_name: str) -> int:
-    async with aiosqlite.connect(DATABASE_NAME) as db:
-        async with db.execute(
-            "SELECT usura FROM weapon_durability WHERE user_id=? AND item_name=?",
-            (user_id, item_name)
-        ) as c:
-            row = await c.fetchone()
-            return row[0] if row else 100
+    @bot.tree.command(name="inizio-raccolta", description="Inizia una sessione di raccolta droga")
+    @app_commands.describe(
+        droga="Tipo di droga da raccogliere",
+        foto="Foto della sessione (OBBLIGATORIA)"
+    )
+    @app_commands.choices(droga=[
+        app_commands.Choice(name="🍃 Tabacco",           value="🍃 Tabacco"),
+        app_commands.Choice(name="🍁 Canapa",             value="🍁 Canapa"),
+        app_commands.Choice(name="🌿 Foglie di Cocaina",  value="🌿 Foglie di Cocaina"),
+        app_commands.Choice(name="💉 Eroina",             value="💉 Eroina"),
+    ])
+    async def inizio_raccolta(interaction: discord.Interaction, droga: str, foto: discord.Attachment):
+        uid    = str(interaction.user.id)
+        member = interaction.user
 
-async def set_usura(user_id: str, item_name: str, valore: int):
-    v = max(0, min(100, valore))
-    async with aiosqlite.connect(DATABASE_NAME) as db:
-        await db.execute("""
-            INSERT INTO weapon_durability (user_id, item_name, usura)
-            VALUES (?,?,?)
-            ON CONFLICT(user_id, item_name) DO UPDATE SET usura=excluded.usura
-        """, (user_id, item_name, v))
-        await db.commit()
-
-async def delete_usura(user_id: str, item_name: str):
-    async with aiosqlite.connect(DATABASE_NAME) as db:
-        await db.execute(
-            "DELETE FROM weapon_durability WHERE user_id=? AND item_name=?",
-            (user_id, item_name)
-        )
-        await db.commit()
-
-async def get_armi_inventario(user_id: str) -> list[dict]:
-    """Ritorna lista di dict {item_name, quantity} per ogni arma in inventario."""
-    async with aiosqlite.connect(DATABASE_NAME) as db:
-        db.row_factory = aiosqlite.Row
-        async with db.execute(
-            "SELECT item_name, quantity FROM inventory WHERE user_id=? AND quantity>0",
-            (user_id,)
-        ) as c:
-            rows = await c.fetchall()
-    return [{"item_name": r["item_name"], "quantity": r["quantity"]}
-            for r in rows if r["item_name"] in ALL_ARMI]
-
-async def get_armi_con_usura(user_id: str) -> list[dict]:
-    """Carica armi + usura. Se quantity>1 crea N entry separate con suffisso #1, #2..."""
-    armi_inv = await get_armi_inventario(user_id)
-    if not armi_inv:
-        return []
-    nomi = [a["item_name"] for a in armi_inv]
-    placeholders = ",".join("?" for _ in nomi)
-    async with aiosqlite.connect(DATABASE_NAME) as db:
-        db.row_factory = aiosqlite.Row
-        async with db.execute(
-            f"SELECT item_name, usura FROM weapon_durability WHERE user_id=? AND item_name IN ({placeholders})",
-            (user_id, *nomi)
-        ) as c:
-            rows = await c.fetchall()
-    usura_map = {r["item_name"]: r["usura"] for r in rows}
-    result = []
-    for a in armi_inv:
-        nome = a["item_name"]
-        qty  = a["quantity"]
-        usura_base = usura_map.get(nome, 100)
-        if qty == 1:
-            result.append({"item_name": nome, "usura": usura_base, "slot": None})
-        else:
-            for i in range(qty):
-                result.append({"item_name": nome, "usura": usura_base, "slot": i + 1})
-    return result
-
-# ── Notifica usura ────────────────────────────────────────────────────────────
-async def _notifica_usura(bot, user_id: str, item_name: str, usura: int):
-    if usura not in AVVISI_USURA:
-        return
-    tipo = _tipo_arma(item_name)
-    if usura == 0:
-        titolo = "💀 Arma Distrutta!"
-        desc   = f"La tua arma **{item_name}** è completamente consumata ed è stata **rimossa** dalla bisaccia."
-        color  = discord.Color.red()
-    else:
-        titolo = f"⚠️ Usura Arma — {usura}%"
-        desc   = (
-            f"La tua arma **{item_name}** ha raggiunto il **{usura}%** di usura.\n"
-            f"Usa `/pulisci-arma` con **{_item_pulizia(tipo)}** per ripristinarla."
-        )
-        color = _colore_usura(usura)
-
-    embed = discord.Embed(title=titolo, description=desc, color=color, timestamp=discord.utils.utcnow())
-    embed.add_field(name="🔫 Arma",  value=item_name,     inline=True)
-    embed.add_field(name="⚙️ Usura", value=_barra(usura), inline=True)
-    embed.set_footer(text="🤠 Red Dead Redemption II — Sistema Usura")
-
-    try:
-        user = await bot.fetch_user(int(user_id))
-        if user:
-            await user.send(embed=embed)
-    except Exception:
-        pass
-    try:
-        ch = bot.get_channel(LOG_CHANNEL_ID)
-        if ch:
-            log = discord.Embed(title=f"🔧 LOG USURA — {usura}%", color=color, timestamp=discord.utils.utcnow())
-            log.add_field(name="👤 Utente", value=f"<@{user_id}>", inline=True)
-            log.add_field(name="🔫 Arma",   value=item_name,        inline=True)
-            log.add_field(name="⚙️ Usura",  value=f"{usura}%",      inline=True)
-            await ch.send(embed=log)
-    except Exception:
-        pass
-
-async def _rimuovi_arma_db(user_id: str, item_name: str):
-    async with aiosqlite.connect(DATABASE_NAME) as db:
-        await db.execute(
-            "DELETE FROM inventory WHERE user_id=? AND item_name=?",
-            (user_id, item_name)
-        )
-        await db.commit()
-    await delete_usura(user_id, item_name)
-
-# ── Calo al passaggio (chiamato da /dai-item) ─────────────────────────────────
-async def applica_calo_passaggio(bot, user_id: str, item_name: str):
-    tipo = _tipo_arma(item_name)
-    if not tipo:
-        return
-    usura_attuale = await get_usura(user_id, item_name)
-    nuova         = max(0, usura_attuale - _calo_passaggio(tipo))
-    await set_usura(user_id, item_name, nuova)
-    await _notifica_usura(bot, user_id, item_name, nuova)
-    if nuova == 0:
-        await _rimuovi_arma_db(user_id, item_name)
-
-# ── Task 24h ──────────────────────────────────────────────────────────────────
-async def task_usura_giornaliera(bot):
-    await bot.wait_until_ready()
-    while not bot.is_closed():
-        await asyncio.sleep(86400)
-        print("🔧 Avvio calo usura giornaliero...", flush=True)
-        try:
-            async with aiosqlite.connect(DATABASE_NAME) as db:
-                db.row_factory = aiosqlite.Row
-                async with db.execute(
-                    "SELECT DISTINCT user_id, item_name FROM inventory WHERE quantity>0"
-                ) as c:
-                    rows = await c.fetchall()
-
-            for row in rows:
-                uid  = row["user_id"]
-                item = row["item_name"]
-                tipo = _tipo_arma(item)
-                if not tipo:
-                    continue
-                usura_attuale = await get_usura(uid, item)
-                if usura_attuale <= 0:
-                    continue
-                nuova = max(0, usura_attuale - _calo_24h(tipo))
-                await set_usura(uid, item, nuova)
-                await _notifica_usura(bot, uid, item, nuova)
-                if nuova == 0:
-                    await _rimuovi_arma_db(uid, item)
-
-            print("✅ Calo usura giornaliero completato.", flush=True)
-        except Exception as e:
-            print(f"❌ Errore task usura: {e}", flush=True)
-
-# ── Setup comandi ─────────────────────────────────────────────────────────────
-def setup_usura_commands(bot):
-
-    # ── /pulisci-arma ─────────────────────────────────────────────────────────
-    async def _ac_pulisci(interaction: discord.Interaction, current: str):
-        uid  = str(interaction.user.id)
-        armi = await get_armi_con_usura(uid)
-        scelte = []
-        for a in armi:
-            if a["usura"] < 100:
-                slot_label = f" #{a['slot']}" if a.get("slot") else ""
-                label = f"{a['item_name']}{slot_label} ({a['usura']}%)"[:100]
-                scelte.append(app_commands.Choice(name=label, value=a["item_name"]))
-        return [c for c in scelte if current.lower() in c.name.lower()][:25]
-
-    @bot.tree.command(name="pulisci-arma", description="Pulisci un'arma dalla bisaccia per ripristinare l'usura")
-    @app_commands.describe(arma="L'arma da pulire")
-    @app_commands.autocomplete(arma=_ac_pulisci)
-    async def pulisci_arma(interaction: discord.Interaction, arma: str):
-        await interaction.response.defer(ephemeral=True)
-        uid  = str(interaction.user.id)
-        tipo = _tipo_arma(arma)
-
-        if not tipo:
-            await interaction.followup.send("❌ Quest'arma non è nel sistema usura.", ephemeral=True)
+        if not foto.content_type or not foto.content_type.startswith("image/"):
+            await interaction.response.send_message("❌ Allega un'immagine valida (jpg, png...).", ephemeral=True)
             return
 
-        async with aiosqlite.connect(DATABASE_NAME) as db:
-            async with db.execute(
-                "SELECT quantity FROM inventory WHERE user_id=? AND item_name=?",
-                (uid, arma)
-            ) as c:
-                row = await c.fetchone()
-        if not row or row[0] < 1:
-            await interaction.followup.send(f"❌ Non hai **{arma}** nella bisaccia.", ephemeral=True)
+        if uid in _raccolte_attive:
+            r = _raccolte_attive[uid]
+            await interaction.response.send_message(
+                f"❌ Hai già una raccolta di **{r['droga']}** in corso! Usa `/fine-raccolta` prima.", ephemeral=True)
             return
 
-        usura_attuale = await get_usura(uid, arma)
-        if usura_attuale >= 100:
-            await interaction.followup.send(f"✅ **{arma}** è già al 100% di usura.", ephemeral=True)
+        ruolo_id = DROGA_CONFIG.get(droga)
+        if not ruolo_id or not isinstance(member, discord.Member) or \
+           not any(r.id == ruolo_id for r in member.roles):
+            await interaction.response.send_message(
+                f"❌ Non hai il ruolo richiesto per raccogliere **{droga}**.", ephemeral=True)
             return
 
-        item_p = _item_pulizia(tipo)
-        async with aiosqlite.connect(DATABASE_NAME) as db:
-            async with db.execute(
-                "SELECT quantity FROM inventory WHERE user_id=? AND item_name=?",
-                (uid, item_p)
-            ) as c:
-                row_p = await c.fetchone()
-        if not row_p or row_p[0] < 1:
-            await interaction.followup.send(
-                f"❌ Hai bisogno di **{item_p}** per pulire quest'arma.\nAcquistalo dall'emporio.",
-                ephemeral=True
-            )
+        if await database.get_item_quantity(uid, ITEM_FORBICI) < 1:
+            await interaction.response.send_message(
+                f"❌ Non hai **{ITEM_FORBICI}** nella bisaccia!", ephemeral=True)
             return
 
-        async with aiosqlite.connect(DATABASE_NAME) as db:
-            await db.execute(
-                "UPDATE inventory SET quantity=quantity-1 WHERE user_id=? AND item_name=?",
-                (uid, item_p)
-            )
-            await db.commit()
-        await set_usura(uid, arma, 100)
+        now = datetime.now(timezone.utc)
+        _raccolte_attive[uid] = {"droga": droga, "inizio": now}
 
         embed = discord.Embed(
-            title="🔧 𝐀𝐫𝐦𝐚 𝐏𝐮𝐥𝐢𝐭𝐚",
-            color=discord.Color.green(),
+            title="🌱 𝐑𝐀𝐂𝐂𝐎𝐋𝐓𝐀 𝐈𝐍𝐈𝐙𝐈𝐀𝐓𝐀",
+            color=discord.Color(0x2E8B57),
+            timestamp=discord.utils.utcnow()
+        )
+        embed.set_author(name=member.display_name, icon_url=member.display_avatar.url)
+        embed.add_field(name="🤠 Raccoglitore", value=member.mention,                    inline=False)
+        embed.add_field(name="🌿 Droga",        value=droga,                             inline=True)
+        embed.add_field(name="🕐 Inizio",       value=f"<t:{int(now.timestamp())}:t>",  inline=True)
+        embed.set_image(url=foto.url)
+        embed.set_footer(text="🤠 Red Dead Redemption II — Raccolta • Usa /fine-raccolta per terminare")
+        await interaction.response.send_message(embed=embed)
+        try:
+            ch = bot.get_channel(LOG_CHANNEL_ID)
+            if ch: await ch.send(embed=embed)
+        except Exception: pass
+
+    @bot.tree.command(name="fine-raccolta", description="Termina la sessione di raccolta droga")
+    @app_commands.describe(droga="Tipo di droga che stavi raccogliendo")
+    @app_commands.choices(droga=[
+        app_commands.Choice(name="🍃 Tabacco",           value="🍃 Tabacco"),
+        app_commands.Choice(name="🍁 Canapa",             value="🍁 Canapa"),
+        app_commands.Choice(name="🌿 Foglie di Cocaina",  value="🌿 Foglie di Cocaina"),
+        app_commands.Choice(name="💉 Eroina",             value="💉 Eroina"),
+    ])
+    async def fine_raccolta(interaction: discord.Interaction, droga: str):
+        uid = str(interaction.user.id)
+        if uid not in _raccolte_attive:
+            await interaction.response.send_message(
+                "❌ Non hai nessuna raccolta attiva. Usa `/inizio-raccolta` prima.", ephemeral=True)
+            return
+        sessione = _raccolte_attive[uid]
+        if sessione["droga"] != droga:
+            await interaction.response.send_message(
+                f"❌ La tua raccolta attiva è di **{sessione['droga']}**, non di **{droga}**.", ephemeral=True)
+            return
+
+        now      = datetime.now(timezone.utc)
+        inizio   = sessione["inizio"]
+        durata_s = (now - inizio).total_seconds()
+        del _raccolte_attive[uid]
+
+        embed = discord.Embed(
+            title="✅ 𝐑𝐀𝐂𝐂𝐎𝐋𝐓𝐀 𝐓𝐄𝐑𝐌𝐈𝐍𝐀𝐓𝐀",
+            color=discord.Color(0x8B4513),
             timestamp=discord.utils.utcnow()
         )
         embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
-        embed.add_field(name="🔫 Arma",       value=arma,                  inline=False)
-        embed.add_field(name="⚙️ Prima",      value=_barra(usura_attuale), inline=True)
-        embed.add_field(name="✅ Dopo",       value=_barra(100),            inline=True)
-        embed.add_field(name="🧴 Utilizzato", value=item_p,                inline=False)
-        embed.set_footer(text="🤠 Red Dead Redemption II — Sistema Usura")
-        await interaction.followup.send(embed=embed, ephemeral=True)
-
+        embed.add_field(name="🤠 Raccoglitore",  value=interaction.user.mention,            inline=False)
+        embed.add_field(name="🌿 Droga",          value=droga,                               inline=True)
+        embed.add_field(name="\u200b",             value="\u200b",                            inline=False)
+        embed.add_field(name="🕐 Inizio",         value=f"<t:{int(inizio.timestamp())}:t>", inline=True)
+        embed.add_field(name="🕑 Fine",           value=f"<t:{int(now.timestamp())}:t>",    inline=True)
+        embed.add_field(name="\u200b",             value="\u200b",                            inline=False)
+        embed.add_field(name="⏱️ Tempo raccolto", value=f"**{_durata_str(durata_s)}**",     inline=False)
+        embed.set_footer(text="🤠 Red Dead Redemption II — Raccolta Completata")
+        await interaction.response.send_message(embed=embed)
         try:
             ch = bot.get_channel(LOG_CHANNEL_ID)
-            if ch:
-                log = discord.Embed(title="🔧 LOG — Arma Pulita", color=discord.Color.green(), timestamp=discord.utils.utcnow())
-                log.add_field(name="👤 Utente", value=interaction.user.mention,    inline=True)
-                log.add_field(name="🔫 Arma",   value=arma,                        inline=True)
-                log.add_field(name="📈 Usura",  value=f"{usura_attuale}% → 100%",  inline=True)
-                await ch.send(embed=log)
-        except Exception:
-            pass
+            if ch: await ch.send(embed=embed)
+        except Exception: pass
 
-    # ── /visualizza-stato-arma ────────────────────────────────────────────────
-    @bot.tree.command(name="visualizza-stato-arma", description="Visualizza l'usura delle tue armi")
-    async def visualizza_stato_arma(interaction: discord.Interaction):
-        print(f"[vis-arma] START uid={interaction.user.id}", flush=True)
+    # ══════════════════════════════════════════════════════════════════════════
+    #  VENDITA DROGA
+    # ══════════════════════════════════════════════════════════════════════════
+
+    @bot.tree.command(name="inizio-vendita", description="Inizia una sessione di vendita droga")
+    @app_commands.describe(droga="Tipo di droga da vendere", foto="Foto della sessione (OBBLIGATORIA)")
+    @app_commands.choices(droga=[
+        app_commands.Choice(name="🍃 Tabacco",           value="🍃 Tabacco"),
+        app_commands.Choice(name="🍁 Canapa",             value="🍁 Canapa"),
+        app_commands.Choice(name="🌿 Foglie di Cocaina",  value="🌿 Foglie di Cocaina"),
+        app_commands.Choice(name="💉 Eroina",             value="💉 Eroina"),
+    ])
+    async def inizio_vendita(interaction: discord.Interaction, droga: str, foto: discord.Attachment):
+        uid    = str(interaction.user.id)
+        member = interaction.user
+
+        if not foto.content_type or not foto.content_type.startswith("image/"):
+            await interaction.response.send_message("❌ Allega un'immagine valida (jpg, png...).", ephemeral=True)
+            return
+        if uid in _vendite_attive:
+            v = _vendite_attive[uid]
+            await interaction.response.send_message(
+                f"❌ Hai già una vendita di **{v['droga']}** in corso! Usa `/fine-vendita` prima.", ephemeral=True)
+            return
+
+        ruolo_id = DROGA_CONFIG.get(droga)
+        if not ruolo_id or not isinstance(member, discord.Member) or \
+           not any(r.id == ruolo_id for r in member.roles):
+            await interaction.response.send_message(
+                f"❌ Non hai il ruolo richiesto per vendere **{droga}**.", ephemeral=True)
+            return
+
+        now = datetime.now(timezone.utc)
+        _vendite_attive[uid] = {"droga": droga, "inizio": now}
+
+        embed = discord.Embed(
+            title="💰 𝐕𝐄𝐍𝐃𝐈𝐓𝐀 𝐈𝐍𝐈𝐙𝐈𝐀𝐓𝐀",
+            color=discord.Color(0xDAA520),
+            timestamp=discord.utils.utcnow()
+        )
+        embed.set_author(name=member.display_name, icon_url=member.display_avatar.url)
+        embed.add_field(name="🤠 Venditore", value=member.mention,                   inline=False)
+        embed.add_field(name="🌿 Droga",     value=droga,                            inline=True)
+        embed.add_field(name="🕐 Inizio",    value=f"<t:{int(now.timestamp())}:t>",  inline=True)
+        embed.set_image(url=foto.url)
+        embed.set_footer(text="🤠 Red Dead Redemption II — Vendita • Usa /fine-vendita per terminare")
+        await interaction.response.send_message(embed=embed)
+        try:
+            ch = bot.get_channel(LOG_CHANNEL_ID)
+            if ch: await ch.send(embed=embed)
+        except Exception: pass
+
+    @bot.tree.command(name="fine-vendita", description="Termina la sessione di vendita droga")
+    @app_commands.describe(droga="Tipo di droga che stavi vendendo")
+    @app_commands.choices(droga=[
+        app_commands.Choice(name="🍃 Tabacco",           value="🍃 Tabacco"),
+        app_commands.Choice(name="🍁 Canapa",             value="🍁 Canapa"),
+        app_commands.Choice(name="🌿 Foglie di Cocaina",  value="🌿 Foglie di Cocaina"),
+        app_commands.Choice(name="💉 Eroina",             value="💉 Eroina"),
+    ])
+    async def fine_vendita(interaction: discord.Interaction, droga: str):
+        uid = str(interaction.user.id)
+        if uid not in _vendite_attive:
+            await interaction.response.send_message(
+                "❌ Non hai nessuna vendita attiva. Usa `/inizio-vendita` prima.", ephemeral=True)
+            return
+        sessione = _vendite_attive[uid]
+        if sessione["droga"] != droga:
+            await interaction.response.send_message(
+                f"❌ La tua vendita attiva è di **{sessione['droga']}**, non di **{droga}**.", ephemeral=True)
+            return
+
+        now      = datetime.now(timezone.utc)
+        inizio   = sessione["inizio"]
+        durata_s = (now - inizio).total_seconds()
+        del _vendite_attive[uid]
+
+        embed = discord.Embed(
+            title="✅ 𝐕𝐄𝐍𝐃𝐈𝐓𝐀 𝐓𝐄𝐑𝐌𝐈𝐍𝐀𝐓𝐀",
+            color=discord.Color(0xDAA520),
+            timestamp=discord.utils.utcnow()
+        )
+        embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
+        embed.add_field(name="🤠 Venditore",    value=interaction.user.mention,            inline=False)
+        embed.add_field(name="🌿 Droga",         value=droga,                               inline=True)
+        embed.add_field(name="\u200b",            value="\u200b",                            inline=False)
+        embed.add_field(name="🕐 Inizio",        value=f"<t:{int(inizio.timestamp())}:t>", inline=True)
+        embed.add_field(name="🕑 Fine",          value=f"<t:{int(now.timestamp())}:t>",    inline=True)
+        embed.add_field(name="\u200b",            value="\u200b",                            inline=False)
+        embed.add_field(name="⏱️ Tempo vendita", value=f"**{_durata_str(durata_s)}**",     inline=False)
+        embed.set_footer(text="🤠 Red Dead Redemption II — Vendita Completata")
+        await interaction.response.send_message(embed=embed)
+        try:
+            ch = bot.get_channel(LOG_CHANNEL_ID)
+            if ch: await ch.send(embed=embed)
+        except Exception: pass
+
+    # ══════════════════════════════════════════════════════════════════════════
+    #  DISTILLERIA — CREAZIONE ALCOOL
+    # ══════════════════════════════════════════════════════════════════════════
+
+    @bot.tree.command(name="inizio-creazione-alcool", description="[Distilleria] Inizia la creazione di una partita di Moonshine")
+    @app_commands.describe(foto="Foto della sessione (OBBLIGATORIA)")
+    async def inizio_creazione_alcool(interaction: discord.Interaction, foto: discord.Attachment):
+        alcool = "🌙 Moonshine"
+        uid    = str(interaction.user.id)
+        member = interaction.user
+
+        if not foto.content_type or not foto.content_type.startswith("image/"):
+            await interaction.response.send_message("❌ Allega un'immagine valida (jpg, png...).", ephemeral=True)
+            return
+
+        if not isinstance(member, discord.Member) or \
+           not any(r.id == DISTILL_ROLE_ID for r in member.roles):
+            await interaction.response.send_message(
+                "❌ Solo i **Distillatori** possono usare questo comando.", ephemeral=True)
+            return
+
+        if uid in _creazioni_attive:
+            c = _creazioni_attive[uid]
+            await interaction.response.send_message(
+                f"❌ Hai già una creazione di **{c['alcool']}** in corso!\nUsa `/fine-creazione-alcool` prima.",
+                ephemeral=True)
+            return
+
+        now = datetime.now(timezone.utc)
+        _creazioni_attive[uid] = {"alcool": alcool, "inizio": now}
+
+        embed = discord.Embed(
+            title="🏭 𝐂𝐑𝐄𝐀𝐙𝐈𝐎𝐍𝐄 𝐀𝐋𝐂𝐎𝐎𝐋 𝐈𝐍𝐈𝐙𝐈𝐀𝐓𝐀",
+            description="*Le botti fumano, il alambicco bolle...*",
+            color=discord.Color(0xC8860A),
+            timestamp=discord.utils.utcnow()
+        )
+        embed.set_author(name=member.display_name, icon_url=member.display_avatar.url)
+        embed.add_field(name="\u200b", value="╔══════════════════╗", inline=False)
+        embed.add_field(name="👨‍🏭 Distillatore",  value=member.mention,                   inline=True)
+        embed.add_field(name="🥃 Prodotto",        value=f"**{alcool}**",                  inline=True)
+        embed.add_field(name="\u200b",              value="╠══════════════════╣",           inline=False)
+        embed.add_field(name="🕐 Inizio Produzione", value=f"<t:{int(now.timestamp())}:T>  (<t:{int(now.timestamp())}:R>)", inline=False)
+        embed.add_field(name="\u200b",              value="╚══════════════════╝",           inline=False)
+        embed.set_image(url=foto.url)
+        embed.set_footer(text="🤠 Red Dead Redemption II — Distilleria | /fine-creazione-alcool per terminare")
+        await interaction.response.send_message(embed=embed)
+        try:
+            ch = bot.get_channel(LOG_CHANNEL_ID)
+            if ch: await ch.send(embed=embed)
+        except Exception: pass
+
+    @bot.tree.command(name="fine-creazione-alcool", description="[Distilleria] Termina la creazione di una partita di Moonshine")
+    async def fine_creazione_alcool(interaction: discord.Interaction):
         uid = str(interaction.user.id)
 
-        try:
-            async with aiosqlite.connect(DATABASE_NAME) as db:
-                db.row_factory = aiosqlite.Row
-                await db.execute("""
-                    CREATE TABLE IF NOT EXISTS weapon_durability (
-                        user_id TEXT NOT NULL, item_name TEXT NOT NULL,
-                        usura INTEGER DEFAULT 100, PRIMARY KEY (user_id, item_name)
-                    )
-                """)
-                await db.commit()
-                async with db.execute(
-                    "SELECT item_name FROM inventory WHERE user_id=? AND quantity>0",
-                    (uid,)
-                ) as c:
-                    inv_rows = await c.fetchall()
-                armi_nomi = [r["item_name"] for r in inv_rows if r["item_name"] in ALL_ARMI]
-                usura_map = {}
-                if armi_nomi:
-                    ph = ",".join("?" for _ in armi_nomi)
-                    async with db.execute(
-                        f"SELECT item_name, usura FROM weapon_durability WHERE user_id=? AND item_name IN ({ph})",
-                        (uid, *armi_nomi)
-                    ) as c2:
-                        for r in await c2.fetchall():
-                            usura_map[r["item_name"]] = r["usura"]
-            print(f"[vis-arma] query ok, armi={len(armi_nomi)}", flush=True)
-        except Exception as e:
-            print(f"[vis-arma] ERRORE query: {e}", flush=True)
-            await interaction.response.send_message("❌ Errore interno. Riprova.", ephemeral=True)
-            return
-
-        armi_usura = []
-        for nome in armi_nomi:
-            # Recupera quantity dalla inventory
-            async with aiosqlite.connect(DATABASE_NAME) as db2:
-                db2.row_factory = aiosqlite.Row
-                async with db2.execute(
-                    "SELECT quantity FROM inventory WHERE user_id=? AND item_name=?",
-                    (uid, nome)
-                ) as c3:
-                    row_q = await c3.fetchone()
-            qty = row_q["quantity"] if row_q else 1
-            usura_val = usura_map.get(nome, 100)
-            if qty == 1:
-                armi_usura.append({"item_name": nome, "usura": usura_val, "slot": None})
-            else:
-                for i in range(qty):
-                    armi_usura.append({"item_name": nome, "usura": usura_val, "slot": i + 1})
-        print(f"[vis-arma] armi trovate={len(armi_usura)}", flush=True)
-
-        if not armi_usura:
+        if uid not in _creazioni_attive:
             await interaction.response.send_message(
-                "❌ Non hai armi nella bisaccia.", ephemeral=True
-            )
+                "❌ Non hai nessuna creazione in corso. Usa `/inizio-creazione-alcool` prima.", ephemeral=True)
             return
 
-        # Tutto pronto — risposta immediata con pulsanti
-        PER_PAG = 5
-        tot_pag = max(1, -(-len(armi_usura) // PER_PAG))
+        sessione = _creazioni_attive[uid]
+        alcool   = sessione["alcool"]
 
-        def _build_embed(pagina: int) -> discord.Embed:
-            embed = discord.Embed(
-                title="🔫 𝐒𝐭𝐚𝐭𝐨 𝐀𝐫𝐦𝐢",
-                color=discord.Color(0x8B4513),
-                timestamp=discord.utils.utcnow()
-            )
-            embed.set_author(
-                name=interaction.user.display_name,
-                icon_url=interaction.user.display_avatar.url
-            )
-            slice_ = armi_usura[pagina * PER_PAG:(pagina + 1) * PER_PAG]
-            for a in slice_:
-                tipo = _tipo_arma(a["item_name"])
-                calo_g = _calo_24h(tipo) if tipo else 0
-                calo_p = _calo_passaggio(tipo) if tipo else 0
-                puliz  = _item_pulizia(tipo) if tipo else "—"
-                avviso = " ⚠️" if a["usura"] <= 25 else ""
-                slot_label = f" #{a['slot']}" if a.get("slot") else ""
-                embed.add_field(
-                    name=f"{a['item_name']}{slot_label}{avviso}",
-                    value=(
-                        f"{_barra(a['usura'])}\n"
-                        f"📉 -{calo_g}%/giorno  🤝 -{calo_p}% passaggio  🧴 {puliz}"
-                    ),
-                    inline=False
-                )
-            embed.set_footer(text=f"🤠 Red Dead Redemption II — Usura | Pagina {pagina+1}/{tot_pag}")
-            return embed
+        now      = datetime.now(timezone.utc)
+        inizio   = sessione["inizio"]
+        durata_s = (now - inizio).total_seconds()
+        del _creazioni_attive[uid]
 
-        class UsuraView(discord.ui.View):
-            def __init__(self_v, p: int = 0):
-                super().__init__(timeout=120)
-                self_v.p = p
-                self_v._aggiorna()
-
-            def _aggiorna(self_v):
-                self_v.prev_btn.disabled = self_v.p == 0
-                self_v.next_btn.disabled = self_v.p >= tot_pag - 1
-
-            @discord.ui.button(label="⬅️", style=discord.ButtonStyle.primary)
-            async def prev_btn(self_v, itr: discord.Interaction, btn):
-                self_v.p -= 1
-                self_v._aggiorna()
-                await itr.response.edit_message(embed=_build_embed(self_v.p), view=self_v)
-
-            @discord.ui.button(label="➡️", style=discord.ButtonStyle.primary)
-            async def next_btn(self_v, itr: discord.Interaction, btn):
-                self_v.p += 1
-                self_v._aggiorna()
-                await itr.response.edit_message(embed=_build_embed(self_v.p), view=self_v)
-
-        view = UsuraView(0) if tot_pag > 1 else discord.ui.View(timeout=120)
-        print(f"[vis-arma] invio risposta pag 1/{tot_pag}", flush=True)
-        await interaction.response.send_message(
-            embed=_build_embed(0),
-            view=view,
-            ephemeral=True
+        embed = discord.Embed(
+            title="✅ 𝐂𝐑𝐄𝐀𝐙𝐈𝐎𝐍𝐄 𝐂𝐎𝐌𝐏𝐋𝐄𝐓𝐀𝐓𝐀",
+            description="*La partita è pronta. L'odore si diffonde per la distilleria.*",
+            color=discord.Color(0x27AE60),
+            timestamp=discord.utils.utcnow()
         )
-        print(f"[vis-arma] DONE", flush=True)
+        embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
+        embed.add_field(name="\u200b",                value="╔══════════════════╗",                              inline=False)
+        embed.add_field(name="👨‍🏭 Distillatore",       value=interaction.user.mention,                           inline=True)
+        embed.add_field(name="🥃 Prodotto",            value=f"**{alcool}**",                                    inline=True)
+        embed.add_field(name="\u200b",                 value="╠══════════════════╣",                             inline=False)
+        embed.add_field(name="🕐 Inizio",              value=f"<t:{int(inizio.timestamp())}:T>",                 inline=True)
+        embed.add_field(name="🕑 Fine",                value=f"<t:{int(now.timestamp())}:T>",                    inline=True)
+        embed.add_field(name="\u200b",                 value="╠══════════════════╣",                             inline=False)
+        embed.add_field(name="⏱️ Tempo di Produzione", value=f"```{_durata_str(durata_s)}```",                   inline=False)
+        embed.add_field(name="\u200b",                 value="╚══════════════════╝",                             inline=False)
+        embed.set_footer(text="🤠 Red Dead Redemption II — Distilleria | Produzione Completata")
+        await interaction.response.send_message(embed=embed)
+        try:
+            ch = bot.get_channel(LOG_CHANNEL_ID)
+            if ch: await ch.send(embed=embed)
+        except Exception: pass
+
+    # ══════════════════════════════════════════════════════════════════════════
+    #  DISTILLERIA — DISTILLAZIONE
+    # ══════════════════════════════════════════════════════════════════════════
+
+    @bot.tree.command(name="inizio-distillazione", description="[Distilleria] Inizia una sessione di distillazione Moonshine")
+    @app_commands.describe(foto="Foto della sessione (OBBLIGATORIA)")
+    async def inizio_distillazione(interaction: discord.Interaction, foto: discord.Attachment):
+        alcool = "🌙 Moonshine"
+        uid    = str(interaction.user.id)
+        member = interaction.user
+
+        if not foto.content_type or not foto.content_type.startswith("image/"):
+            await interaction.response.send_message("❌ Allega un'immagine valida (jpg, png...).", ephemeral=True)
+            return
+
+        if not isinstance(member, discord.Member) or \
+           not any(r.id == DISTILL_ROLE_ID for r in member.roles):
+            await interaction.response.send_message(
+                "❌ Solo i **Distillatori** possono usare questo comando.", ephemeral=True)
+            return
+
+        if uid in _distillazioni_attive:
+            d = _distillazioni_attive[uid]
+            await interaction.response.send_message(
+                f"❌ Hai già una distillazione di **{d['alcool']}** in corso!\nUsa `/fine-distillazione` prima.",
+                ephemeral=True)
+            return
+
+        now = datetime.now(timezone.utc)
+        _distillazioni_attive[uid] = {"alcool": alcool, "inizio": now}
+
+        embed = discord.Embed(
+            title="🔥 𝐃𝐈𝐒𝐓𝐈𝐋𝐋𝐀𝐙𝐈𝐎𝐍𝐄 𝐈𝐍𝐈𝐙𝐈𝐀𝐓𝐀",
+            description="*Il fuoco arde sotto l'alambicco. Il liquido scorre lentamente...*",
+            color=discord.Color(0xE74C3C),
+            timestamp=discord.utils.utcnow()
+        )
+        embed.set_author(name=member.display_name, icon_url=member.display_avatar.url)
+        embed.add_field(name="\u200b",               value="╔══════════════════╗",                              inline=False)
+        embed.add_field(name="👨‍🏭 Distillatore",     value=member.mention,                                      inline=True)
+        embed.add_field(name="🔬 Distillato",         value=f"**{alcool}**",                                    inline=True)
+        embed.add_field(name="\u200b",                value="╠══════════════════╣",                             inline=False)
+        embed.add_field(name="🕐 Inizio Distillazione", value=f"<t:{int(now.timestamp())}:T>  (<t:{int(now.timestamp())}:R>)", inline=False)
+        embed.add_field(name="\u200b",                value="╚══════════════════╝",                             inline=False)
+        embed.set_image(url=foto.url)
+        embed.set_footer(text="🤠 Red Dead Redemption II — Distilleria | /fine-distillazione per terminare")
+        await interaction.response.send_message(embed=embed)
+        try:
+            ch = bot.get_channel(LOG_CHANNEL_ID)
+            if ch: await ch.send(embed=embed)
+        except Exception: pass
+
+    @bot.tree.command(name="fine-distillazione", description="[Distilleria] Termina la sessione di distillazione Moonshine")
+    async def fine_distillazione(interaction: discord.Interaction):
+        uid = str(interaction.user.id)
+
+        if uid not in _distillazioni_attive:
+            await interaction.response.send_message(
+                "❌ Non hai nessuna distillazione in corso. Usa `/inizio-distillazione` prima.", ephemeral=True)
+            return
+
+        sessione = _distillazioni_attive[uid]
+        alcool   = sessione["alcool"]
+
+        now      = datetime.now(timezone.utc)
+        inizio   = sessione["inizio"]
+        durata_s = (now - inizio).total_seconds()
+        del _distillazioni_attive[uid]
+
+        embed = discord.Embed(
+            title="✅ 𝐃𝐈𝐒𝐓𝐈𝐋𝐋𝐀𝐙𝐈𝐎𝐍𝐄 𝐂𝐎𝐌𝐏𝐋𝐄𝐓𝐀𝐓𝐀",
+            description="*L'alambicco si raffredda. Il distillato è pronto per essere imbottigliato.*",
+            color=discord.Color(0x8E44AD),
+            timestamp=discord.utils.utcnow()
+        )
+        embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
+        embed.add_field(name="\u200b",                  value="╔══════════════════╗",                              inline=False)
+        embed.add_field(name="👨‍🏭 Distillatore",         value=interaction.user.mention,                           inline=True)
+        embed.add_field(name="🔬 Distillato",            value=f"**{alcool}**",                                    inline=True)
+        embed.add_field(name="\u200b",                   value="╠══════════════════╣",                             inline=False)
+        embed.add_field(name="🕐 Inizio",                value=f"<t:{int(inizio.timestamp())}:T>",                 inline=True)
+        embed.add_field(name="🕑 Fine",                  value=f"<t:{int(now.timestamp())}:T>",                    inline=True)
+        embed.add_field(name="\u200b",                   value="╠══════════════════╣",                             inline=False)
+        embed.add_field(name="⏱️ Durata Distillazione",  value=f"```{_durata_str(durata_s)}```",                   inline=False)
+        embed.add_field(name="\u200b",                   value="╚══════════════════╝",                             inline=False)
+        embed.set_footer(text="🤠 Red Dead Redemption II — Distilleria | Distillazione Completata")
+        await interaction.response.send_message(embed=embed)
+        try:
+            ch = bot.get_channel(LOG_CHANNEL_ID)
+            if ch: await ch.send(embed=embed)
+        except Exception: pass
+
+    # ══════════════════════════════════════════════════════════════════════════
+    #  DISTILLERIA — VENDITA MOONSHINE
+    # ══════════════════════════════════════════════════════════════════════════
+
+    @bot.tree.command(name="inizio-vendita-moonshine", description="[Distilleria] Inizia una sessione di vendita Moonshine")
+    @app_commands.describe(foto="Foto della sessione (OBBLIGATORIA)")
+    async def inizio_vendita_moonshine(interaction: discord.Interaction, foto: discord.Attachment):
+        uid    = str(interaction.user.id)
+        member = interaction.user
+
+        if not foto.content_type or not foto.content_type.startswith("image/"):
+            await interaction.response.send_message("❌ Allega un'immagine valida (jpg, png...).", ephemeral=True)
+            return
+
+        if not isinstance(member, discord.Member) or            not any(r.id == DISTILL_ROLE_ID for r in member.roles):
+            await interaction.response.send_message(
+                "❌ Solo i **Distillatori** possono usare questo comando.", ephemeral=True)
+            return
+
+        if uid in _vendite_moonshine_attive:
+            await interaction.response.send_message(
+                "❌ Hai già una vendita di **🌙 Moonshine** in corso!\nUsa `/fine-vendita-moonshine` prima.",
+                ephemeral=True)
+            return
+
+        now = datetime.now(timezone.utc)
+        _vendite_moonshine_attive[uid] = {"inizio": now}
+
+        embed = discord.Embed(
+            title="🌙 𝐕𝐄𝐍𝐃𝐈𝐓𝐀 𝐌𝐎𝐎𝐍𝐒𝐇𝐈𝐍𝐄 𝐈𝐍𝐈𝐙𝐈𝐀𝐓𝐀",
+            description="*Il contrabbandiere carica i barili sul carro...*",
+            color=discord.Color(0x4B0082),
+            timestamp=discord.utils.utcnow()
+        )
+        embed.set_author(name=member.display_name, icon_url=member.display_avatar.url)
+        embed.add_field(name="​",              value="╔══════════════════╗",                              inline=False)
+        embed.add_field(name="👨‍🏭 Distillatore",    value=member.mention,                                      inline=True)
+        embed.add_field(name="🌙 Prodotto",          value="**🌙 Moonshine**",                                  inline=True)
+        embed.add_field(name="​",               value="╠══════════════════╣",                             inline=False)
+        embed.add_field(name="🕐 Inizio Vendita",    value=f"<t:{int(now.timestamp())}:T>  (<t:{int(now.timestamp())}:R>)", inline=False)
+        embed.add_field(name="​",               value="╚══════════════════╝",                             inline=False)
+        embed.set_image(url=foto.url)
+        embed.set_footer(text="🤠 Red Dead Redemption II — Distilleria | /fine-vendita-moonshine per terminare")
+        await interaction.response.send_message(embed=embed)
+        try:
+            ch = bot.get_channel(LOG_CHANNEL_ID)
+            if ch: await ch.send(embed=embed)
+        except Exception: pass
+
+    @bot.tree.command(name="fine-vendita-moonshine", description="[Distilleria] Termina la sessione di vendita Moonshine")
+    async def fine_vendita_moonshine(interaction: discord.Interaction):
+        uid = str(interaction.user.id)
+
+        if uid not in _vendite_moonshine_attive:
+            await interaction.response.send_message(
+                "❌ Non hai nessuna vendita Moonshine in corso. Usa `/inizio-vendita-moonshine` prima.", ephemeral=True)
+            return
+
+        sessione = _vendite_moonshine_attive[uid]
+        now      = datetime.now(timezone.utc)
+        inizio   = sessione["inizio"]
+        durata_s = (now - inizio).total_seconds()
+        del _vendite_moonshine_attive[uid]
+
+        embed = discord.Embed(
+            title="✅ 𝐕𝐄𝐍𝐃𝐈𝐓𝐀 𝐌𝐎𝐎𝐍𝐒𝐇𝐈𝐍𝐄 𝐂𝐎𝐌𝐏𝐋𝐄𝐓𝐀𝐓𝐀",
+            description="*I barili sono stati consegnati. L'oro scorre nelle tasche...*",
+            color=discord.Color(0x9B59B6),
+            timestamp=discord.utils.utcnow()
+        )
+        embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
+        embed.add_field(name="​",                value="╔══════════════════╗",                              inline=False)
+        embed.add_field(name="👨‍🏭 Distillatore",       value=interaction.user.mention,                           inline=True)
+        embed.add_field(name="🌙 Prodotto",             value="**🌙 Moonshine**",                                  inline=True)
+        embed.add_field(name="​",                  value="╠══════════════════╣",                             inline=False)
+        embed.add_field(name="🕐 Inizio",               value=f"<t:{int(inizio.timestamp())}:T>",                 inline=True)
+        embed.add_field(name="🕑 Fine",                 value=f"<t:{int(now.timestamp())}:T>",                    inline=True)
+        embed.add_field(name="​",                  value="╠══════════════════╣",                             inline=False)
+        embed.add_field(name="⏱️ Durata Vendita",       value=f"```{_durata_str(durata_s)}```",                   inline=False)
+        embed.add_field(name="​",                  value="╚══════════════════╝",                             inline=False)
+        embed.set_footer(text="🤠 Red Dead Redemption II — Distilleria | Vendita Completata")
+        await interaction.response.send_message(embed=embed)
+        try:
+            ch = bot.get_channel(LOG_CHANNEL_ID)
+            if ch: await ch.send(embed=embed)
+        except Exception: pass

@@ -132,31 +132,44 @@ async def delete_usura(user_id: str, item_name: str):
         )
         await db.commit()
 
-async def get_armi_inventario(user_id: str) -> list[str]:
+async def get_armi_inventario(user_id: str) -> list[dict]:
+    """Ritorna lista di dict {item_name, quantity} per ogni arma in inventario."""
     async with aiosqlite.connect(DATABASE_NAME) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
-            "SELECT item_name FROM inventory WHERE user_id=? AND quantity>0",
+            "SELECT item_name, quantity FROM inventory WHERE user_id=? AND quantity>0",
             (user_id,)
         ) as c:
             rows = await c.fetchall()
-    return [r["item_name"] for r in rows if r["item_name"] in ALL_ARMI]
+    return [{"item_name": r["item_name"], "quantity": r["quantity"]}
+            for r in rows if r["item_name"] in ALL_ARMI]
 
 async def get_armi_con_usura(user_id: str) -> list[dict]:
-    """Carica armi + usura in una sola passata per evitare N query separate."""
-    armi = await get_armi_inventario(user_id)
-    if not armi:
+    """Carica armi + usura. Se quantity>1 crea N entry separate con suffisso #1, #2..."""
+    armi_inv = await get_armi_inventario(user_id)
+    if not armi_inv:
         return []
-    placeholders = ",".join("?" for _ in armi)
+    nomi = [a["item_name"] for a in armi_inv]
+    placeholders = ",".join("?" for _ in nomi)
     async with aiosqlite.connect(DATABASE_NAME) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             f"SELECT item_name, usura FROM weapon_durability WHERE user_id=? AND item_name IN ({placeholders})",
-            (user_id, *armi)
+            (user_id, *nomi)
         ) as c:
             rows = await c.fetchall()
     usura_map = {r["item_name"]: r["usura"] for r in rows}
-    return [{"item_name": a, "usura": usura_map.get(a, 100)} for a in armi]
+    result = []
+    for a in armi_inv:
+        nome = a["item_name"]
+        qty  = a["quantity"]
+        usura_base = usura_map.get(nome, 100)
+        if qty == 1:
+            result.append({"item_name": nome, "usura": usura_base, "slot": None})
+        else:
+            for i in range(qty):
+                result.append({"item_name": nome, "usura": usura_base, "slot": i + 1})
+    return result
 
 # ── Notifica usura ────────────────────────────────────────────────────────────
 async def _notifica_usura(bot, user_id: str, item_name: str, usura: int):
@@ -261,7 +274,8 @@ def setup_usura_commands(bot):
         scelte = []
         for a in armi:
             if a["usura"] < 100:
-                label = f"{a['item_name']} ({a['usura']}%)"[:100]
+                slot_label = f" #{a['slot']}" if a.get("slot") else ""
+                label = f"{a['item_name']}{slot_label} ({a['usura']}%)"[:100]
                 scelte.append(app_commands.Choice(name=label, value=a["item_name"]))
         return [c for c in scelte if current.lower() in c.name.lower()][:25]
 
@@ -375,10 +389,23 @@ def setup_usura_commands(bot):
             await interaction.response.send_message("❌ Errore interno. Riprova.", ephemeral=True)
             return
 
-        armi_usura = [
-            {"item_name": a, "usura": usura_map.get(a, 100)}
-            for a in armi_nomi
-        ]
+        armi_usura = []
+        for nome in armi_nomi:
+            # Recupera quantity dalla inventory
+            async with aiosqlite.connect(DATABASE_NAME) as db2:
+                db2.row_factory = aiosqlite.Row
+                async with db2.execute(
+                    "SELECT quantity FROM inventory WHERE user_id=? AND item_name=?",
+                    (uid, nome)
+                ) as c3:
+                    row_q = await c3.fetchone()
+            qty = row_q["quantity"] if row_q else 1
+            usura_val = usura_map.get(nome, 100)
+            if qty == 1:
+                armi_usura.append({"item_name": nome, "usura": usura_val, "slot": None})
+            else:
+                for i in range(qty):
+                    armi_usura.append({"item_name": nome, "usura": usura_val, "slot": i + 1})
         print(f"[vis-arma] armi trovate={len(armi_usura)}", flush=True)
 
         if not armi_usura:
@@ -408,8 +435,9 @@ def setup_usura_commands(bot):
                 calo_p = _calo_passaggio(tipo) if tipo else 0
                 puliz  = _item_pulizia(tipo) if tipo else "—"
                 avviso = " ⚠️" if a["usura"] <= 25 else ""
+                slot_label = f" #{a['slot']}" if a.get("slot") else ""
                 embed.add_field(
-                    name=f"{a['item_name']}{avviso}",
+                    name=f"{a['item_name']}{slot_label}{avviso}",
                     value=(
                         f"{_barra(a['usura'])}\n"
                         f"📉 -{calo_g}%/giorno  🤝 -{calo_p}% passaggio  🧴 {puliz}"

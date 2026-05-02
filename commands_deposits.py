@@ -24,7 +24,6 @@ DEPOSITI = {
     "saloon":     {"label": "🍻 | Deposito Saloon",            "ruoli": [SALOON_ROLE_ID]},
     "medico":     {"label": "🩺 | Deposito Studio Medico",     "ruoli": [DOTTORE_ROLE_ID]},
     "peaky":      {"label": "🐦‍⬛ | Deposito Peaky Blinders",   "ruoli": [PEAKY_ROLE_ID]},
-    "silent":     {"label": "🃏 | Deposito Silent Syndacate",  "ruoli": [SILENT_ROLE_ID]},
 }
 
 DEPOSITI_CHOICES = [app_commands.Choice(name=v["label"], value=k) for k, v in DEPOSITI.items()]
@@ -158,6 +157,95 @@ def _embed_pub_deposita(dep: str, item: str, qty: int) -> discord.Embed:
     embed.set_footer(text=f"🤠 Oggi alle {ora}")
     return embed
 
+
+# ═════════════════════════════════════════════════════════════════════════════
+#  MODAL QUANTITÀ PERSONALIZZATA
+# ═════════════════════════════════════════════════════════════════════════════
+class QtyModalPreleva(discord.ui.Modal, title="🔢 Quantità personalizzata"):
+    q = discord.ui.TextInput(
+        label="Quantità da prelevare",
+        placeholder="Inserisci un numero...",
+        required=True, max_length=6
+    )
+
+    def __init__(self, bot, uid: int, dep: str, item: str, qty_dep: int):
+        super().__init__()
+        self.bot     = bot
+        self.uid     = uid
+        self.dep     = dep
+        self.item    = item
+        self.qty_dep = qty_dep
+        self.q.label       = f"Quanti {item[:40]} vuoi prelevare?"
+        self.q.placeholder = f"Max: {qty_dep}"
+
+    async def on_submit(self, interaction: discord.Interaction):
+        try:
+            qty = int(self.q.value)
+        except ValueError:
+            await interaction.response.send_message("❌ Inserisci un numero valido.", ephemeral=True); return
+        if qty <= 0 or qty > self.qty_dep:
+            await interaction.response.send_message(f"❌ Max: {self.qty_dep}", ephemeral=True); return
+        ok = await _remove(self.dep, self.item, qty)
+        if not ok:
+            await interaction.response.send_message("❌ Quantità non disponibile.", ephemeral=True); return
+        await database.add_item(str(self.uid), self.item, qty)
+        await interaction.response.send_message("✅ Prelievo completato!", ephemeral=True)
+        await interaction.channel.send(content=f"<@{self.uid}>",
+                                       embed=_embed_pub_preleva(self.dep, self.item, qty))
+        try:
+            ch = self.bot.get_channel(LOG_CHANNEL_ID)
+            if ch:
+                log = discord.Embed(title="📦 LOG — Prelievo Deposito",
+                                    color=discord.Color(0x8B4513), timestamp=discord.utils.utcnow())
+                log.add_field(name="👤", value=f"<@{self.uid}>", inline=True)
+                log.add_field(name="🏢", value=DEPOSITI[self.dep]["label"], inline=True)
+                log.add_field(name="📦", value=f"{self.item} x{qty}", inline=True)
+                await ch.send(embed=log)
+        except Exception: pass
+
+
+class QtyModalDeposita(discord.ui.Modal, title="🔢 Quantità personalizzata"):
+    q = discord.ui.TextInput(
+        label="Quantità da depositare",
+        placeholder="Inserisci un numero...",
+        required=True, max_length=6
+    )
+
+    def __init__(self, bot, uid: int, dep: str, item: str, qty_inv: int):
+        super().__init__()
+        self.bot     = bot
+        self.uid     = uid
+        self.dep     = dep
+        self.item    = item
+        self.qty_inv = qty_inv
+        self.q.label       = f"Quanti {item[:40]} vuoi depositare?"
+        self.q.placeholder = f"Max: {qty_inv}"
+
+    async def on_submit(self, interaction: discord.Interaction):
+        try:
+            qty = int(self.q.value)
+        except ValueError:
+            await interaction.response.send_message("❌ Inserisci un numero valido.", ephemeral=True); return
+        if qty <= 0 or qty > self.qty_inv:
+            await interaction.response.send_message(f"❌ Max: {self.qty_inv}", ephemeral=True); return
+        ok = await database.remove_item(str(self.uid), self.item, qty)
+        if not ok:
+            await interaction.response.send_message("❌ Non hai abbastanza item.", ephemeral=True); return
+        await _add(self.dep, self.item, qty)
+        await interaction.response.send_message("✅ Depositato!", ephemeral=True)
+        await interaction.channel.send(content=f"<@{self.uid}>",
+                                       embed=_embed_pub_deposita(self.dep, self.item, qty))
+        try:
+            ch = self.bot.get_channel(LOG_CHANNEL_ID)
+            if ch:
+                log = discord.Embed(title="📦 LOG — Deposito Fazione",
+                                    color=discord.Color(0x8B4513), timestamp=discord.utils.utcnow())
+                log.add_field(name="👤", value=f"<@{self.uid}>", inline=True)
+                log.add_field(name="🏢", value=DEPOSITI[self.dep]["label"], inline=True)
+                log.add_field(name="📦", value=f"{self.item} x{qty}", inline=True)
+                await ch.send(embed=log)
+        except Exception: pass
+
 # ═════════════════════════════════════════════════════════════════════════════
 #  VIEW PRELIEVO — lista item
 # ═════════════════════════════════════════════════════════════════════════════
@@ -278,33 +366,8 @@ class PrelievoQtyView(discord.ui.View):
             uid    = self.uid
             parent = self.parent
 
-            class M(discord.ui.Modal, title="🔢 Quantità personalizzata"):
-                q = discord.ui.TextInput(label=f"Quanti {item[:40]} vuoi prelevare?",
-                                         placeholder=f"Max: {qty_dep}", required=True, max_length=6)
-                async def on_submit(self2, itr: discord.Interaction):
-                    try: qty = int(self2.q.value)
-                    except ValueError:
-                        await itr.response.send_message("❌ Numero non valido.", ephemeral=True); return
-                    if qty <= 0 or qty > qty_dep:
-                        await itr.response.send_message(f"❌ Max: {qty_dep}", ephemeral=True); return
-                    ok = await _remove(dep, item, qty)
-                    if not ok:
-                        await itr.response.send_message("❌ Quantità non disponibile.", ephemeral=True); return
-                    await database.add_item(str(uid), item, qty)
-                    await itr.response.send_message("✅ Prelievo completato!", ephemeral=True)
-                    await itr.channel.send(content=f"<@{uid}>", embed=_embed_pub_preleva(dep, item, qty))
-                    try:
-                        ch = bot.get_channel(LOG_CHANNEL_ID)
-                        if ch:
-                            log = discord.Embed(title="📦 LOG — Prelievo Deposito",
-                                                color=discord.Color(0x8B4513), timestamp=discord.utils.utcnow())
-                            log.add_field(name="👤", value=f"<@{uid}>", inline=True)
-                            log.add_field(name="🏢", value=DEPOSITI[dep]["label"], inline=True)
-                            log.add_field(name="📦", value=f"{item} x{qty}", inline=True)
-                            await ch.send(embed=log)
-                    except Exception: pass
-
-            await interaction.response.send_modal(M())
+            await interaction.response.send_modal(
+                    QtyModalPreleva(bot, uid, dep, item, qty_dep))
 
         async def _back(interaction: discord.Interaction):
             if interaction.user.id != self.uid:
@@ -447,33 +510,8 @@ class DepositaQtyView(discord.ui.View):
             dep    = self.dep; item = self.item; qty_inv = self.qty_inv
             bot    = self.bot; uid  = self.uid;  parent  = self.parent
 
-            class M(discord.ui.Modal, title="🔢 Quantità personalizzata"):
-                q = discord.ui.TextInput(label=f"Quanti {item[:40]} vuoi depositare?",
-                                         placeholder=f"Max: {qty_inv}", required=True, max_length=6)
-                async def on_submit(self2, itr: discord.Interaction):
-                    try: qty = int(self2.q.value)
-                    except ValueError:
-                        await itr.response.send_message("❌ Numero non valido.", ephemeral=True); return
-                    if qty <= 0 or qty > qty_inv:
-                        await itr.response.send_message(f"❌ Max: {qty_inv}", ephemeral=True); return
-                    ok = await database.remove_item(str(uid), item, qty)
-                    if not ok:
-                        await itr.response.send_message("❌ Non hai abbastanza item.", ephemeral=True); return
-                    await _add(dep, item, qty)
-                    await itr.response.send_message("✅ Depositato!", ephemeral=True)
-                    await itr.channel.send(content=f"<@{uid}>", embed=_embed_pub_deposita(dep, item, qty))
-                    try:
-                        ch = bot.get_channel(LOG_CHANNEL_ID)
-                        if ch:
-                            log = discord.Embed(title="📦 LOG — Deposito Fazione",
-                                                color=discord.Color(0x8B4513), timestamp=discord.utils.utcnow())
-                            log.add_field(name="👤", value=f"<@{uid}>", inline=True)
-                            log.add_field(name="🏢", value=DEPOSITI[dep]["label"], inline=True)
-                            log.add_field(name="📦", value=f"{item} x{qty}", inline=True)
-                            await ch.send(embed=log)
-                    except Exception: pass
-
-            await interaction.response.send_modal(M())
+            await interaction.response.send_modal(
+                    QtyModalDeposita(bot, uid, dep, item, qty_inv))
 
         async def _back(interaction: discord.Interaction):
             if interaction.user.id != self.uid:

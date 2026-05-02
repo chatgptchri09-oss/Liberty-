@@ -123,8 +123,8 @@ def setup_rp_commands(bot):
             )
             return
 
-        h_drop = random.randint(1, 4)
-        t_drop = random.randint(1, 10)
+        h_drop = random.randint(1, 3)
+        t_drop = random.randint(1, 5)
         new_h  = max(0, user["hunger"] - h_drop)
         new_t  = max(0, user["thirst"] - t_drop)
         await database.update_hunger_thirst(uid, hunger=new_h, thirst=new_t)

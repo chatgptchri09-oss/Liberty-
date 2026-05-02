@@ -143,6 +143,7 @@ class ListaSelect(discord.ui.Select):
                 "`/rimuovi-documento` — Rimuovi documento",
                 "`/setup-background` — Invia pannello background PG",
                 "`/sync` — Sincronizza comandi slash",
+                "`/give-item-deposito` - Aggiungi un item al deposito di una fazione",
             ]
         elif cat == "sceriffo":
             embed = discord.Embed(title="🔫 COMANDI SCERIFFO", color=discord.Color.blue())
@@ -192,6 +193,8 @@ class ListaSelect(discord.ui.Select):
                 "`/mie-proprieta` — Le tue proprietà registrate",
                 "`/pulisci-arma` — Pulisci un'arma con Olio per Armi / Cote",
                 "`/visualizza-stato-arma` — Visualizza l'usura delle tue armi",
+                "`/depgenerici` - Visualizza il deposito della tua fazione",
+                "`/mettidepfazione` - Deposita un item dalla tua bisaccia nel deposito",
             ]
         elif cat == "contrabbando":
             embed = discord.Embed(title="🚫 COMANDI CONTRABBANDO", color=discord.Color(0x2C2C2C))
@@ -205,6 +208,8 @@ class ListaSelect(discord.ui.Select):
                 "`/fine-creazione-alcool` - Termina la creazione di alcool",
                 "`/inizio-distillazione` - Inizia la distillazione di alcool",
                 "`/fine-distillazione` - Termina la distillazione di alcool",
+                "`/inizio-vendita-moonshine` - Comincia la vendita di moonshine",
+                "`/fine-vendita-moonshine` - Termina la vendita di moonshine",
                 
             ]
         else:
@@ -223,7 +228,7 @@ class ListaView(discord.ui.View):
 @bot.tree.command(name="lista-comandi", description="Visualizza tutti i comandi disponibili")
 async def lista_comandi(interaction: discord.Interaction):
     embed = discord.Embed(
-        title="📜 LISTA COMANDI — RED DEAD REDEMPTION II",
+        title="<:regolamento:1459626703411478560> LISTA COMANDI — RED DEAD REDEMPTION II",
         description="Seleziona una categoria dal menu qui sotto.",
         color=discord.Color(0xDAA520), timestamp=discord.utils.utcnow()
     )

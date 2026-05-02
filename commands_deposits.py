@@ -25,7 +25,6 @@ DEPOSITI = {
     "medico":     {"label": "🩺 | Deposito Studio Medico",     "ruoli": [DOTTORE_ROLE_ID]},
     "peaky":      {"label": "🐦‍⬛ | Deposito Peaky Blinders",   "ruoli": [PEAKY_ROLE_ID]},
     "silent":     {"label": "🃏 | Deposito Silent Syndacate",  "ruoli": [SILENT_ROLE_ID]},
-    "blackwood":  {"label": "☠️ | Deposito Famiglia Blackwood","ruoli": [BLACKWOOD_ROLE_ID]},
 }
 
 DEPOSITI_CHOICES = [app_commands.Choice(name=v["label"], value=k) for k, v in DEPOSITI.items()]

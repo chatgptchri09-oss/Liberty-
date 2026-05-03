@@ -551,3 +551,67 @@ async def wipe_user(user_id: str):
             await db.execute(f"DELETE FROM {t} WHERE user_id=?", (user_id,))
         await db.execute("INSERT INTO users (user_id,cash,bank,hunger,thirst) VALUES (?,50,0,100,100)", (user_id,))
         await db.commit()
+
+# ── DOCUMENTI FALSI ────────────────────────────────────────────────────────────
+
+async def set_fake_document(user_id: str, nome: str, cognome: str, eta: int,
+                            sesso: str, luogo_nascita: str, foto_url: str = None,
+                            extra: dict = None):
+    import json
+    from datetime import datetime
+    extra_json = json.dumps(extra, ensure_ascii=False) if extra else None
+    async with aiosqlite.connect(DATABASE_NAME) as db:
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS fake_documents (
+                user_id      TEXT PRIMARY KEY,
+                nome         TEXT,
+                cognome      TEXT,
+                eta          INTEGER,
+                sesso        TEXT,
+                luogo_nascita TEXT,
+                foto_url     TEXT,
+                extra        TEXT DEFAULT NULL,
+                created_at   TEXT
+            )
+        """)
+        await db.execute("""
+            INSERT INTO fake_documents
+                (user_id,nome,cognome,eta,sesso,luogo_nascita,foto_url,extra,created_at)
+            VALUES (?,?,?,?,?,?,?,?,?)
+            ON CONFLICT(user_id) DO UPDATE SET
+                nome=excluded.nome, cognome=excluded.cognome, eta=excluded.eta,
+                sesso=excluded.sesso, luogo_nascita=excluded.luogo_nascita,
+                foto_url=excluded.foto_url, extra=excluded.extra,
+                created_at=excluded.created_at
+        """, (user_id, nome, cognome, eta, sesso, luogo_nascita, foto_url, extra_json,
+              datetime.utcnow().strftime("%d/%m/%Y %H:%M")))
+        await db.commit()
+
+async def get_fake_document(user_id: str) -> dict | None:
+    import json
+    async with aiosqlite.connect(DATABASE_NAME) as db:
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS fake_documents (
+                user_id TEXT PRIMARY KEY, nome TEXT, cognome TEXT, eta INTEGER,
+                sesso TEXT, luogo_nascita TEXT, foto_url TEXT,
+                extra TEXT DEFAULT NULL, created_at TEXT
+            )
+        """)
+        await db.commit()
+        db.row_factory = aiosqlite.Row
+        async with db.execute("SELECT * FROM fake_documents WHERE user_id=?", (user_id,)) as c:
+            row = await c.fetchone()
+            if not row:
+                return None
+            d = dict(row)
+            if d.get("extra") and isinstance(d["extra"], str):
+                try:
+                    d["extra"] = json.loads(d["extra"])
+                except Exception:
+                    d["extra"] = {}
+            return d
+
+async def delete_fake_document(user_id: str):
+    async with aiosqlite.connect(DATABASE_NAME) as db:
+        await db.execute("DELETE FROM fake_documents WHERE user_id=?", (user_id,))
+        await db.commit()

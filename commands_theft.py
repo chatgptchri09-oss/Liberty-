@@ -4,6 +4,15 @@ from datetime import datetime, timezone
 import database
 from constants import LOG_CHANNEL_ID, DISTILL_ROLE_ID
 
+def _criminali_attivi() -> bool:
+    try:
+        import commands_invoice as _ci
+        return _ci._azioni_criminali_attive
+    except Exception:
+        return True
+
+_MSG_OFFLINE = "❌ Le **azioni criminali** sono attualmente **offline**.\nAttendi che lo Staff le riattivi."
+
 # ── Ruoli richiesti per tipo di droga ────────────────────────────────────────
 DROGA_CONFIG = {
     "🍃 Tabacco":           1421166296850235602,
@@ -59,6 +68,8 @@ def setup_theft_commands(bot):
         app_commands.Choice(name="💉 Eroina",             value="💉 Eroina"),
     ])
     async def inizio_raccolta(interaction: discord.Interaction, droga: str, foto: discord.Attachment):
+        if not _criminali_attivi():
+            await interaction.response.send_message(_MSG_OFFLINE, ephemeral=True); return
         uid    = str(interaction.user.id)
         member = interaction.user
 
@@ -113,6 +124,8 @@ def setup_theft_commands(bot):
         app_commands.Choice(name="💉 Eroina",             value="💉 Eroina"),
     ])
     async def fine_raccolta(interaction: discord.Interaction, droga: str):
+        if not _criminali_attivi():
+            await interaction.response.send_message(_MSG_OFFLINE, ephemeral=True); return
         uid = str(interaction.user.id)
         if uid not in _raccolte_attive:
             await interaction.response.send_message(
@@ -162,6 +175,8 @@ def setup_theft_commands(bot):
         app_commands.Choice(name="💉 Eroina",             value="💉 Eroina"),
     ])
     async def inizio_vendita(interaction: discord.Interaction, droga: str, foto: discord.Attachment):
+        if not _criminali_attivi():
+            await interaction.response.send_message(_MSG_OFFLINE, ephemeral=True); return
         uid    = str(interaction.user.id)
         member = interaction.user
 
@@ -210,6 +225,8 @@ def setup_theft_commands(bot):
         app_commands.Choice(name="💉 Eroina",             value="💉 Eroina"),
     ])
     async def fine_vendita(interaction: discord.Interaction, droga: str):
+        if not _criminali_attivi():
+            await interaction.response.send_message(_MSG_OFFLINE, ephemeral=True); return
         uid = str(interaction.user.id)
         if uid not in _vendite_attive:
             await interaction.response.send_message(
@@ -253,6 +270,8 @@ def setup_theft_commands(bot):
     @bot.tree.command(name="inizio-creazione-alcool", description="[Distilleria] Inizia la creazione di una partita di Moonshine")
     @app_commands.describe(foto="Foto della sessione (OBBLIGATORIA)")
     async def inizio_creazione_alcool(interaction: discord.Interaction, foto: discord.Attachment):
+        if not _criminali_attivi():
+            await interaction.response.send_message(_MSG_OFFLINE, ephemeral=True); return
         alcool = "🌙 Moonshine"
         uid    = str(interaction.user.id)
         member = interaction.user
@@ -300,6 +319,8 @@ def setup_theft_commands(bot):
 
     @bot.tree.command(name="fine-creazione-alcool", description="[Distilleria] Termina la creazione di una partita di Moonshine")
     async def fine_creazione_alcool(interaction: discord.Interaction):
+        if not _criminali_attivi():
+            await interaction.response.send_message(_MSG_OFFLINE, ephemeral=True); return
         uid = str(interaction.user.id)
 
         if uid not in _creazioni_attive:
@@ -345,6 +366,8 @@ def setup_theft_commands(bot):
     @bot.tree.command(name="inizio-distillazione", description="[Distilleria] Inizia una sessione di distillazione Moonshine")
     @app_commands.describe(foto="Foto della sessione (OBBLIGATORIA)")
     async def inizio_distillazione(interaction: discord.Interaction, foto: discord.Attachment):
+        if not _criminali_attivi():
+            await interaction.response.send_message(_MSG_OFFLINE, ephemeral=True); return
         alcool = "🌙 Moonshine"
         uid    = str(interaction.user.id)
         member = interaction.user
@@ -392,6 +415,8 @@ def setup_theft_commands(bot):
 
     @bot.tree.command(name="fine-distillazione", description="[Distilleria] Termina la sessione di distillazione Moonshine")
     async def fine_distillazione(interaction: discord.Interaction):
+        if not _criminali_attivi():
+            await interaction.response.send_message(_MSG_OFFLINE, ephemeral=True); return
         uid = str(interaction.user.id)
 
         if uid not in _distillazioni_attive:
@@ -437,6 +462,8 @@ def setup_theft_commands(bot):
     @bot.tree.command(name="inizio-vendita-moonshine", description="[Distilleria] Inizia una sessione di vendita Moonshine")
     @app_commands.describe(foto="Foto della sessione (OBBLIGATORIA)")
     async def inizio_vendita_moonshine(interaction: discord.Interaction, foto: discord.Attachment):
+        if not _criminali_attivi():
+            await interaction.response.send_message(_MSG_OFFLINE, ephemeral=True); return
         uid    = str(interaction.user.id)
         member = interaction.user
 
@@ -481,6 +508,8 @@ def setup_theft_commands(bot):
 
     @bot.tree.command(name="fine-vendita-moonshine", description="[Distilleria] Termina la sessione di vendita Moonshine")
     async def fine_vendita_moonshine(interaction: discord.Interaction):
+        if not _criminali_attivi():
+            await interaction.response.send_message(_MSG_OFFLINE, ephemeral=True); return
         uid = str(interaction.user.id)
 
         if uid not in _vendite_moonshine_attive:

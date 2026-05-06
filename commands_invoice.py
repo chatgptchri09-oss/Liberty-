@@ -10,6 +10,26 @@ STATO_USER_ID = "STATO"
 # Percentuale che va all'emittente (il resto va allo Stato)
 PERCENTUALE_EMITTENTE = 0.25
 
+# ── Aziende per /fattura ───────────────────────────────────────────────────────
+ARMIERE_ROLE_ID   = 1404051953188733002
+STALLA_ROLE_ID    = 1404051942698913792
+AGENZIA_ROLE_ID   = 1404051965364670545
+STAFF_ROLE_ID     = 1404051875426467902
+CHIAVE_ROLE_ID    = 1404051860121456701
+
+LOG_ARMERIA_CH    = 1501575429461639249
+LOG_STALLA_CH     = 1501575466925166785
+LOG_AGENZIA_CH    = 1501575481172951162
+
+AZIENDE_CONFIG = {
+    "Armeria":             {"ruolo": ARMIERE_ROLE_ID, "log_ch": LOG_ARMERIA_CH,  "emoji": "🔫"},
+    "Stalla":              {"ruolo": STALLA_ROLE_ID,  "log_ch": LOG_STALLA_CH,   "emoji": "🐴"},
+    "Agenzia Immobiliare": {"ruolo": AGENZIA_ROLE_ID, "log_ch": LOG_AGENZIA_CH,  "emoji": "🏡"},
+}
+
+# ── Stato azioni criminali (in memoria — si resetta al riavvio) ────────────────
+_azioni_criminali_attive: bool = True
+
 
 async def _aggiungi_stato(importo: int):
     """Aggiunge importo al conto banca virtuale dello Stato."""
@@ -29,14 +49,28 @@ def setup_invoice_commands(bot):
     @app_commands.describe(
         destinatario="Il giocatore a cui mandare la fattura",
         importo="Importo in dollari",
-        descrizione="Servizio o bene fornito"
+        descrizione="Servizio o bene fornito",
+        azienda="L'azienda che emette la fattura"
     )
-    async def fattura(interaction: discord.Interaction, destinatario: discord.Member, importo: int, descrizione: str):
+    @app_commands.choices(azienda=[
+        app_commands.Choice(name="🔫 Armeria",             value="Armeria"),
+        app_commands.Choice(name="🐴 Stalla",              value="Stalla"),
+        app_commands.Choice(name="🏡 Agenzia Immobiliare", value="Agenzia Immobiliare"),
+    ])
+    async def fattura(interaction: discord.Interaction, destinatario: discord.Member,
+                      importo: int, descrizione: str, azienda: str):
         if destinatario.id == interaction.user.id:
             await interaction.response.send_message("❌ Non puoi emettere una fattura a te stesso.", ephemeral=True)
             return
         if importo <= 0:
             await interaction.response.send_message("❌ L'importo deve essere positivo.", ephemeral=True)
+            return
+
+        # Verifica ruolo azienda
+        az = AZIENDE_CONFIG[azienda]
+        if not isinstance(interaction.user, discord.Member) or            not any(r.id == az["ruolo"] for r in interaction.user.roles):
+            await interaction.response.send_message(
+                f"❌ Non hai il ruolo **{azienda}** per emettere fatture a suo nome.", ephemeral=True)
             return
 
         invoice_id = await database.add_invoice(
@@ -47,7 +81,7 @@ def setup_invoice_commands(bot):
         quota_stato     = importo - quota_emittente
 
         embed = discord.Embed(
-            title="📜 𝐅𝐀𝐓𝐓𝐔𝐑𝐀 𝐄𝐌𝐄𝐒𝐒𝐀",
+            title=f"📜 𝐅𝐀𝐓𝐓𝐔𝐑𝐀 𝐄𝐌𝐄𝐒𝐒𝐀 — {az['emoji']} {azienda.upper()}",
             color=discord.Color(0xDAA520),
             timestamp=discord.utils.utcnow()
         )
@@ -58,23 +92,46 @@ def setup_invoice_commands(bot):
         embed.add_field(name="\u200b",             value="\u200b",                  inline=False)
         embed.add_field(name="👤 Emessa da",       value=interaction.user.mention,  inline=True)
         embed.add_field(name="🎯 Destinatario",    value=destinatario.mention,      inline=True)
+        embed.add_field(name=f"{az['emoji']} Azienda", value=azienda,            inline=True)
         embed.add_field(name="\u200b",             value="\u200b",                  inline=False)
-        embed.add_field(name="💰 Vai all'emittente (25%)", value=f"${quota_emittente:,}", inline=True)
-        embed.add_field(name="🏛️ Vai allo Stato (75%)",   value=f"${quota_stato:,}",     inline=True)
+        embed.add_field(name="💰 All'emittente (25%)", value=f"${quota_emittente:,}", inline=True)
+        embed.add_field(name="🏛️ Allo Stato (75%)",    value=f"${quota_stato:,}",     inline=True)
         embed.set_footer(text="🤠 Red Dead Redemption II — Fattura | Usa /pagafattura per pagare")
         await interaction.response.send_message(embed=embed)
 
+        # DM al destinatario
         try:
             dm = discord.Embed(
                 title="📜 Hai ricevuto una fattura!",
                 description=(
                     f"**{interaction.user.display_name}** ti ha inviato una fattura di **${importo:,}**.\n\n"
-                    f"**Servizio:** {descrizione}\n\n"
-                    f"Usa `/pagafattura` per pagare — vedrai tutte le tue fatture in sospeso."
+                    f"**Servizio:** {descrizione}\n"
+                    f"**Azienda:** {az['emoji']} {azienda}\n\n"
+                    f"Usa `/pagafattura` per pagare."
                 ),
                 color=discord.Color(0xDAA520)
             )
             await destinatario.send(embed=dm)
+        except Exception:
+            pass
+
+        # Log nel canale dell'azienda
+        try:
+            log_ch = bot.get_channel(az["log_ch"])
+            if log_ch:
+                log = discord.Embed(
+                    title=f"📜 LOG — Fattura Emessa | {az['emoji']} {azienda}",
+                    color=discord.Color(0xDAA520),
+                    timestamp=discord.utils.utcnow()
+                )
+                log.add_field(name="🧾 N° Fattura",   value=f"#{invoice_id}",        inline=True)
+                log.add_field(name="💵 Importo",      value=f"${importo:,}",          inline=True)
+                log.add_field(name="📋 Servizio",     value=descrizione,              inline=False)
+                log.add_field(name="👤 Emessa da",    value=interaction.user.mention, inline=True)
+                log.add_field(name="🎯 Destinatario", value=destinatario.mention,     inline=True)
+                log.add_field(name="💰 Emittente (25%)", value=f"${quota_emittente:,}", inline=True)
+                log.add_field(name="🏛️ Stato (75%)",    value=f"${quota_stato:,}",     inline=True)
+                await log_ch.send(embed=log)
         except Exception:
             pass
 
@@ -149,7 +206,7 @@ def setup_invoice_commands(bot):
                 embed.set_footer(text="🤠 Red Dead Redemption II — Fattura")
                 await itr.followup.send(embed=embed, ephemeral=True)
 
-                # Log
+                # Log canale generale
                 try:
                     ch = bot.get_channel(LOG_CHANNEL_ID)
                     if ch:
@@ -165,6 +222,36 @@ def setup_invoice_commands(bot):
                         log.add_field(name="💰 Emittente", value=f"${quota_emittente:,}",      inline=True)
                         log.add_field(name="🏛️ Stato",    value=f"${quota_stato:,}",          inline=True)
                         await ch.send(embed=log)
+                except Exception:
+                    pass
+
+                # Log canale azienda (se la fattura ha un'azienda associata)
+                try:
+                    desc_lower = invoice["description"].lower()
+                    az_trovata = None
+                    for az_nome, az_cfg in AZIENDE_CONFIG.items():
+                        if az_nome.lower() in desc_lower:
+                            az_trovata = (az_nome, az_cfg)
+                            break
+                    # Cerca anche nel titolo se saved nell'invoice — fallback: cerca dal from_user ruoli non disponibili qui
+                    # Invia comunque ai 3 canali solo se troviamo corrispondenza
+                    if az_trovata:
+                        az_nome, az_cfg = az_trovata
+                        log_az_ch = bot.get_channel(az_cfg["log_ch"])
+                        if log_az_ch:
+                            log_az = discord.Embed(
+                                title=f"✅ LOG — Fattura Pagata | {az_cfg['emoji']} {az_nome}",
+                                color=discord.Color.green(),
+                                timestamp=discord.utils.utcnow()
+                            )
+                            log_az.add_field(name="🧾 N° Fattura",   value=f"#{invoice_id}",              inline=True)
+                            log_az.add_field(name="💵 Totale",       value=f"${importo:,}",              inline=True)
+                            log_az.add_field(name="📋 Servizio",     value=invoice["description"],       inline=False)
+                            log_az.add_field(name="👤 Pagato da",    value=f"<@{uid}>",                  inline=True)
+                            log_az.add_field(name="🧑‍💼 Emittente",   value=f"<@{invoice['from_user']}>", inline=True)
+                            log_az.add_field(name="💰 All'emittente (25%)", value=f"${quota_emittente:,}", inline=True)
+                            log_az.add_field(name="🏛️ Allo Stato (75%)",    value=f"${quota_stato:,}",     inline=True)
+                            await log_az_ch.send(embed=log_az)
                 except Exception:
                     pass
 
@@ -213,7 +300,7 @@ def setup_invoice_commands(bot):
             righe  = []
             for i, u in enumerate(slice_, start=pagina * PER_PAG + 1):
                 member = guild.get_member(int(u["user_id"])) if guild else None
-                nome   = member.mention if member else f"<@{u['user_id']}>"
+                nome   = member.display_name if member else f"<@{u['user_id']}>"
                 totale = u["cash"] + u["bank"]
                 if i == 1:   medaglia = "🥇"
                 elif i == 2: medaglia = "🥈"
@@ -221,7 +308,8 @@ def setup_invoice_commands(bot):
                 else:         medaglia = f"**#{i}**"
                 righe.append(
                     f"{medaglia} {nome}\n"
-                    f"┣ 💰 Soldi Totali: **${totale:,}**"
+                    f"┣ 💵 Contanti: **${u['cash']:,}**\n"
+                    f"┗ 🏦 Banca: **${u['bank']:,}**  —  Totale: **${totale:,}**"
                 )
             embed.description = "\n\n".join(righe)
             embed.set_footer(text=f"🤠 Red Dead Redemption II — Pagina {pagina+1}/{tot_pag}")
@@ -251,3 +339,40 @@ def setup_invoice_commands(bot):
 
         view = LeaderView(0) if tot_pag > 1 else discord.ui.View(timeout=120)
         await interaction.followup.send(embed=_build_embed(0), view=view)
+    # ── /azioni-criminali-on ──────────────────────────────────────────────────
+    @bot.tree.command(name="azioni-criminali-on", description="[Staff] Attiva le azioni criminali nel server")
+    async def azioni_criminali_on(interaction: discord.Interaction):
+        if not isinstance(interaction.user, discord.Member) or            not any(r.id in (STAFF_ROLE_ID, CHIAVE_ROLE_ID) for r in interaction.user.roles):
+            await interaction.response.send_message("❌ Solo lo Staff può usare questo comando.", ephemeral=True)
+            return
+
+        global _azioni_criminali_attive
+        _azioni_criminali_attive = True
+
+        embed = discord.Embed(
+            title="<a:online:1459627385702973572> 𝐀𝐙𝐈𝐎𝐍𝐈 𝐂𝐑𝐈𝐌𝐈𝐍𝐀𝐋𝐈 𝐎𝐍𝐋𝐈𝐍𝐄 <a:online:1459627385702973572>",
+            color=discord.Color.green(),
+            timestamp=discord.utils.utcnow()
+        )
+        embed.set_image(url="https://i.postimg.cc/PfPSxmzZ/2b2664d3-4692-4371-8ddc-d59881a795dc.png")
+        embed.set_footer(text=f"🤠 Attivate da {interaction.user.display_name}")
+        await interaction.response.send_message(embed=embed)
+
+    # ── /azioni-criminali-off ─────────────────────────────────────────────────
+    @bot.tree.command(name="azioni-criminali-off", description="[Staff] Disattiva le azioni criminali nel server")
+    async def azioni_criminali_off(interaction: discord.Interaction):
+        if not isinstance(interaction.user, discord.Member) or            not any(r.id in (STAFF_ROLE_ID, CHIAVE_ROLE_ID) for r in interaction.user.roles):
+            await interaction.response.send_message("❌ Solo lo Staff può usare questo comando.", ephemeral=True)
+            return
+
+        global _azioni_criminali_attive
+        _azioni_criminali_attive = False
+
+        embed = discord.Embed(
+            title="<a:offline:1459628872197738641> 𝐀𝐙𝐈𝐎𝐍𝐈 𝐂𝐑𝐈𝐌𝐈𝐍𝐀𝐋𝐈 𝐎𝐅𝐅𝐋𝐈𝐍𝐄 <a:offline:1459628872197738641>",
+            color=discord.Color.red(),
+            timestamp=discord.utils.utcnow()
+        )
+        embed.set_image(url="https://i.postimg.cc/PfPSxmzZ/2b2664d3-4692-4371-8ddc-d59881a795dc.png")
+        embed.set_footer(text=f"🤠 Disattivate da {interaction.user.display_name}")
+        await interaction.response.send_message(embed=embed)

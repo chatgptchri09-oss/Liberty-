@@ -2,6 +2,13 @@ import discord
 from discord import app_commands
 from constants import LOG_CHANNEL_ID
 
+def _criminali_attivi() -> bool:
+    try:
+        import commands_invoice as _ci
+        return _ci._azioni_criminali_attive
+    except Exception:
+        return True
+
 # Ruoli da menzionare sopra l'embed
 SCERIFFO_PING  = 1404051916140449885
 CRIMINALI_PING = 1420468587998478376
@@ -109,6 +116,11 @@ def setup_robbery_commands(bot):
         app_commands.Choice(name="🚃 Treno",     value="Treno"),
     ])
     async def rapina(interaction: discord.Interaction, bersaglio: str):
+        if not _criminali_attivi():
+            await interaction.response.send_message(
+                "❌ Le **azioni criminali** sono attualmente **offline**.\nAttendi che lo Staff le riattivi.",
+                ephemeral=True)
+            return
         r = RAPINE[bersaglio]
 
         embed = discord.Embed(

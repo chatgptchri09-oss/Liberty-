@@ -14,6 +14,7 @@ PINKERTON_ROLE_ID = 1420267736319266906
 PEAKY_ROLE_ID     = 1494988697127485513
 SILENT_ROLE_ID    = 1495036199096811570
 BLACKWOOD_ROLE_ID = 1496603144551923905
+SONS_ROLE_ID      = 1501323223411855583
 
 DEPOSITI = {
     "pinkerton":  {"label": "🕵️ | Deposito Pinkerton",        "ruoli": [PINKERTON_ROLE_ID]},
@@ -24,6 +25,7 @@ DEPOSITI = {
     "saloon":     {"label": "🍻 | Deposito Saloon",            "ruoli": [SALOON_ROLE_ID]},
     "medico":     {"label": "🩺 | Deposito Studio Medico",     "ruoli": [DOTTORE_ROLE_ID]},
     "peaky":      {"label": "🐦‍⬛ | Deposito Peaky Blinders",   "ruoli": [PEAKY_ROLE_ID]},
+    "sons":       {"label": "👻 | Deposito Sons Of Shadows",  "ruoli": [SONS_ROLE_ID]},
 }
 
 DEPOSITI_CHOICES = [app_commands.Choice(name=v["label"], value=k) for k, v in DEPOSITI.items()]

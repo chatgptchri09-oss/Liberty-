@@ -308,8 +308,7 @@ def setup_invoice_commands(bot):
                 else:         medaglia = f"**#{i}**"
                 righe.append(
                     f"{medaglia} {nome}\n"
-                    f"┣ 💵 Contanti: **${u['cash']:,}**\n"
-                    f"┗ 🏦 Banca: **${u['bank']:,}**  —  Totale: **${totale:,}**"
+                    f"┗ 🏦 Totale Soldi: **${totale:,}**"
                 )
             embed.description = "\n\n".join(righe)
             embed.set_footer(text=f"🤠 Red Dead Redemption II — Pagina {pagina+1}/{tot_pag}")

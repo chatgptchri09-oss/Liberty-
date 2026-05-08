@@ -5,7 +5,7 @@ import aiosqlite
 from constants import STATO_ROLE_ID, LOG_CHANNEL_ID, has_sceriffo, DATABASE_NAME
 
 # ── Ruoli ─────────────────────────────────────────────────────────────────────
-STAFF_VEDI_DOC    = {1404051875426467902, 1404051873698418791}
+STAFF_VEDI_DOC    = {1404051875426467902, 1404051873698418791, 1404051916140449885 }
 FALSARIO_ROLE_ID  = 1404052043424989194   # Ruolo per /documento-falso
 
 def has_stato(interaction) -> bool:
@@ -314,7 +314,7 @@ def setup_document_commands(bot):
         await interaction.response.send_modal(Modal1())
 
     # ── /documento-falso ──────────────────────────────────────────────────────
-    @bot.tree.command(name="documento-falso", description="[Falsario] Crea un documento falso per un cittadino")
+    @bot.tree.command(name="documento-falso", description="[Mercato Nero] Crea un documento falso per un cittadino")
     @app_commands.describe(cittadino="Il cittadino", foto="Foto falsa del personaggio (OBBLIGATORIA)")
     async def documento_falso(interaction: discord.Interaction, cittadino: discord.Member, foto: discord.Attachment):
         if not has_falsario(interaction):

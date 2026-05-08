@@ -4,10 +4,7 @@ import database
 import aiosqlite
 from constants import LOG_CHANNEL_ID, DATABASE_NAME
 
-# ID virtuale conto Stato
-STATO_USER_ID = "STATO"
-
-# Percentuale che va all'emittente (il resto va allo Stato)
+# Percentuale che va all'emittente (il resto va al fondo cassa azienda)
 PERCENTUALE_EMITTENTE = 0.25
 
 # ── Aziende per /fattura ───────────────────────────────────────────────────────
@@ -22,24 +19,22 @@ LOG_STALLA_CH     = 1501575466925166785
 LOG_AGENZIA_CH    = 1501575481172951162
 
 AZIENDE_CONFIG = {
-    "Armeria":             {"ruolo": ARMIERE_ROLE_ID, "log_ch": LOG_ARMERIA_CH,  "emoji": "🔫"},
-    "Stalla":              {"ruolo": STALLA_ROLE_ID,  "log_ch": LOG_STALLA_CH,   "emoji": "🐴"},
-    "Agenzia Immobiliare": {"ruolo": AGENZIA_ROLE_ID, "log_ch": LOG_AGENZIA_CH,  "emoji": "🏡"},
+    "Armeria":             {"ruolo": ARMIERE_ROLE_ID, "log_ch": LOG_ARMERIA_CH,  "emoji": "🔫", "fondocassa": "Armiere"},
+    "Stalla":              {"ruolo": STALLA_ROLE_ID,  "log_ch": LOG_STALLA_CH,   "emoji": "🐴", "fondocassa": "Stalla"},
+    "Agenzia Immobiliare": {"ruolo": AGENZIA_ROLE_ID, "log_ch": LOG_AGENZIA_CH,  "emoji": "🏡", "fondocassa": "Agenzia"},
 }
 
 # ── Stato azioni criminali (in memoria — si resetta al riavvio) ────────────────
 _azioni_criminali_attive: bool = True
 
 
-async def _aggiungi_stato(importo: int):
-    """Aggiunge importo al conto banca virtuale dello Stato."""
-    async with aiosqlite.connect(DATABASE_NAME) as db:
-        await db.execute("""
-            INSERT INTO users (user_id, cash, bank, hunger, thirst)
-            VALUES (?, 0, ?, 100, 100)
-            ON CONFLICT(user_id) DO UPDATE SET bank = bank + ?
-        """, (STATO_USER_ID, importo, importo))
-        await db.commit()
+def _azienda_da_desc(description: str) -> tuple[str, dict] | tuple[None, None]:
+    """Estrae il nome azienda dal separatore ' | ' in fondo alla descrizione."""
+    if " | " in description:
+        az_nome = description.rsplit(" | ", 1)[-1].strip()
+        if az_nome in AZIENDE_CONFIG:
+            return az_nome, AZIENDE_CONFIG[az_nome]
+    return None, None
 
 
 def setup_invoice_commands(bot):
@@ -68,17 +63,20 @@ def setup_invoice_commands(bot):
 
         # Verifica ruolo azienda
         az = AZIENDE_CONFIG[azienda]
-        if not isinstance(interaction.user, discord.Member) or            not any(r.id == az["ruolo"] for r in interaction.user.roles):
+        if not isinstance(interaction.user, discord.Member) or \
+                not any(r.id == az["ruolo"] for r in interaction.user.roles):
             await interaction.response.send_message(
                 f"❌ Non hai il ruolo **{azienda}** per emettere fatture a suo nome.", ephemeral=True)
             return
 
+        # Salva l'azienda nella descrizione come " | NomeAzienda" in fondo
+        desc_con_az = f"{descrizione} | {azienda}"
         invoice_id = await database.add_invoice(
-            str(interaction.user.id), str(destinatario.id), importo, descrizione
+            str(interaction.user.id), str(destinatario.id), importo, desc_con_az
         )
 
         quota_emittente = round(importo * PERCENTUALE_EMITTENTE)
-        quota_stato     = importo - quota_emittente
+        quota_fc        = importo - quota_emittente
 
         embed = discord.Embed(
             title=f"📜 𝐅𝐀𝐓𝐓𝐔𝐑𝐀 𝐄𝐌𝐄𝐒𝐒𝐀 — {az['emoji']} {azienda.upper()}",
@@ -92,10 +90,10 @@ def setup_invoice_commands(bot):
         embed.add_field(name="\u200b",             value="\u200b",                  inline=False)
         embed.add_field(name="👤 Emessa da",       value=interaction.user.mention,  inline=True)
         embed.add_field(name="🎯 Destinatario",    value=destinatario.mention,      inline=True)
-        embed.add_field(name=f"{az['emoji']} Azienda", value=azienda,            inline=True)
+        embed.add_field(name=f"{az['emoji']} Azienda", value=azienda,               inline=True)
         embed.add_field(name="\u200b",             value="\u200b",                  inline=False)
-        embed.add_field(name="💰 All'emittente (25%)", value=f"${quota_emittente:,}", inline=True)
-        embed.add_field(name="🏛️ Allo Stato (75%)",    value=f"${quota_stato:,}",     inline=True)
+        embed.add_field(name="💰 All'emittente (25%)",        value=f"${quota_emittente:,}", inline=True)
+        embed.add_field(name=f"{az['emoji']} Fondo Cassa (75%)", value=f"${quota_fc:,}",     inline=True)
         embed.set_footer(text="🤠 Red Dead Redemption II — Fattura | Usa /pagafattura per pagare")
         await interaction.response.send_message(embed=embed)
 
@@ -115,7 +113,7 @@ def setup_invoice_commands(bot):
         except Exception:
             pass
 
-        # Log nel canale dell'azienda
+        # ── Log canale azienda — FATTURA EMESSA ──────────────────────────────
         try:
             log_ch = bot.get_channel(az["log_ch"])
             if log_ch:
@@ -124,14 +122,14 @@ def setup_invoice_commands(bot):
                     color=discord.Color(0xDAA520),
                     timestamp=discord.utils.utcnow()
                 )
-                log.add_field(name="🧾 N° Fattura",   value=f"#{invoice_id}",        inline=True)
-                log.add_field(name="💵 Importo",      value=f"${importo:,}",          inline=True)
-                log.add_field(name="📋 Servizio",     value=descrizione,              inline=False)
-                log.add_field(name="👤 Emessa da",    value=interaction.user.mention, inline=True)
-                log.add_field(name="🎯 Destinatario", value=destinatario.mention,     inline=True)
-                log.add_field(name="💰 Emittente (25%)", value=f"${quota_emittente:,}", inline=True)
-                log.add_field(name="🏛️ Stato (75%)",    value=f"${quota_stato:,}",     inline=True)
-                await log_ch.send(embed=log)
+                log.add_field(name="🧾 N° Fattura",                  value=f"#{invoice_id}",              inline=True)
+                log.add_field(name="💵 Importo",                     value=f"${importo:,}",               inline=True)
+                log.add_field(name="📋 Servizio",                    value=descrizione,                   inline=False)
+                log.add_field(name="👤 Emessa da",                   value=interaction.user.mention,      inline=True)
+                log.add_field(name="🎯 Destinatario",                value=destinatario.mention,          inline=True)
+                log.add_field(name="💰 All'emittente (25%)",         value=f"${quota_emittente:,}",       inline=True)
+                log.add_field(name=f"{az['emoji']} Fondo Cassa (75%)", value=f"${quota_fc:,}",           inline=True)
+                await log_ch.send(content=interaction.user.mention, embed=log)
         except Exception:
             pass
 
@@ -139,25 +137,23 @@ def setup_invoice_commands(bot):
     @bot.tree.command(name="pagafattura", description="Paga una fattura ricevuta")
     async def paga_fattura(interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
-        uid      = str(interaction.user.id)
-        fatture  = await database.get_invoices_by_user(uid)
+        uid     = str(interaction.user.id)
+        fatture = await database.get_invoices_by_user(uid)
 
         if not fatture:
             await interaction.followup.send("✅ Non hai fatture in sospeso.", ephemeral=True)
             return
 
-        # ── Costruisce le opzioni del menu ────────────────────────────────────
         options = []
         for inv in fatture[:25]:
-            label = f"#{inv['id']} — ${inv['amount']:,} — {inv['description'][:40]}"[:100]
+            # Mostra la descrizione pulita (senza " | Azienda" in fondo)
+            desc_pulita = inv["description"].rsplit(" | ", 1)[0] if " | " in inv["description"] else inv["description"]
+            label = f"#{inv['id']} — ${inv['amount']:,} — {desc_pulita[:40]}"[:100]
             options.append(discord.SelectOption(label=label, value=str(inv["id"])))
 
         class FatturaSelect(discord.ui.Select):
             def __init__(self_s):
-                super().__init__(
-                    placeholder="Seleziona la fattura da pagare...",
-                    options=options
-                )
+                super().__init__(placeholder="Seleziona la fattura da pagare...", options=options)
 
             async def callback(self_s, itr: discord.Interaction):
                 await itr.response.defer(ephemeral=True)
@@ -169,44 +165,66 @@ def setup_invoice_commands(bot):
                     return
 
                 user_data = await database.get_user(uid)
-                if user_data["cash"] < invoice["amount"]:
+                importo   = invoice["amount"]
+                cash_disp = user_data["cash"]
+                bank_disp = user_data["bank"]
+
+                if cash_disp + bank_disp < importo:
                     await itr.followup.send(
-                        f"❌ Non hai abbastanza contanti.\n"
-                        f"Necessari: **${invoice['amount']:,}** — Hai: **${user_data['cash']:,}**",
+                        f"❌ Fondi insufficienti.\n"
+                        f"Necessari: **${importo:,}** — Hai: **${cash_disp:,}** in contanti e **${bank_disp:,}** in banca",
                         ephemeral=True
                     )
                     return
 
-                importo         = invoice["amount"]
-                quota_emittente = round(importo * PERCENTUALE_EMITTENTE)
-                quota_stato     = importo - quota_emittente
+                # Scala prima dai contanti, poi dalla banca per il resto
+                if cash_disp >= importo:
+                    nuovo_cash = cash_disp - importo
+                    nuovo_bank = bank_disp
+                else:
+                    nuovo_cash = 0
+                    nuovo_bank = bank_disp - (importo - cash_disp)
 
-                # Scala i soldi dal pagante
-                await database.update_balance(uid, cash=user_data["cash"] - importo)
+                quota_emittente = round(importo * PERCENTUALE_EMITTENTE)
+                quota_fc        = importo - quota_emittente
+
+                # Aggiorna saldo pagante
+                await database.update_balance(uid, cash=nuovo_cash, bank=nuovo_bank)
                 # Paga l'emittente (25% in contanti)
                 emitter = await database.get_user(invoice["from_user"])
                 await database.update_balance(invoice["from_user"], cash=emitter["cash"] + quota_emittente)
-                # Paga lo Stato (75% in banca virtuale)
-                await _aggiungi_stato(quota_stato)
+                # Paga il 75% al fondo cassa dell'azienda
+                az_nome, az_cfg = _azienda_da_desc(invoice["description"])
+                if az_nome:
+                    fc_attuale = await database.get_fondocassa(az_cfg["fondocassa"])
+                    await database.update_fondocassa(az_cfg["fondocassa"], fc_attuale + quota_fc)
+
                 # Segna come pagata
                 await database.pay_invoice(invoice_id)
+
+                # Descrizione pulita per gli embed
+                desc_pulita = invoice["description"].rsplit(" | ", 1)[0] if " | " in invoice["description"] else invoice["description"]
 
                 embed = discord.Embed(
                     title="✅ 𝐅𝐚𝐭𝐭𝐮𝐫𝐚 𝐏𝐚𝐠𝐚𝐭𝐚",
                     color=discord.Color.green(),
                     timestamp=discord.utils.utcnow()
                 )
-                embed.add_field(name="🧾 N° Fattura",             value=f"#{invoice_id}",         inline=True)
-                embed.add_field(name="💵 Importo totale",         value=f"${importo:,}",           inline=True)
-                embed.add_field(name="\u200b",                    value="\u200b",                  inline=False)
-                embed.add_field(name="📋 Servizio",               value=invoice["description"],    inline=False)
-                embed.add_field(name="\u200b",                    value="\u200b",                  inline=False)
-                embed.add_field(name="💰 All'emittente (25%)",    value=f"${quota_emittente:,}",   inline=True)
-                embed.add_field(name="🏛️ Allo Stato (75%)",      value=f"${quota_stato:,}",       inline=True)
+                embed.add_field(name="🧾 N° Fattura",    value=f"#{invoice_id}",       inline=True)
+                embed.add_field(name="💵 Importo totale", value=f"${importo:,}",        inline=True)
+                embed.add_field(name="\u200b",            value="\u200b",               inline=False)
+                embed.add_field(name="📋 Servizio",       value=desc_pulita,            inline=False)
+                embed.add_field(name="\u200b",            value="\u200b",               inline=False)
+                embed.add_field(name="💰 All'emittente (25%)", value=f"${quota_emittente:,}", inline=True)
+                if az_nome:
+                    embed.add_field(
+                        name=f"{az_cfg['emoji']} Fondo Cassa {az_nome} (75%)",
+                        value=f"${quota_fc:,}", inline=True
+                    )
                 embed.set_footer(text="🤠 Red Dead Redemption II — Fattura")
                 await itr.followup.send(embed=embed, ephemeral=True)
 
-                # Log canale generale
+                # ── Log canale generale ───────────────────────────────────────
                 try:
                     ch = bot.get_channel(LOG_CHANNEL_ID)
                     if ch:
@@ -215,28 +233,20 @@ def setup_invoice_commands(bot):
                             color=discord.Color.green(),
                             timestamp=discord.utils.utcnow()
                         )
-                        log.add_field(name="🧾 Fattura",   value=f"#{invoice_id}",              inline=True)
-                        log.add_field(name="👤 Pagante",   value=f"<@{uid}>",                  inline=True)
-                        log.add_field(name="🧑‍💼 Emesso da", value=f"<@{invoice['from_user']}>", inline=True)
-                        log.add_field(name="💵 Totale",    value=f"${importo:,}",              inline=True)
-                        log.add_field(name="💰 Emittente", value=f"${quota_emittente:,}",      inline=True)
-                        log.add_field(name="🏛️ Stato",    value=f"${quota_stato:,}",          inline=True)
+                        log.add_field(name="🧾 Fattura",    value=f"#{invoice_id}",              inline=True)
+                        log.add_field(name="👤 Pagante",    value=f"<@{uid}>",                   inline=True)
+                        log.add_field(name="🧑‍💼 Emesso da", value=f"<@{invoice['from_user']}>",  inline=True)
+                        log.add_field(name="💵 Totale",     value=f"${importo:,}",               inline=True)
+                        log.add_field(name="💰 Emittente",  value=f"${quota_emittente:,}",       inline=True)
+                        if az_nome:
+                            log.add_field(name=f"{az_cfg['emoji']} Fondo Cassa", value=f"${quota_fc:,}", inline=True)
                         await ch.send(embed=log)
                 except Exception:
                     pass
 
-                # Log canale azienda (se la fattura ha un'azienda associata)
+                # ── Log canale azienda — FATTURA PAGATA ──────────────────────
                 try:
-                    desc_lower = invoice["description"].lower()
-                    az_trovata = None
-                    for az_nome, az_cfg in AZIENDE_CONFIG.items():
-                        if az_nome.lower() in desc_lower:
-                            az_trovata = (az_nome, az_cfg)
-                            break
-                    # Cerca anche nel titolo se saved nell'invoice — fallback: cerca dal from_user ruoli non disponibili qui
-                    # Invia comunque ai 3 canali solo se troviamo corrispondenza
-                    if az_trovata:
-                        az_nome, az_cfg = az_trovata
+                    if az_nome and az_cfg:
                         log_az_ch = bot.get_channel(az_cfg["log_ch"])
                         if log_az_ch:
                             log_az = discord.Embed(
@@ -245,13 +255,13 @@ def setup_invoice_commands(bot):
                                 timestamp=discord.utils.utcnow()
                             )
                             log_az.add_field(name="🧾 N° Fattura",   value=f"#{invoice_id}",              inline=True)
-                            log_az.add_field(name="💵 Totale",       value=f"${importo:,}",              inline=True)
-                            log_az.add_field(name="📋 Servizio",     value=invoice["description"],       inline=False)
-                            log_az.add_field(name="👤 Pagato da",    value=f"<@{uid}>",                  inline=True)
-                            log_az.add_field(name="🧑‍💼 Emittente",   value=f"<@{invoice['from_user']}>", inline=True)
-                            log_az.add_field(name="💰 All'emittente (25%)", value=f"${quota_emittente:,}", inline=True)
-                            log_az.add_field(name="🏛️ Allo Stato (75%)",    value=f"${quota_stato:,}",     inline=True)
-                            await log_az_ch.send(embed=log_az)
+                            log_az.add_field(name="💵 Totale",       value=f"${importo:,}",               inline=True)
+                            log_az.add_field(name="📋 Servizio",     value=desc_pulita,                   inline=False)
+                            log_az.add_field(name="👤 Pagato da",    value=f"<@{uid}>",                   inline=True)
+                            log_az.add_field(name="🧑‍💼 Emittente",   value=f"<@{invoice['from_user']}>",  inline=True)
+                            log_az.add_field(name="💰 All'emittente (25%)",              value=f"${quota_emittente:,}", inline=True)
+                            log_az.add_field(name=f"{az_cfg['emoji']} Fondo Cassa (75%)", value=f"${quota_fc:,}",      inline=True)
+                            await log_az_ch.send(content=f"<@{invoice['from_user']}>", embed=log_az)
                 except Exception:
                     pass
 
@@ -267,9 +277,10 @@ def setup_invoice_commands(bot):
             timestamp=discord.utils.utcnow()
         )
         for inv in fatture[:25]:
+            desc_pulita = inv["description"].rsplit(" | ", 1)[0] if " | " in inv["description"] else inv["description"]
             embed_lista.add_field(
                 name=f"#{inv['id']} — ${inv['amount']:,}",
-                value=f"📋 {inv['description']}\n👤 Da: <@{inv['from_user']}>",
+                value=f"📋 {desc_pulita}\n👤 Da: <@{inv['from_user']}>",
                 inline=False
             )
         embed_lista.set_footer(text="🤠 Red Dead Redemption II — Fatture")
@@ -285,10 +296,9 @@ def setup_invoice_commands(bot):
             await interaction.followup.send("❌ Nessun giocatore registrato.", ephemeral=True)
             return
 
-        # Recupera i display name dalla guild
-        guild    = interaction.guild
-        PER_PAG  = 10
-        tot_pag  = max(1, -(-len(utenti) // PER_PAG))
+        guild   = interaction.guild
+        PER_PAG = 10
+        tot_pag = max(1, -(-len(utenti) // PER_PAG))
 
         def _build_embed(pagina: int) -> discord.Embed:
             embed = discord.Embed(
@@ -305,11 +315,8 @@ def setup_invoice_commands(bot):
                 if i == 1:   medaglia = "🥇"
                 elif i == 2: medaglia = "🥈"
                 elif i == 3: medaglia = "🥉"
-                else:         medaglia = f"**#{i}**"
-                righe.append(
-                    f"{medaglia} {nome}\n"
-                    f"┗ 🏦 Totale Soldi: **${totale:,}**"
-                )
+                else:        medaglia = f"**#{i}**"
+                righe.append(f"{medaglia} {nome}\n┗ 🏦 Totale Soldi: **${totale:,}**")
             embed.description = "\n\n".join(righe)
             embed.set_footer(text=f"🤠 Red Dead Redemption II — Pagina {pagina+1}/{tot_pag}")
             return embed
@@ -338,10 +345,12 @@ def setup_invoice_commands(bot):
 
         view = LeaderView(0) if tot_pag > 1 else discord.ui.View(timeout=120)
         await interaction.followup.send(embed=_build_embed(0), view=view)
+
     # ── /azioni-criminali-on ──────────────────────────────────────────────────
     @bot.tree.command(name="azioni-criminali-on", description="[Staff] Attiva le azioni criminali nel server")
     async def azioni_criminali_on(interaction: discord.Interaction):
-        if not isinstance(interaction.user, discord.Member) or            not any(r.id in (STAFF_ROLE_ID, CHIAVE_ROLE_ID) for r in interaction.user.roles):
+        if not isinstance(interaction.user, discord.Member) or \
+                not any(r.id in (STAFF_ROLE_ID, CHIAVE_ROLE_ID) for r in interaction.user.roles):
             await interaction.response.send_message("❌ Solo lo Staff può usare questo comando.", ephemeral=True)
             return
 
@@ -360,7 +369,8 @@ def setup_invoice_commands(bot):
     # ── /azioni-criminali-off ─────────────────────────────────────────────────
     @bot.tree.command(name="azioni-criminali-off", description="[Staff] Disattiva le azioni criminali nel server")
     async def azioni_criminali_off(interaction: discord.Interaction):
-        if not isinstance(interaction.user, discord.Member) or            not any(r.id in (STAFF_ROLE_ID, CHIAVE_ROLE_ID) for r in interaction.user.roles):
+        if not isinstance(interaction.user, discord.Member) or \
+                not any(r.id in (STAFF_ROLE_ID, CHIAVE_ROLE_ID) for r in interaction.user.roles):
             await interaction.response.send_message("❌ Solo lo Staff può usare questo comando.", ephemeral=True)
             return
 

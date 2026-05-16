@@ -22,15 +22,15 @@ async def init_db():
         """)
         await db.execute("""
             CREATE TABLE IF NOT EXISTS documents (
-                user_id      TEXT PRIMARY KEY,
-                nome         TEXT,
-                cognome      TEXT,
-                eta          INTEGER,
-                sesso        TEXT,
+                user_id       TEXT PRIMARY KEY,
+                nome          TEXT,
+                cognome       TEXT,
+                eta           INTEGER,
+                sesso         TEXT,
                 luogo_nascita TEXT,
-                foto_url     TEXT DEFAULT NULL,
-                extra        TEXT DEFAULT NULL,
-                created_at   TEXT
+                foto_url      TEXT DEFAULT NULL,
+                extra         TEXT DEFAULT NULL,
+                created_at    TEXT
             )
         """)
         await db.execute("""
@@ -101,9 +101,10 @@ async def init_db():
         """)
         await db.execute("""
             CREATE TABLE IF NOT EXISTS weapon_durability (
-                user_id   TEXT NOT NULL,
-                item_name TEXT NOT NULL,
-                usura     INTEGER DEFAULT 100,
+                user_id       TEXT NOT NULL,
+                item_name     TEXT NOT NULL,
+                usura         INTEGER DEFAULT 100,
+                last_decay_ts REAL DEFAULT 0,
                 PRIMARY KEY (user_id, item_name)
             )
         """)
@@ -115,6 +116,7 @@ async def init_db():
             "ALTER TABLE documents ADD COLUMN foto_url TEXT DEFAULT NULL",
             "ALTER TABLE documents ADD COLUMN extra TEXT DEFAULT NULL",
             "ALTER TABLE shop_items ADD COLUMN required_role INTEGER DEFAULT NULL",
+            "ALTER TABLE weapon_durability ADD COLUMN last_decay_ts REAL DEFAULT 0",
         ]:
             try:
                 await db.execute(stmt)
@@ -316,7 +318,6 @@ async def get_document(user_id: str) -> dict | None:
             if not row:
                 return None
             d = dict(row)
-            # Deserializza extra da JSON string a dict
             if d.get("extra") and isinstance(d["extra"], str):
                 try:
                     d["extra"] = json.loads(d["extra"])
@@ -363,12 +364,10 @@ async def get_invoice(invoice_id: int) -> dict | None:
             return dict(row) if row else None
 
 async def get_invoices_by_user(user_id: str) -> list:
-    """Ritorna tutte le fatture NON pagate intestate a user_id."""
     async with aiosqlite.connect(DATABASE_NAME) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
-            "SELECT * FROM invoices WHERE to_user=? AND paid=0 ORDER BY id ASC",
-            (user_id,)
+            "SELECT * FROM invoices WHERE to_user=? AND paid=0 ORDER BY id ASC", (user_id,)
         ) as c:
             return [dict(r) for r in await c.fetchall()]
 
@@ -378,7 +377,6 @@ async def pay_invoice(invoice_id: int):
         await db.commit()
 
 async def get_all_users_sorted() -> list:
-    """Ritorna tutti gli utenti reali ordinati per cash+bank decrescente (esclude STATO)."""
     async with aiosqlite.connect(DATABASE_NAME) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
@@ -416,7 +414,7 @@ async def add_arrest(user_id: str, reason: str, duration: str, officer: str):
         await db.commit()
 
 
-# ── TURNI ATTIVI (persistenti) ────────────────────────────────────────────────
+# ── TURNI ATTIVI ──────────────────────────────────────────────────────────────
 
 async def save_turno(user_id: str, role_id: int, role_name: str, stipendio: int, inizio_ts: float):
     async with aiosqlite.connect(DATABASE_NAME) as db:
@@ -480,7 +478,6 @@ async def get_turno(user_id: str) -> dict | None:
             return dict(row) if row else None
 
 
-
 # ── OGGETTI NASCOSTI ──────────────────────────────────────────────────────────
 
 async def init_hidden_items_table():
@@ -498,7 +495,6 @@ async def init_hidden_items_table():
         await db.commit()
 
 async def hide_item(user_id: str, item_name: str, quantity: int, luogo: str) -> int:
-    """Nasconde un item: lo rimuove dall'inventario e lo mette in hidden_items."""
     from datetime import datetime
     async with aiosqlite.connect(DATABASE_NAME) as db:
         await db.execute("""
@@ -543,16 +539,20 @@ async def recover_hidden_item(hide_id: int) -> dict | None:
         await db.commit()
         return item
 
+
 # ── WIPE ──────────────────────────────────────────────────────────────────────
 
 async def wipe_user(user_id: str):
     async with aiosqlite.connect(DATABASE_NAME) as db:
         for t in ("users","inventory","documents","fines","criminal_records","properties","arrests"):
             await db.execute(f"DELETE FROM {t} WHERE user_id=?", (user_id,))
-        await db.execute("INSERT INTO users (user_id,cash,bank,hunger,thirst) VALUES (?,50,0,100,100)", (user_id,))
+        await db.execute(
+            "INSERT INTO users (user_id,cash,bank,hunger,thirst) VALUES (?,50,0,100,100)", (user_id,)
+        )
         await db.commit()
 
-# ── DOCUMENTI FALSI ────────────────────────────────────────────────────────────
+
+# ── DOCUMENTI FALSI ───────────────────────────────────────────────────────────
 
 async def set_fake_document(user_id: str, nome: str, cognome: str, eta: int,
                             sesso: str, luogo_nascita: str, foto_url: str = None,
@@ -563,15 +563,15 @@ async def set_fake_document(user_id: str, nome: str, cognome: str, eta: int,
     async with aiosqlite.connect(DATABASE_NAME) as db:
         await db.execute("""
             CREATE TABLE IF NOT EXISTS fake_documents (
-                user_id      TEXT PRIMARY KEY,
-                nome         TEXT,
-                cognome      TEXT,
-                eta          INTEGER,
-                sesso        TEXT,
+                user_id       TEXT PRIMARY KEY,
+                nome          TEXT,
+                cognome       TEXT,
+                eta           INTEGER,
+                sesso         TEXT,
                 luogo_nascita TEXT,
-                foto_url     TEXT,
-                extra        TEXT DEFAULT NULL,
-                created_at   TEXT
+                foto_url      TEXT,
+                extra         TEXT DEFAULT NULL,
+                created_at    TEXT
             )
         """)
         await db.execute("""

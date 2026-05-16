@@ -2,6 +2,7 @@ import discord
 from discord import app_commands
 import aiosqlite
 import asyncio
+import time
 from constants import LOG_CHANNEL_ID, DATABASE_NAME
 
 # ── Costanti ──────────────────────────────────────────────────────────────────
@@ -43,7 +44,7 @@ ARMI_FUOCO = {
     "<:Springfield:1457642354717622362> • Bolt-Action a Canna Rigata (M.N.)",
 }
 
-# ── Armi da MISCHIA (-2%/24h, -1% per passaggio) — lazo ESCLUSO ──────────────
+# ── Armi da MISCHIA (-2%/24h, -1% per passaggio) ─────────────────────────────
 ARMI_MISCHIA = {
     "🪓 • Accetta",
     "🪓 • Accetta da Caccia",
@@ -63,7 +64,8 @@ ARMI_MISCHIA = {
 
 ALL_ARMI = ARMI_FUOCO | ARMI_MISCHIA
 
-# ── Helper tipo/calo ──────────────────────────────────────────────────────────
+
+# ── Helper ────────────────────────────────────────────────────────────────────
 def _tipo_arma(nome: str) -> str | None:
     if nome in ARMI_FUOCO:   return "fuoco"
     if nome in ARMI_MISCHIA: return "mischia"
@@ -92,17 +94,25 @@ def _colore_usura(v: int) -> discord.Color:
     if v >= 25:   return discord.Color.orange()
     return discord.Color.red()
 
+
 # ── DB helpers ────────────────────────────────────────────────────────────────
-async def init_usura_table():
+async def _ensure_tables():
+    """Crea le tabelle se non esistono, inclusa last_decay_ts."""
     async with aiosqlite.connect(DATABASE_NAME) as db:
         await db.execute("""
             CREATE TABLE IF NOT EXISTS weapon_durability (
                 user_id   TEXT NOT NULL,
                 item_name TEXT NOT NULL,
                 usura     INTEGER DEFAULT 100,
+                last_decay_ts REAL DEFAULT 0,
                 PRIMARY KEY (user_id, item_name)
             )
         """)
+        # Upgrade sicuro: aggiunge last_decay_ts se la tabella esisteva già
+        try:
+            await db.execute("ALTER TABLE weapon_durability ADD COLUMN last_decay_ts REAL DEFAULT 0")
+        except Exception:
+            pass
         await db.commit()
 
 async def get_usura(user_id: str, item_name: str) -> int:
@@ -114,14 +124,23 @@ async def get_usura(user_id: str, item_name: str) -> int:
             row = await c.fetchone()
             return row[0] if row else 100
 
-async def set_usura(user_id: str, item_name: str, valore: int):
-    v = max(0, min(100, valore))
+async def set_usura(user_id: str, item_name: str, valore: int, update_ts: bool = False):
+    """Salva l'usura. Se update_ts=True aggiorna anche last_decay_ts al momento attuale."""
+    v  = max(0, min(100, valore))
+    ts = time.time() if update_ts else None
     async with aiosqlite.connect(DATABASE_NAME) as db:
-        await db.execute("""
-            INSERT INTO weapon_durability (user_id, item_name, usura)
-            VALUES (?,?,?)
-            ON CONFLICT(user_id, item_name) DO UPDATE SET usura=excluded.usura
-        """, (user_id, item_name, v))
+        if ts is not None:
+            await db.execute("""
+                INSERT INTO weapon_durability (user_id, item_name, usura, last_decay_ts)
+                VALUES (?,?,?,?)
+                ON CONFLICT(user_id, item_name) DO UPDATE SET usura=excluded.usura, last_decay_ts=excluded.last_decay_ts
+            """, (user_id, item_name, v, ts))
+        else:
+            await db.execute("""
+                INSERT INTO weapon_durability (user_id, item_name, usura)
+                VALUES (?,?,?)
+                ON CONFLICT(user_id, item_name) DO UPDATE SET usura=excluded.usura
+            """, (user_id, item_name, v))
         await db.commit()
 
 async def delete_usura(user_id: str, item_name: str):
@@ -133,7 +152,6 @@ async def delete_usura(user_id: str, item_name: str):
         await db.commit()
 
 async def get_armi_inventario(user_id: str) -> list[dict]:
-    """Ritorna lista di dict {item_name, quantity} per ogni arma in inventario."""
     async with aiosqlite.connect(DATABASE_NAME) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
@@ -145,16 +163,15 @@ async def get_armi_inventario(user_id: str) -> list[dict]:
             for r in rows if r["item_name"] in ALL_ARMI]
 
 async def get_armi_con_usura(user_id: str) -> list[dict]:
-    """Carica armi + usura. Se quantity>1 crea N entry separate con suffisso #1, #2..."""
     armi_inv = await get_armi_inventario(user_id)
     if not armi_inv:
         return []
     nomi = [a["item_name"] for a in armi_inv]
-    placeholders = ",".join("?" for _ in nomi)
+    ph   = ",".join("?" for _ in nomi)
     async with aiosqlite.connect(DATABASE_NAME) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
-            f"SELECT item_name, usura FROM weapon_durability WHERE user_id=? AND item_name IN ({placeholders})",
+            f"SELECT item_name, usura FROM weapon_durability WHERE user_id=? AND item_name IN ({ph})",
             (user_id, *nomi)
         ) as c:
             rows = await c.fetchall()
@@ -171,44 +188,79 @@ async def get_armi_con_usura(user_id: str) -> list[dict]:
                 result.append({"item_name": nome, "usura": usura_base, "slot": i + 1})
     return result
 
-# ── Notifica usura ────────────────────────────────────────────────────────────
+
+# ── Notifica DM usura — GARANTITA ────────────────────────────────────────────
 async def _notifica_usura(bot, user_id: str, item_name: str, usura: int):
+    """Invia sempre il DM all'utente. Logga l'esito nel canale log."""
     if usura not in AVVISI_USURA:
         return
+
     tipo = _tipo_arma(item_name)
+
     if usura == 0:
         titolo = "💀 Arma Distrutta!"
-        desc   = f"La tua arma **{item_name}** è completamente consumata ed è stata **rimossa** dalla bisaccia."
-        color  = discord.Color.red()
+        desc   = (
+            f"La tua arma **{item_name}** è completamente consumata ed è stata "
+            f"**rimossa automaticamente** dalla tua bisaccia.\n\n"
+            f"Acquistane una nuova dall'emporio."
+        )
+        color = discord.Color.red()
     else:
         titolo = f"⚠️ Usura Arma — {usura}%"
         desc   = (
-            f"La tua arma **{item_name}** ha raggiunto il **{usura}%** di usura.\n"
-            f"Usa `/pulisci-arma` con **{_item_pulizia(tipo)}** per ripristinarla."
+            f"La tua arma **{item_name}** ha raggiunto il **{usura}%** di usura.\n\n"
+            f"Usa `/pulisci-arma` con **{_item_pulizia(tipo)}** per ripristinarla prima che si rompa!"
         )
         color = _colore_usura(usura)
 
-    embed = discord.Embed(title=titolo, description=desc, color=color, timestamp=discord.utils.utcnow())
-    embed.add_field(name="🔫 Arma",  value=item_name,     inline=True)
-    embed.add_field(name="⚙️ Usura", value=_barra(usura), inline=True)
-    embed.set_footer(text="🤠 Red Dead Redemption II — Sistema Usura")
+    embed_dm = discord.Embed(
+        title=titolo,
+        description=desc,
+        color=color,
+        timestamp=discord.utils.utcnow()
+    )
+    embed_dm.add_field(name="🔫 Arma",  value=item_name,     inline=True)
+    embed_dm.add_field(name="⚙️ Usura", value=_barra(usura), inline=True)
+    if usura <= 25 and usura > 0:
+        embed_dm.add_field(
+            name="🚨 Attenzione",
+            value="L'arma è in condizioni critiche! Puliscila subito.",
+            inline=False
+        )
+    embed_dm.set_footer(text="🤠 Red Dead Redemption II — Sistema Usura Armi")
 
-    try:
-        user = await bot.fetch_user(int(user_id))
-        if user:
-            await user.send(embed=embed)
-    except Exception:
-        pass
+    # ── DM all'utente — tentiamo più volte ───────────────────────────────────
+    dm_inviato = False
+    for tentativo in range(3):
+        try:
+            user = await bot.fetch_user(int(user_id))
+            if user:
+                await user.send(embed=embed_dm)
+                dm_inviato = True
+                break
+        except discord.Forbidden:
+            # L'utente ha i DM chiusi — non possiamo fare nulla
+            break
+        except Exception:
+            await asyncio.sleep(1)
+
+    # ── Log nel canale ────────────────────────────────────────────────────────
     try:
         ch = bot.get_channel(LOG_CHANNEL_ID)
         if ch:
-            log = discord.Embed(title=f"🔧 LOG USURA — {usura}%", color=color, timestamp=discord.utils.utcnow())
-            log.add_field(name="👤 Utente", value=f"<@{user_id}>", inline=True)
-            log.add_field(name="🔫 Arma",   value=item_name,        inline=True)
-            log.add_field(name="⚙️ Usura",  value=f"{usura}%",      inline=True)
+            log = discord.Embed(
+                title=f"🔧 LOG USURA — {usura}%",
+                color=color,
+                timestamp=discord.utils.utcnow()
+            )
+            log.add_field(name="👤 Utente",   value=f"<@{user_id}>",                       inline=True)
+            log.add_field(name="🔫 Arma",     value=item_name,                              inline=True)
+            log.add_field(name="⚙️ Usura",    value=f"{usura}%",                            inline=True)
+            log.add_field(name="📨 DM",       value="✅ Inviato" if dm_inviato else "❌ Fallito (DM chiusi)", inline=True)
             await ch.send(embed=log)
     except Exception:
         pass
+
 
 async def _rimuovi_arma_db(user_id: str, item_name: str):
     async with aiosqlite.connect(DATABASE_NAME) as db:
@@ -218,6 +270,7 @@ async def _rimuovi_arma_db(user_id: str, item_name: str):
         )
         await db.commit()
     await delete_usura(user_id, item_name)
+
 
 # ── Calo al passaggio (chiamato da /dai-item) ─────────────────────────────────
 async def applica_calo_passaggio(bot, user_id: str, item_name: str):
@@ -231,38 +284,76 @@ async def applica_calo_passaggio(bot, user_id: str, item_name: str):
     if nuova == 0:
         await _rimuovi_arma_db(user_id, item_name)
 
-# ── Task 24h ──────────────────────────────────────────────────────────────────
+
+# ── Task 24h — resistente ai riavvii ─────────────────────────────────────────
 async def task_usura_giornaliera(bot):
+    """
+    Ogni ora controlla tutte le armi nel database.
+    Per ogni arma calcola quante giornate (24h) sono passate dall'ultimo decay
+    e applica i cali arretrati. Così funziona anche dopo riavvii di Render.
+    """
+    await _ensure_tables()
     await bot.wait_until_ready()
+    print("🔧 Task usura avviato (controllo ogni ora)", flush=True)
+
     while not bot.is_closed():
-        await asyncio.sleep(86400)
-        print("🔧 Avvio calo usura giornaliero...", flush=True)
+        await asyncio.sleep(3600)  # controlla ogni ora
+        now_ts = time.time()
+        print("🔧 Controllo usura armi...", flush=True)
+
         try:
+            # Leggi tutte le righe usura con il loro timestamp
             async with aiosqlite.connect(DATABASE_NAME) as db:
                 db.row_factory = aiosqlite.Row
                 async with db.execute(
-                    "SELECT DISTINCT user_id, item_name FROM inventory WHERE quantity>0"
+                    "SELECT user_id, item_name, usura, last_decay_ts FROM weapon_durability WHERE usura > 0"
                 ) as c:
                     rows = await c.fetchall()
 
             for row in rows:
-                uid  = row["user_id"]
-                item = row["item_name"]
+                uid       = row["user_id"]
+                item      = row["item_name"]
+                usura_cur = row["usura"]
+                last_ts   = row["last_decay_ts"] or 0
+
                 tipo = _tipo_arma(item)
                 if not tipo:
                     continue
-                usura_attuale = await get_usura(uid, item)
-                if usura_attuale <= 0:
+
+                # Verifica che l'arma sia ancora nell'inventario
+                async with aiosqlite.connect(DATABASE_NAME) as db:
+                    async with db.execute(
+                        "SELECT quantity FROM inventory WHERE user_id=? AND item_name=? AND quantity>0",
+                        (uid, item)
+                    ) as c:
+                        inv_row = await c.fetchone()
+                if not inv_row:
                     continue
-                nuova = max(0, usura_attuale - _calo_24h(tipo))
-                await set_usura(uid, item, nuova)
-                await _notifica_usura(bot, uid, item, nuova)
-                if nuova == 0:
+
+                # Quante giornate complete sono passate dall'ultimo decay?
+                secondi_passati = now_ts - last_ts
+                giorni_passati  = int(secondi_passati // 86400)
+
+                if giorni_passati < 1:
+                    continue  # Non è ancora passato un giorno
+
+                calo_totale = _calo_24h(tipo) * giorni_passati
+                nuova_usura = max(0, usura_cur - calo_totale)
+
+                await set_usura(uid, item, nuova_usura, update_ts=True)
+
+                # Notifica per ogni soglia attraversata
+                for soglia in sorted(AVVISI_USURA, reverse=True):
+                    if usura_cur > soglia >= nuova_usura:
+                        await _notifica_usura(bot, uid, item, soglia)
+
+                if nuova_usura == 0:
                     await _rimuovi_arma_db(uid, item)
 
-            print("✅ Calo usura giornaliero completato.", flush=True)
+            print("✅ Controllo usura completato.", flush=True)
         except Exception as e:
             print(f"❌ Errore task usura: {e}", flush=True)
+
 
 # ── Setup comandi ─────────────────────────────────────────────────────────────
 def setup_usura_commands(bot):
@@ -288,42 +379,35 @@ def setup_usura_commands(bot):
         tipo = _tipo_arma(arma)
 
         if not tipo:
-            await interaction.followup.send("❌ Quest'arma non è nel sistema usura.", ephemeral=True)
-            return
+            await interaction.followup.send("❌ Quest'arma non è nel sistema usura.", ephemeral=True); return
 
         async with aiosqlite.connect(DATABASE_NAME) as db:
             async with db.execute(
-                "SELECT quantity FROM inventory WHERE user_id=? AND item_name=?",
-                (uid, arma)
+                "SELECT quantity FROM inventory WHERE user_id=? AND item_name=?", (uid, arma)
             ) as c:
                 row = await c.fetchone()
         if not row or row[0] < 1:
-            await interaction.followup.send(f"❌ Non hai **{arma}** nella bisaccia.", ephemeral=True)
-            return
+            await interaction.followup.send(f"❌ Non hai **{arma}** nella bisaccia.", ephemeral=True); return
 
         usura_attuale = await get_usura(uid, arma)
         if usura_attuale >= 100:
-            await interaction.followup.send(f"✅ **{arma}** è già al 100% di usura.", ephemeral=True)
-            return
+            await interaction.followup.send(f"✅ **{arma}** è già al 100% di usura.", ephemeral=True); return
 
         item_p = _item_pulizia(tipo)
         async with aiosqlite.connect(DATABASE_NAME) as db:
             async with db.execute(
-                "SELECT quantity FROM inventory WHERE user_id=? AND item_name=?",
-                (uid, item_p)
+                "SELECT quantity FROM inventory WHERE user_id=? AND item_name=?", (uid, item_p)
             ) as c:
                 row_p = await c.fetchone()
         if not row_p or row_p[0] < 1:
             await interaction.followup.send(
                 f"❌ Hai bisogno di **{item_p}** per pulire quest'arma.\nAcquistalo dall'emporio.",
                 ephemeral=True
-            )
-            return
+            ); return
 
         async with aiosqlite.connect(DATABASE_NAME) as db:
             await db.execute(
-                "UPDATE inventory SET quantity=quantity-1 WHERE user_id=? AND item_name=?",
-                (uid, item_p)
+                "UPDATE inventory SET quantity=quantity-1 WHERE user_id=? AND item_name=?", (uid, item_p)
             )
             await db.commit()
         await set_usura(uid, arma, 100)
@@ -336,7 +420,7 @@ def setup_usura_commands(bot):
         embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
         embed.add_field(name="🔫 Arma",       value=arma,                  inline=False)
         embed.add_field(name="⚙️ Prima",      value=_barra(usura_attuale), inline=True)
-        embed.add_field(name="✅ Dopo",       value=_barra(100),            inline=True)
+        embed.add_field(name="✅ Dopo",        value=_barra(100),           inline=True)
         embed.add_field(name="🧴 Utilizzato", value=item_p,                inline=False)
         embed.set_footer(text="🤠 Red Dead Redemption II — Sistema Usura")
         await interaction.followup.send(embed=embed, ephemeral=True)
@@ -345,9 +429,9 @@ def setup_usura_commands(bot):
             ch = bot.get_channel(LOG_CHANNEL_ID)
             if ch:
                 log = discord.Embed(title="🔧 LOG — Arma Pulita", color=discord.Color.green(), timestamp=discord.utils.utcnow())
-                log.add_field(name="👤 Utente", value=interaction.user.mention,    inline=True)
-                log.add_field(name="🔫 Arma",   value=arma,                        inline=True)
-                log.add_field(name="📈 Usura",  value=f"{usura_attuale}% → 100%",  inline=True)
+                log.add_field(name="👤 Utente", value=interaction.user.mention,   inline=True)
+                log.add_field(name="🔫 Arma",   value=arma,                       inline=True)
+                log.add_field(name="📈 Usura",  value=f"{usura_attuale}% → 100%", inline=True)
                 await ch.send(embed=log)
         except Exception:
             pass
@@ -355,22 +439,14 @@ def setup_usura_commands(bot):
     # ── /visualizza-stato-arma ────────────────────────────────────────────────
     @bot.tree.command(name="visualizza-stato-arma", description="Visualizza l'usura delle tue armi")
     async def visualizza_stato_arma(interaction: discord.Interaction):
-        print(f"[vis-arma] START uid={interaction.user.id}", flush=True)
         uid = str(interaction.user.id)
 
         try:
+            await _ensure_tables()
             async with aiosqlite.connect(DATABASE_NAME) as db:
                 db.row_factory = aiosqlite.Row
-                await db.execute("""
-                    CREATE TABLE IF NOT EXISTS weapon_durability (
-                        user_id TEXT NOT NULL, item_name TEXT NOT NULL,
-                        usura INTEGER DEFAULT 100, PRIMARY KEY (user_id, item_name)
-                    )
-                """)
-                await db.commit()
                 async with db.execute(
-                    "SELECT item_name FROM inventory WHERE user_id=? AND quantity>0",
-                    (uid,)
+                    "SELECT item_name FROM inventory WHERE user_id=? AND quantity>0", (uid,)
                 ) as c:
                     inv_rows = await c.fetchall()
                 armi_nomi = [r["item_name"] for r in inv_rows if r["item_name"] in ALL_ARMI]
@@ -383,38 +459,29 @@ def setup_usura_commands(bot):
                     ) as c2:
                         for r in await c2.fetchall():
                             usura_map[r["item_name"]] = r["usura"]
-            print(f"[vis-arma] query ok, armi={len(armi_nomi)}", flush=True)
         except Exception as e:
-            print(f"[vis-arma] ERRORE query: {e}", flush=True)
-            await interaction.response.send_message("❌ Errore interno. Riprova.", ephemeral=True)
-            return
+            print(f"[vis-arma] ERRORE: {e}", flush=True)
+            await interaction.response.send_message("❌ Errore interno. Riprova.", ephemeral=True); return
+
+        if not armi_nomi:
+            await interaction.response.send_message("❌ Non hai armi nella bisaccia.", ephemeral=True); return
 
         armi_usura = []
         for nome in armi_nomi:
-            # Recupera quantity dalla inventory
             async with aiosqlite.connect(DATABASE_NAME) as db2:
                 db2.row_factory = aiosqlite.Row
                 async with db2.execute(
-                    "SELECT quantity FROM inventory WHERE user_id=? AND item_name=?",
-                    (uid, nome)
+                    "SELECT quantity FROM inventory WHERE user_id=? AND item_name=?", (uid, nome)
                 ) as c3:
                     row_q = await c3.fetchone()
-            qty = row_q["quantity"] if row_q else 1
+            qty       = row_q["quantity"] if row_q else 1
             usura_val = usura_map.get(nome, 100)
             if qty == 1:
                 armi_usura.append({"item_name": nome, "usura": usura_val, "slot": None})
             else:
                 for i in range(qty):
                     armi_usura.append({"item_name": nome, "usura": usura_val, "slot": i + 1})
-        print(f"[vis-arma] armi trovate={len(armi_usura)}", flush=True)
 
-        if not armi_usura:
-            await interaction.response.send_message(
-                "❌ Non hai armi nella bisaccia.", ephemeral=True
-            )
-            return
-
-        # Tutto pronto — risposta immediata con pulsanti
         PER_PAG = 5
         tot_pag = max(1, -(-len(armi_usura) // PER_PAG))
 
@@ -424,13 +491,9 @@ def setup_usura_commands(bot):
                 color=discord.Color(0x8B4513),
                 timestamp=discord.utils.utcnow()
             )
-            embed.set_author(
-                name=interaction.user.display_name,
-                icon_url=interaction.user.display_avatar.url
-            )
-            slice_ = armi_usura[pagina * PER_PAG:(pagina + 1) * PER_PAG]
-            for a in slice_:
-                tipo = _tipo_arma(a["item_name"])
+            embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
+            for a in armi_usura[pagina * PER_PAG:(pagina + 1) * PER_PAG]:
+                tipo   = _tipo_arma(a["item_name"])
                 calo_g = _calo_24h(tipo) if tipo else 0
                 calo_p = _calo_passaggio(tipo) if tipo else 0
                 puliz  = _item_pulizia(tipo) if tipo else "—"
@@ -459,21 +522,13 @@ def setup_usura_commands(bot):
 
             @discord.ui.button(label="⬅️", style=discord.ButtonStyle.primary)
             async def prev_btn(self_v, itr: discord.Interaction, btn):
-                self_v.p -= 1
-                self_v._aggiorna()
+                self_v.p -= 1; self_v._aggiorna()
                 await itr.response.edit_message(embed=_build_embed(self_v.p), view=self_v)
 
             @discord.ui.button(label="➡️", style=discord.ButtonStyle.primary)
             async def next_btn(self_v, itr: discord.Interaction, btn):
-                self_v.p += 1
-                self_v._aggiorna()
+                self_v.p += 1; self_v._aggiorna()
                 await itr.response.edit_message(embed=_build_embed(self_v.p), view=self_v)
 
         view = UsuraView(0) if tot_pag > 1 else discord.ui.View(timeout=120)
-        print(f"[vis-arma] invio risposta pag 1/{tot_pag}", flush=True)
-        await interaction.response.send_message(
-            embed=_build_embed(0),
-            view=view,
-            ephemeral=True
-        )
-        print(f"[vis-arma] DONE", flush=True)
+        await interaction.response.send_message(embed=_build_embed(0), view=view, ephemeral=True)

@@ -252,10 +252,15 @@ class BackgroundView(discord.ui.View):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-def setup_admin_commands(bot):
-
-    # Registra la view persistente al boot del bot
+def register_persistent_views(bot):
+    """
+    Chiama questa funzione dentro on_ready del bot, DOPO che il loop è attivo.
+    Es: commands_admin.register_persistent_views(bot)
+    """
     bot.add_view(BackgroundView(bot))
+
+
+def setup_admin_commands(bot):
 
     # ── /add-money ────────────────────────────────────────────────────────────
     @bot.tree.command(name="add-money", description="[Staff] Aggiungi denaro a un giocatore")

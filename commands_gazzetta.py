@@ -52,7 +52,7 @@ async def _save_evento(tipo: str, titolo: str, descrizione: str,
         return c.lastrowid
 
 
-async def _get_autori_evento(tipo: str, titolo: str) -> list[str]:
+async def _get_autori_evento(tipo: str, titolo: str) -> list:
     """
     Restituisce i tag di TUTTI gli autori che hanno registrato
     eventi con lo stesso tipo+titolo (utile per eventi co-registrati).
@@ -128,7 +128,7 @@ def setup_gazzetta_commands(bot: commands.Bot):
         # ── Salva nel DB ──────────────────────────────────────────────────────
         now_utc    = datetime.now(timezone.utc)
         now_str    = _ora_it(now_utc)
-        autore_tag = str(interaction.user)          # es. "username"
+        autore_tag = str(interaction.user)
         autore_id  = str(interaction.user.id)
 
         evento_id = await _save_evento(
@@ -137,7 +137,6 @@ def setup_gazzetta_commands(bot: commands.Bot):
 
         # ── Recupera tutti gli autori co-registrati per questo titolo+tipo ────
         tutti_autori = await _get_autori_evento(tipo, titolo)
-        # Converti i tag in mention se il membro è nel server
         autori_mention = []
         if interaction.guild:
             for tag in tutti_autori:
@@ -153,20 +152,14 @@ def setup_gazzetta_commands(bot: commands.Bot):
 
         # ── Costruisce l'embed ────────────────────────────────────────────────
         embed = discord.Embed(
-            color=discord.Color(0xC8A951),          # oro antico
+            color=discord.Color(0xC8A951),
             timestamp=now_utc
         )
 
-        # Intestazione stile giornale
-        embed.set_author(
-            name="GAZZETTA DEL WEST  •  Colorado Full RP",
-            icon_url="https://cdn.discordapp.com/emojis/1431932605984542720.gif"
-                     if False else discord.Embed.Empty  # placeholder
-        )
+        embed.set_author(name="GAZZETTA DEL WEST  •  Colorado Full RP")
 
-        embed.title = "📰  𝑮𝑨𝒁𝒁𝑬𝑻𝑻𝑨  𝑫𝑬𝑳  𝑾𝑬𝑺𝑻   <a:megafono:1431932605984542720>"
+        embed.title = "📰  𝑮𝑨𝒁𝒁𝑬𝑻𝑻𝑨  𝑫𝑬𝑳  𝑵𝑬𝑾 𝑨𝑼𝑺𝑻𝑰𝑵   <a:megafono:1431932605984542720>"
 
-        # Separatore decorativo
         embed.description = (
             "```\n"
             "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -185,7 +178,7 @@ def setup_gazzetta_commands(bot: commands.Bot):
             value=f"```{titolo}```",
             inline=True
         )
-        embed.add_field(name="\u200b", value="\u200b", inline=False)   # spacer
+        embed.add_field(name="\u200b", value="\u200b", inline=False)
 
         embed.add_field(
             name="📖  Resoconto",
@@ -193,7 +186,7 @@ def setup_gazzetta_commands(bot: commands.Bot):
             inline=False
         )
 
-        embed.add_field(name="\u200b", value="\u200b", inline=False)   # spacer
+        embed.add_field(name="\u200b", value="\u200b", inline=False)
 
         embed.add_field(
             name="✒️  Redatto da",
@@ -214,12 +207,6 @@ def setup_gazzetta_commands(bot: commands.Bot):
         embed.set_footer(
             text="🤠  𝑮𝑨𝒁𝒁𝑬𝑻𝑻𝑨  𝑫𝑬𝑳  𝑵𝑬𝑾 𝑨𝑼𝑺𝑻𝑰𝑵  🤠  —  Colorado Full RP"
         )
-
-        # Immagine decorativa opzionale (banner western)
-        embed.set_image(
-            url="https://i.postimg.cc/8PBTFQfd/8E885799-85FE-4170-80B5-5288234779B8.png"   # ← sostituisci con un banner a tuo piacimento, o rimuovi la riga
-        )
-        # Se non hai un'immagine, commenta/rimuovi la riga set_image sopra
 
         # ── Invia nel canale gazzetta ─────────────────────────────────────────
         try:
@@ -256,5 +243,4 @@ def setup_gazzetta_commands(bot: commands.Bot):
         )
         await interaction.followup.send(embed=confirm, ephemeral=True)
 
-      
-      
+  

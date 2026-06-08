@@ -534,11 +534,7 @@ def setup_rp_commands(bot):
         embed.set_footer(text="🤠 Red Dead Redemption II — Turno di Lavoro")
         await interaction.followup.send(embed=embed, ephemeral=False)
 
-        try:
-            ch = bot.get_channel(LOG_CHANNEL_ID)
-            if ch: await ch.send(embed=embed)
-        except Exception: pass
-
+        
     # ══════════════════════════════════════════════════════════════════════════
     #  /fine-turno
     # ══════════════════════════════════════════════════════════════════════════
@@ -602,10 +598,7 @@ def setup_rp_commands(bot):
 
         await interaction.followup.send(embed=embed_fine)
 
-        try:
-            ch = bot.get_channel(LOG_CHANNEL_ID)
-            if ch: await ch.send(embed=embed_fine)
-        except Exception: pass
+        
 
         # ── Embed notifica staff (canale stipendi) ───────────────────────────
         embed_staff = discord.Embed(

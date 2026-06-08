@@ -68,6 +68,7 @@ _modules = [
     ("commands_invoice",         "setup_invoice_commands"),
     ("commands_wipepg",          "setup_wipepg_commands"),
     ("commands_deposits",        "setup_deposits_commands"),
+    ("commands_gazzetta",        "setup_gazzetta_commands"),
 ]
 
 _loaded = {}

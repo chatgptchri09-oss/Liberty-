@@ -8,6 +8,7 @@ from constants import LOG_CHANNEL_ID, DATABASE_NAME, has_staff, CHIAVE_ROLE_ID
 AGENZIA_ROLE_ID      = 1404051965364670545
 WHITELISTER_ROLE_ID  = 1404051876592488562
 CHIAVE_CMD_ROLE_ID   = 1404051860121456701
+FOUNDER_ROLE_ID      = 1404051866962100286
 
 # Ruoli assegnati dal whitelister
 BG_POSITIVO_ROLE_ID  = 1480218025373208791
@@ -570,7 +571,7 @@ def setup_admin_commands(bot):
     # ── /setup-background ─────────────────────────────────────────────────────
     @bot.tree.command(name="setup-background", description="[Chiave] Invia il pannello Background PG nel canale")
     async def setup_background(interaction: discord.Interaction):
-        if not _has_role(interaction, CHIAVE_CMD_ROLE_ID):
+        if not _has_role(interaction, FOUNDER_ROLE_ID):
             await interaction.response.send_message("❌ Non hai i permessi.", ephemeral=True)
             return
 

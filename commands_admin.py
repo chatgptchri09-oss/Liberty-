@@ -201,9 +201,15 @@ class BackgroundConfermaModal(discord.ui.Modal, title="🤠 Conferma Background 
         self.bot = bot
 
     async def on_submit(self, interaction: discord.Interaction):
-        if self.conferma.value.strip().upper() != "CONFERMO":
+        # ⚠️ FIX: controllo is_done() per evitare crash silenziosi se Discord
+        # avesse già considerato risposta l'interazione (doppio submit, retry, ecc.)
+        if interaction.response.is_done():
+            return
+
+        # Confronto case-sensitive: deve essere ESATTAMENTE "CONFERMO" maiuscolo
+        if self.conferma.value.strip() != "CONFERMO":
             await interaction.response.send_message(
-                "❌ Devi scrivere esattamente **CONFERMO** per procedere.",
+                "❌ Devi scrivere esattamente **CONFERMO** (tutto maiuscolo) per procedere.",
                 ephemeral=True
             )
             return
@@ -234,6 +240,18 @@ class BackgroundConfermaModal(discord.ui.Modal, title="🤠 Conferma Background 
                 ephemeral=True
             )
             return
+        except Exception as e:
+            # ⚠️ FIX: qualunque altro errore nell'invio del primo DM non deve
+            # far sparire la risposta già inviata sopra; lo logghiamo soltanto.
+            print(f"[BackgroundModal] Errore invio DM iniziale: {e}", flush=True)
+            try:
+                await interaction.followup.send(
+                    "❌ Errore imprevisto nell'apertura del DM. Riprova tra qualche secondo.",
+                    ephemeral=True
+                )
+            except Exception:
+                pass
+            return
 
         # Avvia il background in background (senza bloccare l'interaction)
         import asyncio
@@ -241,11 +259,20 @@ class BackgroundConfermaModal(discord.ui.Modal, title="🤠 Conferma Background 
 
     async def on_error(self, interaction: discord.Interaction, error: Exception):
         print(f"[BackgroundModal] Errore: {error}", flush=True)
+        # ⚠️ FIX: controllo is_done() prima di rispondere per non lanciare
+        # un secondo errore ("interaction already acknowledged") che
+        # mascherava l'errore originale nei log.
         try:
-            await interaction.response.send_message(
-                "❌ Errore imprevisto. Riprova tra qualche secondo.",
-                ephemeral=True
-            )
+            if interaction.response.is_done():
+                await interaction.followup.send(
+                    "❌ Errore imprevisto. Riprova tra qualche secondo.",
+                    ephemeral=True
+                )
+            else:
+                await interaction.response.send_message(
+                    "❌ Errore imprevisto. Riprova tra qualche secondo.",
+                    ephemeral=True
+                )
         except Exception:
             pass
 
@@ -262,7 +289,12 @@ class BackgroundButton(discord.ui.Button):
 
     async def callback(self, interaction: discord.Interaction):
         # Apre il Modal — questa risposta è ISTANTANEA per Discord
-        await interaction.response.send_modal(BackgroundConfermaModal(self.bot))
+        try:
+            await interaction.response.send_modal(BackgroundConfermaModal(self.bot))
+        except Exception as e:
+            # ⚠️ FIX: se anche l'apertura del modal fallisce (raro, ma possibile
+            # se l'interazione è già scaduta), evitiamo che l'errore sparisca nei log
+            print(f"[BackgroundButton] Errore apertura modal: {e}", flush=True)
 
 
 # ── View persistente ──────────────────────────────────────────────────────────
@@ -273,13 +305,31 @@ class BackgroundView(discord.ui.View):
         self.add_item(BackgroundButton(bot))
 
 
-# ── Registra view persistente (chiamare in on_ready) ──────────────────────────
+# ── Registra view persistente ──────────────────────────────────────────────────
+# ⚠️ FIX PRINCIPALE: questa era probabilmente la causa di "l'applicazione non
+# ha risposto in tempo". La funzione esisteva ma se non veniva richiamata
+# dentro on_ready() nel tuo bot.py (es. dopo un riavvio automatico su Render),
+# il bottone "Inizia Background PG" perdeva il proprio handler persistente:
+# Discord mostrava il bottone ma nessun listener rispondeva più al click.
+# Ora la registriamo automaticamente anche qui, appena il cog viene caricato,
+# così funziona SEMPRE a prescindere da come bot.py gestisce on_ready().
+_view_gia_registrata = False
+
 def register_persistent_views(bot):
+    global _view_gia_registrata
+    if _view_gia_registrata:
+        return
     bot.add_view(BackgroundView(bot))
+    _view_gia_registrata = True
+    print("[BG] View persistente 'Inizia Background PG' registrata", flush=True)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 def setup_admin_commands(bot):
+
+    # ⚠️ FIX: registrazione automatica della view persistente al setup del cog,
+    # non solo tramite on_ready esterno — così è garantita ad ogni avvio.
+    register_persistent_views(bot)
 
     # ── /add-money ────────────────────────────────────────────────────────────
     @bot.tree.command(name="add-money", description="[Staff] Aggiungi denaro a un giocatore")

@@ -306,30 +306,18 @@ class BackgroundView(discord.ui.View):
 
 
 # ── Registra view persistente ──────────────────────────────────────────────────
-# ⚠️ FIX PRINCIPALE: questa era probabilmente la causa di "l'applicazione non
-# ha risposto in tempo". La funzione esisteva ma se non veniva richiamata
-# dentro on_ready() nel tuo bot.py (es. dopo un riavvio automatico su Render),
-# il bottone "Inizia Background PG" perdeva il proprio handler persistente:
-# Discord mostrava il bottone ma nessun listener rispondeva più al click.
-# Ora la registriamo automaticamente anche qui, appena il cog viene caricato,
-# così funziona SEMPRE a prescindere da come bot.py gestisce on_ready().
-_view_gia_registrata = False
-
+# ⚠️ NOTA: bot.add_view() richiede un event loop già avviato. bot.py chiama
+# questa funzione (o registra direttamente BackgroundView) dentro on_ready(),
+# dove l'event loop esiste — è il posto giusto. NON richiamarla qui a livello
+# di modulo/setup, altrimenti va in crash con "no running event loop" perché
+# i moduli vengono caricati PRIMA di asyncio.run(main()).
 def register_persistent_views(bot):
-    global _view_gia_registrata
-    if _view_gia_registrata:
-        return
     bot.add_view(BackgroundView(bot))
-    _view_gia_registrata = True
     print("[BG] View persistente 'Inizia Background PG' registrata", flush=True)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 def setup_admin_commands(bot):
-
-    # ⚠️ FIX: registrazione automatica della view persistente al setup del cog,
-    # non solo tramite on_ready esterno — così è garantita ad ogni avvio.
-    register_persistent_views(bot)
 
     # ── /add-money ────────────────────────────────────────────────────────────
     @bot.tree.command(name="add-money", description="[Staff] Aggiungi denaro a un giocatore")

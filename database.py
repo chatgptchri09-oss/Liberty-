@@ -108,6 +108,31 @@ async def init_db():
                 PRIMARY KEY (user_id, item_name)
             )
         """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS player_weapons (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id    TEXT NOT NULL,
+                nome_arma  TEXT NOT NULL,
+                tipo       TEXT,
+                dettagli   TEXT,
+                dato_da    TEXT,
+                created_at TEXT
+            )
+        """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS player_horses (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id     TEXT NOT NULL,
+                nome        TEXT NOT NULL,
+                razza       TEXT,
+                colore      TEXT,
+                sesso       TEXT,
+                eta         TEXT,
+                prezzo      INTEGER DEFAULT 0,
+                dato_da     TEXT,
+                created_at  TEXT
+            )
+        """)
 
         # Upgrade sicuro su db già esistenti
         for stmt in [
@@ -615,3 +640,80 @@ async def delete_fake_document(user_id: str):
     async with aiosqlite.connect(DATABASE_NAME) as db:
         await db.execute("DELETE FROM fake_documents WHERE user_id=?", (user_id,))
         await db.commit()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  ARMI ASSEGNATE (dai-arma / rimuovi-arma)
+# ══════════════════════════════════════════════════════════════════════════════
+
+async def add_weapon(user_id: str, nome_arma: str, tipo: str, dettagli: str, dato_da: str) -> int:
+    from datetime import datetime
+    async with aiosqlite.connect(DATABASE_NAME) as db:
+        c = await db.execute(
+            "INSERT INTO player_weapons (user_id,nome_arma,tipo,dettagli,dato_da,created_at) VALUES (?,?,?,?,?,?)",
+            (user_id, nome_arma, tipo, dettagli, dato_da, datetime.utcnow().strftime("%d/%m/%Y %H:%M"))
+        )
+        await db.commit()
+        return c.lastrowid
+
+async def get_weapons(user_id: str) -> list:
+    async with aiosqlite.connect(DATABASE_NAME) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM player_weapons WHERE user_id=? ORDER BY id DESC", (user_id,)
+        ) as c:
+            return [dict(r) for r in await c.fetchall()]
+
+async def remove_weapon_by_name(user_id: str, nome_arma: str) -> bool:
+    async with aiosqlite.connect(DATABASE_NAME) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT id FROM player_weapons WHERE user_id=? AND nome_arma=? ORDER BY id DESC LIMIT 1",
+            (user_id, nome_arma)
+        ) as c:
+            row = await c.fetchone()
+            if not row:
+                return False
+        await db.execute("DELETE FROM player_weapons WHERE id=?", (row["id"],))
+        await db.commit()
+        return True
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  CAVALLI ASSEGNATI (dai-cavallo / rimuovi-cavallo)
+# ══════════════════════════════════════════════════════════════════════════════
+
+async def add_horse(user_id: str, nome: str, razza: str, colore: str,
+                    sesso: str, eta: str, prezzo: int, dato_da: str) -> int:
+    from datetime import datetime
+    async with aiosqlite.connect(DATABASE_NAME) as db:
+        c = await db.execute("""
+            INSERT INTO player_horses
+                (user_id,nome,razza,colore,sesso,eta,prezzo,dato_da,created_at)
+            VALUES (?,?,?,?,?,?,?,?,?)
+        """, (user_id, nome, razza, colore, sesso, eta, prezzo, dato_da,
+              datetime.utcnow().strftime("%d/%m/%Y %H:%M")))
+        await db.commit()
+        return c.lastrowid
+
+async def get_horses(user_id: str) -> list:
+    async with aiosqlite.connect(DATABASE_NAME) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM player_horses WHERE user_id=? ORDER BY id DESC", (user_id,)
+        ) as c:
+            return [dict(r) for r in await c.fetchall()]
+
+async def remove_horse_by_name(user_id: str, nome: str) -> bool:
+    async with aiosqlite.connect(DATABASE_NAME) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT id FROM player_horses WHERE user_id=? AND nome=? ORDER BY id DESC LIMIT 1",
+            (user_id, nome)
+        ) as c:
+            row = await c.fetchone()
+            if not row:
+                return False
+        await db.execute("DELETE FROM player_horses WHERE id=?", (row["id"],))
+        await db.commit()
+        return True

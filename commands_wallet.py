@@ -30,16 +30,6 @@ TIPO_ARMA_CHOICES = [
     app_commands.Choice(name="🪢 Lazo",                    value="Lazo"),
 ]
 
-RAZZA_CAVALLO_CHOICES = [
-    app_commands.Choice(name=r, value=r) for r in [
-        "American Standardbred", "Andalusian", "Appaloosa", "Arabian",
-        "Ardennes", "Belgian", "Criollo", "Dutch Warmblood", "Gypsy Cob",
-        "Hungarian Halfbred", "Kentucky Saddler", "Missouri Fox Trotter",
-        "Morgan", "Mustang", "Nokota", "Norfolk Roadster", "Shire",
-        "Suffolk Punch", "Tennessee Walker", "Thoroughbred", "Turkoman",
-    ]
-]
-
 SESSO_CAVALLO_CHOICES = [
     app_commands.Choice(name="♂️ Stallone", value="Stallone"),
     app_commands.Choice(name="♀️ Giumenta", value="Giumenta"),
@@ -644,13 +634,13 @@ def setup_wallet_commands(bot):
     @app_commands.describe(
         giocatore="Il giocatore a cui dare il cavallo",
         nome="Nome del cavallo",
-        razza="Razza del cavallo",
+        razza="Razza del cavallo (scrivila liberamente, es: Arabo, Paint Horse americano, Purosangue...)",
         colore="Colore/mantello del cavallo",
         sesso="Sesso del cavallo",
         prezzo="Prezzo del cavallo (solo per la fattura — non scala i contanti)",
         eta="Età del cavallo (opzionale)"
     )
-    @app_commands.choices(razza=RAZZA_CAVALLO_CHOICES, sesso=SESSO_CAVALLO_CHOICES)
+    @app_commands.choices(sesso=SESSO_CAVALLO_CHOICES)
     async def dai_cavallo(interaction: discord.Interaction, giocatore: discord.Member,
                           nome: str, razza: str, colore: str, sesso: str,
                           prezzo: int, eta: str = ""):

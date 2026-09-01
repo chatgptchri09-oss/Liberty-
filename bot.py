@@ -5,9 +5,7 @@ from aiohttp import web
 import asyncio
 import os
 import sys
-
 sys.stdout.reconfigure(line_buffering=True)
-
 import database
 import backup
 from constants import (
@@ -17,16 +15,35 @@ from constants import (
     LOG_CHANNEL_ID, BANK_CHANNEL_ID, DATABASE_NAME, STAFF_ROLES,
     has_staff, has_sceriffo, has_role_id
 )
-
 # ── Bot ───────────────────────────────────────────────────────────────────────
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
 intents.guilds  = True
-
 bot = commands.Bot(command_prefix="!", intents=intents)
-
 print("✅ Bot inizializzato", flush=True)
+
+# ── setup_hook ────────────────────────────────────────────────────────────────
+# ⚠️ QUESTO è il punto giusto (garantito da discord.py) per registrare le
+# persistent View: viene chiamato UNA SOLA VOLTA, subito dopo il login ma
+# PRIMA che il bot si connetta al gateway e possa quindi ricevere qualunque
+# interazione (click sul bottone incluso). A differenza di on_ready() — che
+# può essere richiamato più volte ad ogni riconnessione al gateway, o in
+# rarissimi casi di race condition potenzialmente dopo che un'interazione è
+# già arrivata — setup_hook() elimina del tutto la finestra di rischio in cui
+# il bottone "Inizia Background PG" potrebbe non avere ancora un handler
+# registrato, che è la causa esatta di "l'applicazione non ha risposto in
+# tempo" (Discord manda l'interazione, nessun listener risponde, timeout).
+async def _setup_hook():
+    try:
+        from commands_admin import BackgroundView
+        bot.add_view(BackgroundView(bot))
+        print("✅ BackgroundView registrata (setup_hook — garantito pre-connessione)", flush=True)
+    except Exception as e:
+        print(f"❌ BackgroundView NON registrata in setup_hook: {e}", flush=True)
+        import traceback; traceback.print_exc()
+
+bot.setup_hook = _setup_hook
 
 # ── Events ────────────────────────────────────────────────────────────────────
 @bot.event
@@ -38,15 +55,17 @@ async def on_ready():
     await init_usura_table()
     await database.init_hidden_items_table()
     asyncio.create_task(task_usura_giornaliera(bot))
-    # Registra le View persistenti (devono stare qui, dentro il loop)
+    # Rete di sicurezza extra: ri-registra la view anche qui. Non è più il
+    # punto critico (quello è setup_hook sopra), ma non costa nulla e copre
+    # anche il caso in cui il bot si riconnetta al gateway dopo un hiccup
+    # di rete senza che il processo venga riavviato da zero.
     try:
         from commands_admin import BackgroundView
         bot.add_view(BackgroundView(bot))
-        print("✅ BackgroundView registrata", flush=True)
+        print("✅ BackgroundView ri-registrata (on_ready — rete di sicurezza)", flush=True)
     except Exception as e:
-        print(f"⚠️ BackgroundView non registrata: {e}", flush=True)
+        print(f"⚠️ BackgroundView non ri-registrata in on_ready: {e}", flush=True)
     print("🤠 Red Dead Redemption II Bot — Pronto!", flush=True)
-
 # ── Import moduli ─────────────────────────────────────────────────────────────
 _modules = [
     ("commands_wallet",          "setup_wallet_commands"),
@@ -70,7 +89,6 @@ _modules = [
     ("commands_deposits",        "setup_deposits_commands"),
     ("commands_gazzetta",        "setup_gazzetta_commands"),
 ]
-
 _loaded = {}
 for mod_name, func_name in _modules:
     try:
@@ -82,9 +100,7 @@ for mod_name, func_name in _modules:
         print(f"✅ {mod_name}.{func_name}", flush=True)
     except Exception as e:
         print(f"❌ {mod_name}.{func_name}: {e}", flush=True)
-
 print("✅ Tutti i moduli caricati!", flush=True)
-
 # ── /sync ─────────────────────────────────────────────────────────────────────
 @bot.tree.command(name="sync", description="[Owner] Sincronizza i comandi slash")
 async def sync(interaction: discord.Interaction):
@@ -102,7 +118,6 @@ async def sync(interaction: discord.Interaction):
             await interaction.followup.send("❌ Rate limited da Discord. Aspetta qualche minuto.", ephemeral=True)
         else:
             await interaction.followup.send(f"❌ Errore: {e}", ephemeral=True)
-
 # ── /lista-comandi ────────────────────────────────────────────────────────────
 class ListaSelect(discord.ui.Select):
     def __init__(self):
@@ -114,7 +129,6 @@ class ListaSelect(discord.ui.Select):
             discord.SelectOption(label="🚫 Contrabbando",  value="contrabbando",  description="Raccolta e vendita droga, rapine"),
         ]
         super().__init__(placeholder="Seleziona categoria...", options=options)
-
     async def callback(self, interaction: discord.Interaction):
         cat = self.values[0]
         if cat == "staff":
@@ -218,14 +232,10 @@ class ListaSelect(discord.ui.Select):
         embed.description = "**Comandi disponibili:**\n\n" + "\n".join(cmds)
         embed.set_footer(text="🤠 Red Dead Redemption II — Lista Comandi")
         await interaction.response.edit_message(embed=embed, view=ListaView())
-
-
 class ListaView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
         self.add_item(ListaSelect())
-
-
 @bot.tree.command(name="lista-comandi", description="Visualizza tutti i comandi disponibili")
 async def lista_comandi(interaction: discord.Interaction):
     embed = discord.Embed(
@@ -236,11 +246,9 @@ async def lista_comandi(interaction: discord.Interaction):
     embed.set_thumbnail(url=interaction.user.display_avatar.url)
     embed.set_footer(text="🤠 Red Dead Redemption II RP")
     await interaction.response.send_message(embed=embed, view=ListaView(), ephemeral=True)
-
 # ── Webserver ─────────────────────────────────────────────────────────────────
 async def handle(request):
     return web.Response(text="🤠 Red Dead Redemption II Bot — Online!")
-
 async def start_webserver():
     app_web = web.Application()
     app_web.router.add_get("/", handle)
@@ -250,7 +258,6 @@ async def start_webserver():
     port = int(os.environ.get("PORT", 10000))
     await web.TCPSite(runner, "0.0.0.0", port).start()
     print(f"🌐 Webserver avviato su porta {port}", flush=True)
-
 # ── Main ──────────────────────────────────────────────────────────────────────
 async def main():
     await start_webserver()
@@ -260,7 +267,6 @@ async def main():
     asyncio.create_task(backup.backup_database(bot))
     print("✅ Backup automatico avviato (ogni 6 ore)", flush=True)
     await bot.start(TOKEN)
-
 if __name__ == "__main__":
     from dotenv import load_dotenv
     load_dotenv()

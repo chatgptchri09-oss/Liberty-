@@ -85,7 +85,7 @@ async def _avvia_background(bot, member: discord.Member):
         description=(
             "Hai impiegato troppo tempo a rispondere.\n"
             "Il background è stato **annullato automaticamente**.\n\n"
-            "Puoi ricominciare premendo il pulsante nel canale quando sei pronto. 🤠"
+            "Puoi ricominciare con `/avvia-background` quando sei pronto. 🤠"
         ),
         color=discord.Color.red()
     )
@@ -93,7 +93,7 @@ async def _avvia_background(bot, member: discord.Member):
         title="❌ Background Annullato",
         description=(
             "Hai annullato il background.\n\n"
-            "Puoi ricominciare premendo il pulsante nel canale quando sei pronto. 🤠"
+            "Puoi ricominciare con `/avvia-background` quando sei pronto. 🤠"
         ),
         color=discord.Color.orange()
     )
@@ -184,7 +184,7 @@ async def _avvia_background(bot, member: discord.Member):
         pass
 
 
-# ── Modal di conferma ─────────────────────────────────────────────────────────
+# ── Modal di conferma (condiviso da bottone E dal comando slash) ──────────────
 class BackgroundConfermaModal(discord.ui.Modal, title="🤠 Conferma Background PG"):
 
     conferma = discord.ui.TextInput(
@@ -201,8 +201,6 @@ class BackgroundConfermaModal(discord.ui.Modal, title="🤠 Conferma Background 
         self.bot = bot
 
     async def on_submit(self, interaction: discord.Interaction):
-        # ⚠️ FIX: controllo is_done() per evitare crash silenziosi se Discord
-        # avesse già considerato risposta l'interazione (doppio submit, retry, ecc.)
         if interaction.response.is_done():
             return
 
@@ -241,8 +239,6 @@ class BackgroundConfermaModal(discord.ui.Modal, title="🤠 Conferma Background 
             )
             return
         except Exception as e:
-            # ⚠️ FIX: qualunque altro errore nell'invio del primo DM non deve
-            # far sparire la risposta già inviata sopra; lo logghiamo soltanto.
             print(f"[BackgroundModal] Errore invio DM iniziale: {e}", flush=True)
             try:
                 await interaction.followup.send(
@@ -259,9 +255,6 @@ class BackgroundConfermaModal(discord.ui.Modal, title="🤠 Conferma Background 
 
     async def on_error(self, interaction: discord.Interaction, error: Exception):
         print(f"[BackgroundModal] Errore: {error}", flush=True)
-        # ⚠️ FIX: controllo is_done() prima di rispondere per non lanciare
-        # un secondo errore ("interaction already acknowledged") che
-        # mascherava l'errore originale nei log.
         try:
             if interaction.response.is_done():
                 await interaction.followup.send(
@@ -277,7 +270,23 @@ class BackgroundConfermaModal(discord.ui.Modal, title="🤠 Conferma Background 
             pass
 
 
-# ── Bottone che apre il Modal ─────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+#  ⚠️ PANNELLO CON BOTTONE (legacy) — dipende da una persistent View che deve
+#  essere ri-registrata da bot.py dentro on_ready() ad ogni riavvio. Se quella
+#  registrazione fallisce o non avviene (es. eccezione silenziosa, timing,
+#  modulo non importato correttamente), il bottone smette di rispondere e
+#  Discord mostra "l'applicazione non ha risposto in tempo" — perché nessun
+#  handler è più agganciato a quel custom_id. È un limite strutturale dei
+#  bottoni persistenti su Discord, non un bug risolvibile lato singolo file.
+#
+#  ✅ SOLUZIONE GARANTITA: usa /avvia-background invece del bottone. È un
+#  comando slash normale — una volta sincronizzato con `/sync`, Discord lo
+#  instrada SEMPRE al bot, ad ogni riavvio, senza bisogno di alcuna
+#  registrazione aggiuntiva in on_ready(). Stesse identiche domande.
+#  Il pannello con bottone resta disponibile ma non è più il percorso
+#  consigliato: se preferisci puoi anche rimuovere /setup-background e usare
+#  solo /avvia-background.
+# ══════════════════════════════════════════════════════════════════════════════
 class BackgroundButton(discord.ui.Button):
     def __init__(self, bot):
         super().__init__(
@@ -288,16 +297,12 @@ class BackgroundButton(discord.ui.Button):
         self.bot = bot
 
     async def callback(self, interaction: discord.Interaction):
-        # Apre il Modal — questa risposta è ISTANTANEA per Discord
         try:
             await interaction.response.send_modal(BackgroundConfermaModal(self.bot))
         except Exception as e:
-            # ⚠️ FIX: se anche l'apertura del modal fallisce (raro, ma possibile
-            # se l'interazione è già scaduta), evitiamo che l'errore sparisca nei log
             print(f"[BackgroundButton] Errore apertura modal: {e}", flush=True)
 
 
-# ── View persistente ──────────────────────────────────────────────────────────
 class BackgroundView(discord.ui.View):
     def __init__(self, bot):
         super().__init__(timeout=None)
@@ -306,11 +311,9 @@ class BackgroundView(discord.ui.View):
 
 
 # ── Registra view persistente ──────────────────────────────────────────────────
-# ⚠️ NOTA: bot.add_view() richiede un event loop già avviato. bot.py chiama
-# questa funzione (o registra direttamente BackgroundView) dentro on_ready(),
-# dove l'event loop esiste — è il posto giusto. NON richiamarla qui a livello
-# di modulo/setup, altrimenti va in crash con "no running event loop" perché
-# i moduli vengono caricati PRIMA di asyncio.run(main()).
+# ⚠️ bot.add_view() richiede un event loop già avviato: va chiamata dentro
+# on_ready() in bot.py, MAI a livello di modulo/setup (altrimenti crash
+# "no running event loop", perché i moduli si caricano prima di asyncio.run()).
 def register_persistent_views(bot):
     bot.add_view(BackgroundView(bot))
     print("[BG] View persistente 'Inizia Background PG' registrata", flush=True)
@@ -318,6 +321,23 @@ def register_persistent_views(bot):
 
 # ─────────────────────────────────────────────────────────────────────────────
 def setup_admin_commands(bot):
+
+    # ── /avvia-background — PERCORSO GARANTITO AL 100% ─────────────────────
+    @bot.tree.command(name="avvia-background", description="Inizia il tuo Background PG (stesse domande del pannello)")
+    async def avvia_background_cmd(interaction: discord.Interaction):
+        # Nessuna dipendenza da persistent view/custom_id: un comando slash
+        # sincronizzato risponde sempre, ad ogni riavvio del bot.
+        try:
+            await interaction.response.send_modal(BackgroundConfermaModal(bot))
+        except Exception as e:
+            print(f"[avvia-background] Errore apertura modal: {e}", flush=True)
+            try:
+                await interaction.response.send_message(
+                    "❌ Errore imprevisto nell'apertura del modulo. Riprova tra qualche secondo.",
+                    ephemeral=True
+                )
+            except Exception:
+                pass
 
     # ── /add-money ────────────────────────────────────────────────────────────
     @bot.tree.command(name="add-money", description="[Staff] Aggiungi denaro a un giocatore")
@@ -606,7 +626,7 @@ def setup_admin_commands(bot):
             await cittadino.send(embed=dm)
         except Exception: pass
 
-    # ── /setup-background ─────────────────────────────────────────────────────
+    # ── /setup-background (legacy, pannello con bottone) ────────────────────
     @bot.tree.command(name="setup-background", description="[Chiave] Invia il pannello Background PG nel canale")
     async def setup_background(interaction: discord.Interaction):
         if not _has_role(interaction, FOUNDER_ROLE_ID):
@@ -620,7 +640,8 @@ def setup_admin_commands(bot):
                 "ogni anima deve lasciare traccia della propria storia.\n\n"
                 "Lo sceriffo della contea richiede che ogni nuovo arrivato racconti chi è, "
                 "da dove viene e quale strada lo ha condotto fin qui.\n\n"
-                "Premi il pulsante qui sotto per parlare con l'ufficio registri.\n"
+                "Premi il pulsante qui sotto per parlare con l'ufficio registri, "
+                "oppure usa in qualsiasi momento `/avvia-background`.\n"
                 "Verrai contattato nei messaggi privati dopo la conferma.\n\n"
                 "Ricorda... in queste terre un uomo vale tanto quanto la storia "
                 "che porta con sé. 🤠"

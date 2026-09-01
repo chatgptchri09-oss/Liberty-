@@ -6,9 +6,50 @@ from constants import (
     STAFF_ROLES, has_staff
 )
 
+# ── Ruoli per dare armi/cavalli ────────────────────────────────────────────────
+ARMAIOLO_ROLE_ID = 1404051953188733002   # può usare /dai-arma
+STALLIERE_ROLE_ID = 1404051942698913792  # può usare /dai-cavallo
+
+
+def _has_role(interaction: discord.Interaction, role_id: int) -> bool:
+    if not isinstance(interaction.user, discord.Member):
+        return False
+    return any(r.id == role_id for r in interaction.user.roles)
+
+
+# ── Scelte armi/cavalli ─────────────────────────────────────────────────────────
+TIPO_ARMA_CHOICES = [
+    app_commands.Choice(name="🔫 Pistola",                 value="Pistola"),
+    app_commands.Choice(name="🔫 Revolver",                value="Revolver"),
+    app_commands.Choice(name="🔫 Fucile a Pompa",          value="Fucile a Pompa"),
+    app_commands.Choice(name="🔫 Fucile a Ripetizione",    value="Fucile a Ripetizione"),
+    app_commands.Choice(name="🎯 Fucile di Precisione",    value="Fucile di Precisione"),
+    app_commands.Choice(name="🏹 Arco",                    value="Arco"),
+    app_commands.Choice(name="🗡️ Coltello / Ascia da lancio", value="Coltello / Ascia da lancio"),
+    app_commands.Choice(name="💣 Esplosivo (Dinamite/Molotov)", value="Esplosivo"),
+    app_commands.Choice(name="🪢 Lazo",                    value="Lazo"),
+]
+
+RAZZA_CAVALLO_CHOICES = [
+    app_commands.Choice(name=r, value=r) for r in [
+        "American Standardbred", "Andalusian", "Appaloosa", "Arabian",
+        "Ardennes", "Belgian", "Criollo", "Dutch Warmblood", "Gypsy Cob",
+        "Hungarian Halfbred", "Kentucky Saddler", "Missouri Fox Trotter",
+        "Morgan", "Mustang", "Nokota", "Norfolk Roadster", "Shire",
+        "Suffolk Punch", "Tennessee Walker", "Thoroughbred", "Turkoman",
+    ]
+]
+
+SESSO_CAVALLO_CHOICES = [
+    app_commands.Choice(name="♂️ Stallone", value="Stallone"),
+    app_commands.Choice(name="♀️ Giumenta", value="Giumenta"),
+    app_commands.Choice(name="✂️ Castrato", value="Castrato"),
+]
+
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  PORTAFOGLIO — Select Menu con Documento, Bisaccia, Proprietà (NO SOLDI)
+#  PORTAFOGLIO — Select Menu con Documento, Bisaccia, Proprietà, Fedina,
+#  Armi, Cavalli (NO SOLDI) + tasto "📢 Mostra" per condividere in chat
 # ══════════════════════════════════════════════════════════════════════════════
 
 def _hunger_bar(v: int) -> str:
@@ -28,17 +69,17 @@ class PortafoglioSelect(discord.ui.Select):
                                  description="Le tue proprietà nel Far West"),
             discord.SelectOption(label="⚖️ Fedina Penale", value="fedina",
                                  description="I tuoi precedenti con la legge"),
+            discord.SelectOption(label="🔫 Armi", value="armi",
+                                 description="Le armi in tuo possesso"),
+            discord.SelectOption(label="🐴 Cavalli", value="cavalli",
+                                 description="I cavalli in tuo possesso"),
         ]
         super().__init__(placeholder="Seleziona una sezione...", options=options, min_values=1, max_values=1)
 
     async def callback(self, interaction: discord.Interaction):
-        # Solo il proprietario può usare i propri bottoni
-        if interaction.user.id != self.target.id:
-            await interaction.response.send_message("❌ Questo portafoglio non è tuo!", ephemeral=True)
-            return
-
         val = self.values[0]
         user_id = str(self.target.id)
+        view: "PortafoglioView" = self.view
 
         if val == "documento":
             doc = await database.get_document(user_id)
@@ -59,13 +100,13 @@ class PortafoglioSelect(discord.ui.Select):
                 if doc.get("foto_url"):
                     embed.set_image(url=doc["foto_url"])
             embed.set_footer(text="🤠 Red Dead Redemption II — Documento")
-            await interaction.response.edit_message(embed=embed, view=self.view)
+            label = "📜 Documento d'identità"
 
         elif val == "bisaccia":
             items = await database.get_inventory(user_id)
             user  = await database.get_user(user_id)
             embed = discord.Embed(
-                title="🎒 𝐋𝐚 𝐭𝐮𝐚 𝐁𝐢𝐬𝐚𝐜𝐜𝐢𝐚",
+                title="🎒 𝐁𝐢𝐬𝐚𝐜𝐜𝐢𝐚",
                 color=discord.Color(0x8B4513),
                 timestamp=discord.utils.utcnow()
             )
@@ -77,12 +118,12 @@ class PortafoglioSelect(discord.ui.Select):
                 desc = "\n".join(f"**{i['item_name']}** — x{i['quantity']}" for i in items)
                 embed.add_field(name="📦 Contenuto", value=desc, inline=False)
             embed.set_footer(text="🤠 Red Dead Redemption II — Bisaccia")
-            await interaction.response.edit_message(embed=embed, view=self.view)
+            label = "🎒 Bisaccia"
 
         elif val == "proprieta":
             props = await database.get_properties(user_id)
             embed = discord.Embed(
-                title="🏡 𝐋𝐞 𝐭𝐮𝐞 𝐏𝐫𝐨𝐩𝐫𝐢𝐞𝐭à",
+                title="🏡 𝐏𝐫𝐨𝐩𝐫𝐢𝐞𝐭à",
                 color=discord.Color(0x8B4513),
                 timestamp=discord.utils.utcnow()
             )
@@ -96,7 +137,7 @@ class PortafoglioSelect(discord.ui.Select):
                         inline=False
                     )
             embed.set_footer(text="🤠 Red Dead Redemption II — Proprietà")
-            await interaction.response.edit_message(embed=embed, view=self.view)
+            label = "🏡 Proprietà"
 
         elif val == "fedina":
             records = await database.get_criminal_records(user_id)
@@ -115,13 +156,91 @@ class PortafoglioSelect(discord.ui.Select):
                         inline=False
                     )
             embed.set_footer(text="🤠 Red Dead Redemption II — Fedina Penale")
-            await interaction.response.edit_message(embed=embed, view=self.view)
+            label = "⚖️ Fedina Penale"
+
+        elif val == "armi":
+            armi = await database.get_weapons(user_id)
+            embed = discord.Embed(
+                title="🔫 𝐀𝐫𝐦𝐢",
+                color=discord.Color(0x2C2C2C),
+                timestamp=discord.utils.utcnow()
+            )
+            if not armi:
+                embed.description = "*Non possiedi nessuna arma registrata.*"
+            else:
+                for a in armi[:10]:
+                    dettagli_line = f"\n📝 {a['dettagli']}" if a.get("dettagli") else ""
+                    embed.add_field(
+                        name=f"🔫 {a['nome_arma']}",
+                        value=f"🏷️ Tipo: {a['tipo']}{dettagli_line}\n📅 {a['created_at']}",
+                        inline=False
+                    )
+            embed.set_footer(text="🤠 Red Dead Redemption II — Armi")
+            label = "🔫 Armi"
+
+        elif val == "cavalli":
+            cavalli = await database.get_horses(user_id)
+            embed = discord.Embed(
+                title="🐴 𝐂𝐚𝐯𝐚𝐥𝐥𝐢",
+                color=discord.Color(0x8B4513),
+                timestamp=discord.utils.utcnow()
+            )
+            if not cavalli:
+                embed.description = "*Non possiedi nessun cavallo registrato.*"
+            else:
+                for cv in cavalli[:10]:
+                    eta_line = f"\n🎂 Età: {cv['eta']}" if cv.get("eta") else ""
+                    embed.add_field(
+                        name=f"🐴 {cv['nome']}",
+                        value=(
+                            f"🏇 Razza: {cv['razza']}\n"
+                            f"🎨 Colore: {cv['colore']}\n"
+                            f"⚧ Sesso: {cv['sesso']}{eta_line}\n"
+                            f"💵 Prezzo: ${cv['prezzo']:,}\n"
+                            f"📅 {cv['created_at']}"
+                        ),
+                        inline=False
+                    )
+            embed.set_footer(text="🤠 Red Dead Redemption II — Cavalli")
+            label = "🐴 Cavalli"
+
+        else:
+            return
+
+        # Salva l'embed corrente nella view per il tasto "📢 Mostra"
+        view.current_embed = embed
+        view.current_label = label
+        await interaction.response.edit_message(embed=embed, view=view)
 
 
 class PortafoglioView(discord.ui.View):
-    def __init__(self, target: discord.Member):
-        super().__init__(timeout=120)
+    def __init__(self, target: discord.Member, extra_viewer_id: str = None):
+        super().__init__(timeout=180)
+        self.target          = target
+        self.extra_viewer_id = extra_viewer_id  # es. uno staff che usa /visualizza-portafoglio
+        self.current_embed: discord.Embed | None = None
+        self.current_label: str | None = None
         self.add_item(PortafoglioSelect(target))
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id == self.target.id:
+            return True
+        if self.extra_viewer_id and str(interaction.user.id) == self.extra_viewer_id:
+            return True
+        await interaction.response.send_message("❌ Questo portafoglio non è tuo!", ephemeral=True)
+        return False
+
+    @discord.ui.button(label="📢 Mostra", style=discord.ButtonStyle.blurple, row=1)
+    async def mostra(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.current_embed is None:
+            await interaction.response.send_message(
+                "❌ Seleziona prima una sezione dal menu.", ephemeral=True
+            )
+            return
+        await interaction.response.send_message(
+            content=f"{interaction.user.mention} ha mostrato **{self.current_label}** di {self.target.mention}:",
+            embed=self.current_embed
+        )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -170,7 +289,7 @@ class BancaModal(discord.ui.Modal):
 
         label = "Prelievo" if self.action == "preleva" else "Deposito"
         embed = discord.Embed(
-            title=f"🏦 𝐑𝐢𝐜𝐡𝐢𝐞𝐬𝐭𝐚 𝐝𝐢 {label}",  # ✅ CORRETTO
+            title=f"🏦 𝐑𝐢𝐜𝐡𝐢𝐞𝐬𝐭𝐚 𝐝𝐢 {label}",
             color=discord.Color(0xDAA520),
             timestamp=discord.utils.utcnow()
         )
@@ -292,10 +411,14 @@ def setup_wallet_commands(bot):
     @bot.tree.command(name="portafoglio", description="Apri il tuo portafoglio personale")
     async def portafoglio(interaction: discord.Interaction):
         embed = discord.Embed(
-            title=f"<a:Portafoglio:1462442004569919629> 𝐏𝐨𝐫𝐭𝐚𝐟𝐨𝐠𝐥𝐢𝐨 𝐝𝐢 {interaction.user.mention}",
+            # ⚠️ FIX: le menzioni (@utente) non vengono renderizzate nei TITOLI
+            # degli embed su Discord — mostrano solo il testo grezzo "<@123..>".
+            # Per questo si vedevano numeri e una @. Ora uso il display_name.
+            title=f"<a:Portafoglio:1462442004569919629> 𝐏𝐨𝐫𝐭𝐚𝐟𝐨𝐠𝐥𝐢𝐨 𝐝𝐢 {interaction.user.display_name}",
             description=(
                 "Seleziona una sezione dal menu qui sotto per visualizzare\n"
-                "le tue informazioni personali nel Far West."
+                "le tue informazioni personali nel Far West.\n\n"
+                "📢 Premi **Mostra** per condividerla pubblicamente in chat."
             ),
             color=discord.Color(0x8B4513),
             timestamp=discord.utils.utcnow()
@@ -303,6 +426,28 @@ def setup_wallet_commands(bot):
         embed.set_thumbnail(url=interaction.user.display_avatar.url)
         embed.set_footer(text="🤠 Red Dead Redemption II — Portafoglio")
         view = PortafoglioView(interaction.user)
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+
+    # ── /visualizza-portafoglio [Staff] ─────────────────────────────────────
+    @bot.tree.command(name="visualizza-portafoglio", description="[Staff] Visualizza il portafoglio di un giocatore")
+    @app_commands.describe(giocatore="Il giocatore di cui vedere il portafoglio")
+    async def visualizza_portafoglio(interaction: discord.Interaction, giocatore: discord.Member):
+        if not has_staff(interaction):
+            await interaction.response.send_message("❌ Non hai i permessi.", ephemeral=True)
+            return
+        embed = discord.Embed(
+            title=f"<a:Portafoglio:1462442004569919629> 𝐏𝐨𝐫𝐭𝐚𝐟𝐨𝐠𝐥𝐢𝐨 𝐝𝐢 {giocatore.display_name}",
+            description=(
+                "Seleziona una sezione dal menu qui sotto per visualizzare\n"
+                f"le informazioni di **{giocatore.display_name}** nel Far West.\n\n"
+                "📢 Premi **Mostra** per condividerla pubblicamente in chat."
+            ),
+            color=discord.Color(0x8B4513),
+            timestamp=discord.utils.utcnow()
+        )
+        embed.set_thumbnail(url=giocatore.display_avatar.url)
+        embed.set_footer(text=f"🤠 Red Dead Redemption II — Portafoglio (visualizzato da {interaction.user.display_name})")
+        view = PortafoglioView(giocatore, extra_viewer_id=str(interaction.user.id))
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
     # ── /banca ───────────────────────────────────────────────────────────────
@@ -382,6 +527,189 @@ def setup_wallet_commands(bot):
             pass
 
         # Log
+        try:
+            ch = bot.get_channel(LOG_CHANNEL_ID)
+            if ch:
+                await ch.send(embed=embed)
+        except Exception:
+            pass
+
+    # ══════════════════════════════════════════════════════════════════════
+    #  ARMI — /dai-arma [Armaiolo] e /rimuovi-arma [Staff]
+    # ══════════════════════════════════════════════════════════════════════
+
+    async def _weapon_autocomplete(interaction: discord.Interaction, current: str):
+        try:
+            giocatore_id = interaction.namespace.giocatore
+            if not giocatore_id:
+                return []
+            armi = await database.get_weapons(str(giocatore_id))
+            current = (current or "").lower()
+            return [
+                app_commands.Choice(name=a["nome_arma"], value=a["nome_arma"])
+                for a in armi if current in a["nome_arma"].lower()
+            ][:25]
+        except Exception:
+            return []
+
+    @bot.tree.command(name="dai-arma", description="[Armaiolo] Assegna un'arma a un giocatore")
+    @app_commands.describe(
+        giocatore="Il giocatore a cui dare l'arma",
+        nome="Nome dell'arma (es: Revolver Cattleman)",
+        tipo="Tipologia dell'arma",
+        dettagli="Dettagli aggiuntivi (incisioni, munizioni, ecc. — opzionale)"
+    )
+    @app_commands.choices(tipo=TIPO_ARMA_CHOICES)
+    async def dai_arma(interaction: discord.Interaction, giocatore: discord.Member,
+                       nome: str, tipo: str, dettagli: str = ""):
+        if not _has_role(interaction, ARMAIOLO_ROLE_ID):
+            await interaction.response.send_message(
+                f"❌ Solo chi ha il ruolo <@&{ARMAIOLO_ROLE_ID}> può dare armi.", ephemeral=True
+            )
+            return
+        await database.add_weapon(str(giocatore.id), nome, tipo, dettagli, str(interaction.user.id))
+
+        embed = discord.Embed(title="🔫 𝐀𝐫𝐦𝐚 𝐀𝐬𝐬𝐞𝐠𝐧𝐚𝐭𝐚", color=discord.Color(0x2C2C2C), timestamp=discord.utils.utcnow())
+        embed.add_field(name="👤 Giocatore", value=giocatore.mention,        inline=True)
+        embed.add_field(name="🔫 Arma",      value=nome,                     inline=True)
+        embed.add_field(name="🏷️ Tipo",      value=tipo,                     inline=True)
+        if dettagli:
+            embed.add_field(name="📝 Dettagli", value=dettagli, inline=False)
+        embed.add_field(name="👮 Assegnata da", value=interaction.user.mention, inline=True)
+        embed.set_footer(text="🤠 Red Dead Redemption II — Armeria")
+        await interaction.response.send_message(embed=embed)
+
+        try:
+            dm = discord.Embed(
+                title="🔫 𝐇𝐚𝐢 𝐫𝐢𝐜𝐞𝐯𝐮𝐭𝐨 𝐮𝐧'𝐚𝐫𝐦𝐚!",
+                description=f"Hai ricevuto **{nome}** ({tipo}). Usa `/portafoglio` per vederla.",
+                color=discord.Color(0x2C2C2C)
+            )
+            await giocatore.send(embed=dm)
+        except Exception:
+            pass
+
+        try:
+            ch = bot.get_channel(LOG_CHANNEL_ID)
+            if ch:
+                await ch.send(embed=embed)
+        except Exception:
+            pass
+
+    @bot.tree.command(name="rimuovi-arma", description="[Staff] Rimuovi un'arma dal portafoglio di un giocatore")
+    @app_commands.describe(giocatore="Il giocatore", arma="Nome dell'arma da rimuovere")
+    @app_commands.autocomplete(arma=_weapon_autocomplete)
+    async def rimuovi_arma(interaction: discord.Interaction, giocatore: discord.Member, arma: str):
+        if not has_staff(interaction):
+            await interaction.response.send_message("❌ Non hai i permessi.", ephemeral=True)
+            return
+        ok = await database.remove_weapon_by_name(str(giocatore.id), arma)
+        if not ok:
+            await interaction.response.send_message(
+                f"❌ **{giocatore.display_name}** non possiede nessuna arma chiamata **{arma}**.", ephemeral=True
+            )
+            return
+        embed = discord.Embed(title="🗑️ 𝐀𝐫𝐦𝐚 𝐑𝐢𝐦𝐨𝐬𝐬𝐚", color=discord.Color.red(), timestamp=discord.utils.utcnow())
+        embed.add_field(name="👤 Giocatore", value=giocatore.mention,        inline=True)
+        embed.add_field(name="🔫 Arma",      value=arma,                     inline=True)
+        embed.add_field(name="👮 Staff",     value=interaction.user.mention, inline=True)
+        embed.set_footer(text="🤠 Red Dead Redemption II — Armeria")
+        await interaction.response.send_message(embed=embed)
+        try:
+            ch = bot.get_channel(LOG_CHANNEL_ID)
+            if ch:
+                await ch.send(embed=embed)
+        except Exception:
+            pass
+
+    # ══════════════════════════════════════════════════════════════════════
+    #  CAVALLI — /dai-cavallo [Stalliere] e /rimuovi-cavallo [Staff]
+    # ══════════════════════════════════════════════════════════════════════
+
+    async def _horse_autocomplete(interaction: discord.Interaction, current: str):
+        try:
+            giocatore_id = interaction.namespace.giocatore
+            if not giocatore_id:
+                return []
+            cavalli = await database.get_horses(str(giocatore_id))
+            current = (current or "").lower()
+            return [
+                app_commands.Choice(name=cv["nome"], value=cv["nome"])
+                for cv in cavalli if current in cv["nome"].lower()
+            ][:25]
+        except Exception:
+            return []
+
+    @bot.tree.command(name="dai-cavallo", description="[Stalliere] Assegna un cavallo a un giocatore")
+    @app_commands.describe(
+        giocatore="Il giocatore a cui dare il cavallo",
+        nome="Nome del cavallo",
+        razza="Razza del cavallo",
+        colore="Colore/mantello del cavallo",
+        sesso="Sesso del cavallo",
+        prezzo="Prezzo del cavallo (solo per la fattura — non scala i contanti)",
+        eta="Età del cavallo (opzionale)"
+    )
+    @app_commands.choices(razza=RAZZA_CAVALLO_CHOICES, sesso=SESSO_CAVALLO_CHOICES)
+    async def dai_cavallo(interaction: discord.Interaction, giocatore: discord.Member,
+                          nome: str, razza: str, colore: str, sesso: str,
+                          prezzo: int, eta: str = ""):
+        if not _has_role(interaction, STALLIERE_ROLE_ID):
+            await interaction.response.send_message(
+                f"❌ Solo chi ha il ruolo <@&{STALLIERE_ROLE_ID}> può dare cavalli.", ephemeral=True
+            )
+            return
+        await database.add_horse(str(giocatore.id), nome, razza, colore, sesso, eta, prezzo, str(interaction.user.id))
+
+        embed = discord.Embed(title="🐴 𝐂𝐚𝐯𝐚𝐥𝐥𝐨 𝐀𝐬𝐬𝐞𝐠𝐧𝐚𝐭𝐨", color=discord.Color(0x8B4513), timestamp=discord.utils.utcnow())
+        embed.add_field(name="👤 Giocatore", value=giocatore.mention, inline=True)
+        embed.add_field(name="🐴 Nome",      value=nome,              inline=True)
+        embed.add_field(name="🏇 Razza",     value=razza,             inline=True)
+        embed.add_field(name="🎨 Colore",    value=colore,            inline=True)
+        embed.add_field(name="⚧ Sesso",      value=sesso,             inline=True)
+        if eta:
+            embed.add_field(name="🎂 Età", value=eta, inline=True)
+        embed.add_field(name="💵 Prezzo (fattura)", value=f"${prezzo:,}", inline=True)
+        embed.add_field(name="👮 Assegnato da", value=interaction.user.mention, inline=True)
+        embed.set_footer(text="🤠 Red Dead Redemption II — Stalla")
+        await interaction.response.send_message(embed=embed)
+
+        try:
+            dm = discord.Embed(
+                title="🐴 𝐇𝐚𝐢 𝐫𝐢𝐜𝐞𝐯𝐮𝐭𝐨 𝐮𝐧 𝐜𝐚𝐯𝐚𝐥𝐥𝐨!",
+                description=f"Hai ricevuto **{nome}** ({razza}, {colore}). Usa `/portafoglio` per vederlo.",
+                color=discord.Color(0x8B4513)
+            )
+            await giocatore.send(embed=dm)
+        except Exception:
+            pass
+
+        try:
+            ch = bot.get_channel(LOG_CHANNEL_ID)
+            if ch:
+                await ch.send(embed=embed)
+        except Exception:
+            pass
+
+    @bot.tree.command(name="rimuovi-cavallo", description="[Staff] Rimuovi un cavallo dal portafoglio di un giocatore")
+    @app_commands.describe(giocatore="Il giocatore", cavallo="Nome del cavallo da rimuovere")
+    @app_commands.autocomplete(cavallo=_horse_autocomplete)
+    async def rimuovi_cavallo(interaction: discord.Interaction, giocatore: discord.Member, cavallo: str):
+        if not has_staff(interaction):
+            await interaction.response.send_message("❌ Non hai i permessi.", ephemeral=True)
+            return
+        ok = await database.remove_horse_by_name(str(giocatore.id), cavallo)
+        if not ok:
+            await interaction.response.send_message(
+                f"❌ **{giocatore.display_name}** non possiede nessun cavallo chiamato **{cavallo}**.", ephemeral=True
+            )
+            return
+        embed = discord.Embed(title="🗑️ 𝐂𝐚𝐯𝐚𝐥𝐥𝐨 𝐑𝐢𝐦𝐨𝐬𝐬𝐨", color=discord.Color.red(), timestamp=discord.utils.utcnow())
+        embed.add_field(name="👤 Giocatore", value=giocatore.mention,        inline=True)
+        embed.add_field(name="🐴 Cavallo",   value=cavallo,                  inline=True)
+        embed.add_field(name="👮 Staff",     value=interaction.user.mention, inline=True)
+        embed.set_footer(text="🤠 Red Dead Redemption II — Stalla")
+        await interaction.response.send_message(embed=embed)
         try:
             ch = bot.get_channel(LOG_CHANNEL_ID)
             if ch:

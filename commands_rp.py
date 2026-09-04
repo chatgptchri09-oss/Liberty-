@@ -58,7 +58,7 @@ FOOD_ITEMS = {
     "🍳 • Uova Strapazzate":                         18, 
     "🥪 • Panino con Prosciutto e Formaggio":        15,
     "🥪 • Panino con Pancetta e Uova":               19,
-    "🥪 • Panino con Tonno e Pomodori":              21
+    "🥪 • Panino con Tonno e Pomodori":              21,
     "🥩 • Stufato di bistecca con verdure":          30, 
     "🥫 • Cibo in scatola":                           9,
     "🍎 • Frutta":                                    8,

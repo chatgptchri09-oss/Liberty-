@@ -49,13 +49,17 @@ _turni_cache: dict = {}  # user_id → discord.Role object (non serializzabile)
 
 # ── Cibi (Listino Saloon) ─────────────────────────────────────────────────────
 FOOD_ITEMS = {
-    "🥪 • Panino col prosciutto":                     15,
-    "🥪 • Panino con lattuga e prosciutto":           10,
-    "🥪 • Panino con lattuga, prosciutto e pomodoro": 13,
-    "🥪 • Panino farcito a piacere":                  9,   # prezzo variabile
-    "🍝 • Pasta al sugo":                             14,
-    "🍝 • Pasta al pesto":                           17,
-    "🥩 • Stufato di bistecca con verdure":          30,
+    "🍲 • Stufato di Verdure":                       20,
+    "🍲 • Stufato di Manzo":                         24,
+    "🍲 • Stufato di Pesce":                         21,
+    "🫘 • Fagioli Western":                          15,
+    "🍖 • Costine di Maiale":                        17,
+    "🥓 • Pancetta Affumicata":                      14,
+    "🍳 • Uova Strapazzate":                         18, 
+    "🥪 • Panino con Prosciutto e Formaggio":        15,
+    "🥪 • Panino con Pancetta e Uova":               19,
+    "🥪 • Panino con Tonno e Pomodori":              21
+    "🥩 • Stufato di bistecca con verdure":          30, 
     "🥫 • Cibo in scatola":                           9,
     "🍎 • Frutta":                                    8,
     "🌽 • Verdura":                                   9,
@@ -70,6 +74,7 @@ FOOD_ITEMS = {
 DRINK_ITEMS = {
     "🍺 • Birra":       1,
     "🥃 • Whisky":      5,
+    "🍸 • Whisky":      5,
     "🍵 • Tè":          3,
     "☕ • Caffè":       2,
     "🥛 • Latte caldo": 4,

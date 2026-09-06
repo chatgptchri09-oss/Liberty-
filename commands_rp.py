@@ -43,6 +43,12 @@ from constants import (
 # Canale dove va la notifica stipendio per lo staff
 STIPENDIO_CHANNEL_ID = 1422986030650228766
 
+# ── Canale annuncio decadimento fame/sete ─────────────────────────────────────
+# https://discord.com/channels/1404051526116311141/1546058395071545404
+DECADIMENTO_CHANNEL_ID   = 1546058395071545404
+DECADIMENTO_INTERVALLO_H = 24     # ogni quante ore scatta il decadimento
+DECADIMENTO_PERCENTUALE  = 5      # quanti punti % vengono tolti a fame e sete
+
 # Turni attivi: ora persistenti nel DB (tabella turni_attivi)
 # Il dizionario in memoria serve solo come cache per i role object Discord
 _turni_cache: dict = {}  # user_id → discord.Role object (non serializzabile)
@@ -111,6 +117,70 @@ def _fuzzy(query: str, candidates: list) -> list:
     return r or [c for c in candidates if any(w in c.lower() for w in words)]
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+#  TASK — Decadimento giornaliero di Fame e Sete
+#  Ogni DECADIMENTO_INTERVALLO_H ore abbassa fame e sete di TUTTI gli utenti
+#  del DECADIMENTO_PERCENTUALE%, e manda un annuncio formale con @everyone
+#  nel canale indicato.
+# ══════════════════════════════════════════════════════════════════════════════
+async def task_decadimento_giornaliero(bot):
+    await bot.wait_until_ready()
+    print(f"🍔 Task decadimento fame/sete avviato (ogni {DECADIMENTO_INTERVALLO_H}h, -{DECADIMENTO_PERCENTUALE}%)", flush=True)
+
+    while not bot.is_closed():
+        await asyncio.sleep(DECADIMENTO_INTERVALLO_H * 3600)
+        try:
+            n_utenti = 0
+            async with aiosqlite.connect(DATABASE_NAME) as db:
+                db.row_factory = aiosqlite.Row
+                async with db.execute("SELECT user_id, hunger, thirst FROM users") as c:
+                    rows = [dict(r) for r in await c.fetchall()]
+
+                for r in rows:
+                    nuova_fame = max(0, r["hunger"] - DECADIMENTO_PERCENTUALE)
+                    nuova_sete = max(0, r["thirst"] - DECADIMENTO_PERCENTUALE)
+                    await db.execute(
+                        "UPDATE users SET hunger=?, thirst=? WHERE user_id=?",
+                        (nuova_fame, nuova_sete, r["user_id"])
+                    )
+                await db.commit()
+                n_utenti = len(rows)
+
+            print(f"🍔 Decadimento applicato a {n_utenti} utenti (-{DECADIMENTO_PERCENTUALE}% fame/sete)", flush=True)
+
+            # ── Annuncio formale nel canale dedicato ─────────────────────────
+            try:
+                ch = bot.get_channel(DECADIMENTO_CHANNEL_ID)
+                if not ch:
+                    ch = await bot.fetch_channel(DECADIMENTO_CHANNEL_ID)
+                if ch:
+                    embed = discord.Embed(
+                        title="📉 𝐀𝐍𝐍𝐔𝐍𝐂𝐈𝐎 𝐔𝐅𝐅𝐈𝐂𝐈𝐀𝐋𝐄 — 𝐂𝐨𝐧𝐬𝐮𝐦𝐨 𝐆𝐢𝐨𝐫𝐧𝐚𝐥𝐢𝐞𝐫𝐨",
+                        description=(
+                            "Il tempo scorre inesorabile nelle terre del Far West.\n\n"
+                            f"Come da consuetudine, ogni **{DECADIMENTO_INTERVALLO_H} ore** il corpo di ogni "
+                            "abitante della contea consuma le proprie riserve naturali.\n\n"
+                            f"**Fame** e **Sete** di tutti i cittadini sono state ridotte del "
+                            f"**{DECADIMENTO_PERCENTUALE}%**.\n\n"
+                            "Si raccomanda a tutti i cittadini di provvedere a mangiare e bere "
+                            "con `/mangia` e `/bevi`, per evitare di incorrere in conseguenze "
+                            "legate alla disidratazione o alla fame."
+                        ),
+                        color=discord.Color(0x8B4513),
+                        timestamp=discord.utils.utcnow()
+                    )
+                    embed.set_footer(text="🤠 Red Dead Redemption II — Ufficio di Sussistenza della Contea")
+                    await ch.send(content="@everyone", embed=embed)
+                    print("🍔 Annuncio decadimento inviato nel canale dedicato", flush=True)
+                else:
+                    print(f"⚠️ Canale decadimento {DECADIMENTO_CHANNEL_ID} non trovato", flush=True)
+            except Exception as e:
+                print(f"❌ Errore invio annuncio decadimento: {e}", flush=True)
+
+        except Exception as e:
+            print(f"❌ Errore task decadimento fame/sete: {e}", flush=True)
+
+
 def setup_rp_commands(bot):
 
     # ── /me ──────────────────────────────────────────────────────────────────
@@ -128,22 +198,20 @@ def setup_rp_commands(bot):
             )
             return
 
-        h_drop = random.randint(1, 3)
-        t_drop = random.randint(1, 5)
-        new_h  = max(0, user["hunger"] - h_drop)
-        new_t  = max(0, user["thirst"] - t_drop)
-        await database.update_hunger_thirst(uid, hunger=new_h, thirst=new_t)
+        # ⚠️ Fame e Sete NON calano più ad ogni azione: calano automaticamente
+        # ogni 24 ore tramite task_decadimento_giornaliero. Qui mostriamo solo
+        # lo stato attuale, senza modificarlo.
         embed = discord.Embed(
             description=f"*{interaction.user.mention} : {azione}*",
-            color=_color(new_h, new_t),
+            color=_color(user["hunger"], user["thirst"]),
             timestamp=discord.utils.utcnow()
         )
         embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
-        embed.add_field(name="🍔 Fame", value=_bar(new_h), inline=True)
-        embed.add_field(name="💦 Sete", value=_bar(new_t), inline=True)
+        embed.add_field(name="🍔 Fame", value=_bar(user["hunger"]), inline=True)
+        embed.add_field(name="💦 Sete", value=_bar(user["thirst"]), inline=True)
         warns = []
-        if new_h < 20: warns.append("⚠️ **Sei affamato!** Mangia qualcosa.")
-        if new_t < 20: warns.append("⚠️ **Sei assetato!** Bevi qualcosa.")
+        if user["hunger"] < 20: warns.append("⚠️ **Sei affamato!** Mangia qualcosa.")
+        if user["thirst"] < 20: warns.append("⚠️ **Sei assetato!** Bevi qualcosa.")
         if warns:
             embed.add_field(name="​", value="​", inline=False)
             embed.add_field(name="⚡ Avviso", value="\n".join(warns), inline=False)
@@ -656,9 +724,6 @@ def setup_rp_commands(bot):
         embed.set_footer(text="🤠 Red Dead Redemption II — Accampamento")
         await interaction.response.send_message(embed=embed)
 
-    # ── /caccia ──────────────────────────────────────────────────────────────
-  
-
     # ── /anonimo ─────────────────────────────────────────────────────────────
     @bot.tree.command(name="anonimo", description="Invia un messaggio anonimo nel canale")
     @app_commands.describe(messaggio="Il messaggio anonimo")
@@ -842,9 +907,6 @@ def setup_rp_commands(bot):
                 await ch.send(embed=log)
         except Exception:
             pass
-
-    # ── /sondaggiorp ─────────────────────────────────────────────────────────
-
 
     # ── /lettera ─────────────────────────────────────────────────────────────
     @bot.tree.command(name="lettera", description="Invia una lettera privata a un altro giocatore")

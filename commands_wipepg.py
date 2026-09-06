@@ -38,8 +38,6 @@ def setup_wipepg_commands(bot: commands.Bot):
                 "• 💼 **Turno attivo** (rimosso)\n"
                 "• 🙈 **Oggetti nascosti** (tutti)\n"
                 "• 🔫 **Usura armi** (tutta)\n"
-                "• 🔫 **Armi assegnate** (tutte)\n"
-                "• 🐴 **Cavalli assegnati** (tutti)\n"
                 "• 🍔 **Fame e Sete** (reset a 100)\n"
             ),
             inline=False
@@ -110,8 +108,6 @@ def setup_wipepg_commands(bot: commands.Bot):
                 "• 💼 **Turni attivi** (rimossi)\n"
                 "• 🙈 **Oggetti nascosti** (tutti)\n"
                 "• 🔫 **Usura armi** (tutta)\n"
-                "• 🔫 **Armi assegnate** (tutte)\n"
-                "• 🐴 **Cavalli assegnati** (tutti)\n"
                 "• 🍔 **Fame e Sete** (reset a 100)\n"
             ),
             inline=False
@@ -217,34 +213,6 @@ class WipeConfirmView(discord.ui.View):
                 except Exception:
                     stats["usura_armi"] = 0
 
-                # ⚠️ NUOVO: armi assegnate (player_weapons) e cavalli assegnati (player_horses)
-                try:
-                    await db.execute("""
-                        CREATE TABLE IF NOT EXISTS player_weapons (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            user_id TEXT NOT NULL, nome_arma TEXT NOT NULL,
-                            tipo TEXT, dettagli TEXT, dato_da TEXT, created_at TEXT
-                        )
-                    """)
-                    c5 = await db.execute("DELETE FROM player_weapons WHERE user_id=?", (uid,))
-                    stats["armi_assegnate"] = c5.rowcount
-                except Exception:
-                    stats["armi_assegnate"] = 0
-
-                try:
-                    await db.execute("""
-                        CREATE TABLE IF NOT EXISTS player_horses (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            user_id TEXT NOT NULL, nome TEXT NOT NULL,
-                            razza TEXT, colore TEXT, sesso TEXT, eta TEXT,
-                            prezzo INTEGER DEFAULT 0, dato_da TEXT, created_at TEXT
-                        )
-                    """)
-                    c6 = await db.execute("DELETE FROM player_horses WHERE user_id=?", (uid,))
-                    stats["cavalli_assegnati"] = c6.rowcount
-                except Exception:
-                    stats["cavalli_assegnati"] = 0
-
                 await db.commit()
 
             success_embed = discord.Embed(
@@ -265,8 +233,6 @@ class WipeConfirmView(discord.ui.View):
                 f"• 💼 Turno: {stats['turno']}\n"
                 f"• 🙈 Oggetti nascosti: {stats['nascosti']} rimossi\n"
                 f"• 🔫 Usura armi: {stats['usura_armi']} record rimossi\n"
-                f"• 🔫 Armi assegnate: {stats['armi_assegnate']} rimosse\n"
-                f"• 🐴 Cavalli assegnati: {stats['cavalli_assegnati']} rimossi\n"
             ), inline=False)
             success_embed.add_field(name="👮 Eseguito da", value=self.admin_user.mention, inline=True)
             success_embed.add_field(name="👤 Utente",      value=self.target_user.mention, inline=True)
@@ -358,8 +324,6 @@ class WipeTotaleConfirmView(discord.ui.View):
             "turni":             0,
             "nascosti":          0,
             "usura":             0,
-            "armi_assegnate":    0,
-            "cavalli_assegnati": 0,
         }
 
         try:
@@ -431,34 +395,6 @@ class WipeTotaleConfirmView(discord.ui.View):
                 except Exception:
                     pass
 
-                # ⚠️ NUOVO: armi assegnate (player_weapons) e cavalli assegnati (player_horses)
-                try:
-                    await db.execute("""
-                        CREATE TABLE IF NOT EXISTS player_weapons (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            user_id TEXT NOT NULL, nome_arma TEXT NOT NULL,
-                            tipo TEXT, dettagli TEXT, dato_da TEXT, created_at TEXT
-                        )
-                    """)
-                    r7 = await db.execute("DELETE FROM player_weapons")
-                    totals["armi_assegnate"] = r7.rowcount
-                except Exception:
-                    pass
-
-                try:
-                    await db.execute("""
-                        CREATE TABLE IF NOT EXISTS player_horses (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            user_id TEXT NOT NULL, nome TEXT NOT NULL,
-                            razza TEXT, colore TEXT, sesso TEXT, eta TEXT,
-                            prezzo INTEGER DEFAULT 0, dato_da TEXT, created_at TEXT
-                        )
-                    """)
-                    r8 = await db.execute("DELETE FROM player_horses")
-                    totals["cavalli_assegnati"] = r8.rowcount
-                except Exception:
-                    pass
-
                 # Documenti falsi
                 try:
                     await db.execute("DELETE FROM fake_documents")
@@ -486,8 +422,6 @@ class WipeTotaleConfirmView(discord.ui.View):
                 f"• 💼 Turni rimossi: **{totals['turni']}**\n"
                 f"• 🙈 Oggetti nascosti rimossi: **{totals['nascosti']}**\n"
                 f"• 🔫 Record usura armi rimossi: **{totals['usura']}**\n"
-                f"• 🔫 Armi assegnate rimosse: **{totals['armi_assegnate']}**\n"
-                f"• 🐴 Cavalli assegnati rimossi: **{totals['cavalli_assegnati']}**\n"
             ), inline=False)
             success_embed.add_field(
                 name="✅ Intatto",
@@ -515,8 +449,7 @@ class WipeTotaleConfirmView(discord.ui.View):
                         f"Proprietà: {totals['proprieta']} | Taglie: {totals['taglie']} | "
                         f"Fedina: {totals['fedina']} | Arresti: {totals['arresti']} | "
                         f"Fatture: {totals['fatture']} | Turni: {totals['turni']} | "
-                        f"Nascosti: {totals['nascosti']} | Usura: {totals['usura']} | "
-                        f"Armi: {totals['armi_assegnate']} | Cavalli: {totals['cavalli_assegnati']}"
+                        f"Nascosti: {totals['nascosti']} | Usura: {totals['usura']}"
                     ), inline=False)
                     await ch.send(embed=log)
             except Exception:

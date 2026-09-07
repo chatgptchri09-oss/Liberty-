@@ -226,16 +226,36 @@ def setup_rp_commands(bot):
     @app_commands.describe(cibo="Il cibo da mangiare")
     @app_commands.autocomplete(cibo=_food_ac)
     async def mangia(interaction: discord.Interaction, cibo: str):
-        if cibo not in FOOD_ITEMS:
-            m = _fuzzy(cibo, list(FOOD_ITEMS.keys()))
-            cibo = m[0] if m else cibo
-        if cibo not in FOOD_ITEMS:
-            await interaction.response.send_message("❌ Cibo non riconosciuto.", ephemeral=True); return
         uid = str(interaction.user.id)
-        if await database.get_item_quantity(uid, cibo) < 1:
+
+        # ⚠️ FIX: prima si cerca il nome ESATTO così com'è nella bisaccia
+        # dell'utente (tollerante a piccole differenze di battitura), non si
+        # normalizza subito al nome "ufficiale" del listino FOOD_ITEMS — quel
+        # comportamento causava "non hai questo cibo" anche quando l'utente
+        # lo possedeva, semplicemente perché l'item nell'emporio era stato
+        # creato con un nome leggermente diverso (es. senza il "•").
+        inventario   = await database.get_inventory(uid)
+        nomi_bisaccia = [i["item_name"] for i in inventario]
+
+        nome_reale = cibo if cibo in nomi_bisaccia else None
+        if not nome_reale:
+            m = _fuzzy(cibo, nomi_bisaccia)
+            nome_reale = m[0] if m else None
+
+        if not nome_reale:
             await interaction.response.send_message(f"❌ Non hai **{cibo}** nella bisaccia!", ephemeral=True); return
+
+        # Il valore nutrizionale si cerca nel listino ufficiale, con fuzzy
+        # match tollerante; se l'item non è nel listino, si usa un valore
+        # di default ragionevole invece di bloccare l'azione.
+        if nome_reale in FOOD_ITEMS:
+            rip = FOOD_ITEMS[nome_reale]
+        else:
+            m2  = _fuzzy(nome_reale, list(FOOD_ITEMS.keys()))
+            rip = FOOD_ITEMS[m2[0]] if m2 else 15
+
+        cibo = nome_reale
         user  = await database.get_user(uid)
-        rip   = FOOD_ITEMS[cibo]
         old_h = user["hunger"]
         new_h = min(100, old_h + rip)
         await database.update_hunger_thirst(uid, hunger=new_h)
@@ -309,19 +329,35 @@ def setup_rp_commands(bot):
     @app_commands.describe(bevanda="La bevanda da bere")
     @app_commands.autocomplete(bevanda=_drink_ac)
     async def bevi(interaction: discord.Interaction, bevanda: str):
-        if bevanda not in DRINK_ITEMS:
-            m = _fuzzy(bevanda, list(DRINK_ITEMS.keys()))
-            bevanda = m[0] if m else bevanda
-        if bevanda not in DRINK_ITEMS:
-            await interaction.response.send_message("❌ Bevanda non riconosciuta.", ephemeral=True); return
         uid = str(interaction.user.id)
-        if await database.get_item_quantity(uid, bevanda) < 1:
+
+        # ⚠️ Stesso fix di /mangia: si cerca il nome REALE nella bisaccia
+        # prima di tutto, non si normalizza subito al listino ufficiale.
+        inventario    = await database.get_inventory(uid)
+        nomi_bisaccia = [i["item_name"] for i in inventario]
+
+        nome_reale = bevanda if bevanda in nomi_bisaccia else None
+        if not nome_reale:
+            m = _fuzzy(bevanda, nomi_bisaccia)
+            nome_reale = m[0] if m else None
+
+        if not nome_reale:
             await interaction.response.send_message(f"❌ Non hai **{bevanda}** nella bisaccia!", ephemeral=True); return
+
+        if nome_reale in DRINK_ITEMS:
+            rip = DRINK_ITEMS[nome_reale]
+        else:
+            m2  = _fuzzy(nome_reale, list(DRINK_ITEMS.keys()))
+            rip = DRINK_ITEMS[m2[0]] if m2 else 10
+
+        # Alcolico: controllo diretto + fuzzy sul nome reale, per tollerare
+        # piccole differenze di nome tra emporio e listino ALCOHOLIC.
+        is_alc = nome_reale in ALCOHOLIC or bool(_fuzzy(nome_reale, list(ALCOHOLIC)))
+
+        bevanda = nome_reale
         user  = await database.get_user(uid)
-        rip   = DRINK_ITEMS[bevanda]
         old_t = user["thirst"]
         new_t = min(100, old_t + rip)
-        is_alc = bevanda in ALCOHOLIC
         await database.update_hunger_thirst(uid, thirst=new_t)
         await database.remove_item(uid, bevanda, 1)
         if is_alc:

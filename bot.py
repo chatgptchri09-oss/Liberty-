@@ -55,6 +55,8 @@ async def on_ready():
     await init_usura_table()
     await database.init_hidden_items_table()
     asyncio.create_task(task_usura_giornaliera(bot))
+    from commands_rp import task_decadimento_giornaliero
+    asyncio.create_task(task_decadimento_giornaliero(bot))
     # Rete di sicurezza extra: ri-registra la view anche qui. Non è più il
     # punto critico (quello è setup_hook sopra), ma non costa nulla e copre
     # anche il caso in cui il bot si riconnetta al gateway dopo un hiccup
@@ -82,6 +84,7 @@ _modules = [
     ("commands_theft",           "setup_theft_commands"),
     ("commands_banca",           "setup_banca_commands"),
     ("backup",                   "setup_backup_commands"),
+    ("commands_usura",           "setup_usura_commands"),
     ("commands_rp_status",       "setup_rpoff_commands"),
     ("commands_invoice",         "setup_invoice_commands"),
     ("commands_wipepg",          "setup_wipepg_commands"),

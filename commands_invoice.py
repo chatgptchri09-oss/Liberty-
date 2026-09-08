@@ -10,6 +10,7 @@ PERCENTUALE_EMITTENTE = 0.25
 # ── Aziende per /fattura ───────────────────────────────────────────────────────
 ARMIERE_ROLE_ID   = 1404051953188733002
 STALLA_ROLE_ID    = 1404051942698913792
+EMPORIO_ROLE_ID   = 1404051971102740490
 AGENZIA_ROLE_ID   = 1404051965364670545
 STAFF_ROLE_ID     = 1404051875426467902
 CHIAVE_ROLE_ID    = 1404051860121456701
@@ -17,12 +18,15 @@ CHIAVE_ROLE_ID    = 1404051860121456701
 LOG_ARMERIA_CH    = 1501575429461639249
 LOG_STALLA_CH     = 1501575466925166785
 LOG_AGENZIA_CH    = 1501575481172951162
+LOG_EMPORIO_CH    = 1546947686492803293
 
 AZIENDE_CONFIG = {
     "Armeria":             {"ruolo": ARMIERE_ROLE_ID, "log_ch": LOG_ARMERIA_CH,  "emoji": "🔫", "fondocassa": "Armiere"},
     "Stalla":              {"ruolo": STALLA_ROLE_ID,  "log_ch": LOG_STALLA_CH,   "emoji": "🐴", "fondocassa": "Stalla"},
     "Agenzia Immobiliare": {"ruolo": AGENZIA_ROLE_ID, "log_ch": LOG_AGENZIA_CH,  "emoji": "🏡", "fondocassa": "Agenzia"},
+    "Emporio":             {"ruolo": EMPORIO_ROLE_ID, "log_ch": LOG_EMPORIO_CH,  "emoji": "🏪", "fondocassa": "Emporio"},
 }
+
 
 # ── Stato azioni criminali (in memoria — si resetta al riavvio) ────────────────
 _azioni_criminali_attive: bool = True

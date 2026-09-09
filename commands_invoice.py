@@ -55,6 +55,7 @@ def setup_invoice_commands(bot):
         app_commands.Choice(name="🔫 Armeria",             value="Armeria"),
         app_commands.Choice(name="🐴 Stalla",              value="Stalla"),
         app_commands.Choice(name="🏡 Agenzia Immobiliare", value="Agenzia Immobiliare"),
+        app_commands.Choice(name="🏪 Emporio",             value="Emporio"),
     ])
     async def fattura(interaction: discord.Interaction, destinatario: discord.Member,
                       importo: int, descrizione: str, azienda: str):

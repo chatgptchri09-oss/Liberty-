@@ -19,6 +19,13 @@ COMPANY_EMOJI = {
     "Fight Club":   "🥊",
 }
 
+# ── Ruoli extra con accesso al fondo cassa, oltre a quelli già in COMPANY_ROLES ──
+# ⚠️ Aggiunti su richiesta: chi ha questi ruoli può accedere, prelevare e
+# depositare nel fondo cassa della compagnia indicata, IN AGGIUNTA a chi ha
+# già il ruolo storico configurato in COMPANY_ROLES.
+EXTRA_ACCESSO_BANCHIERE_ROLE_ID = 1480217288933376130
+EXTRA_ACCESSO_STATO_ROLE_ID     = 1480217343245287424
+
 _CHOICES = [
     app_commands.Choice(name="⭐ Sceriffo",     value="Sceriffo"),
     app_commands.Choice(name="🩺 Dottore",      value="Dottore"),
@@ -44,6 +51,15 @@ def _get_user_companies(member) -> list:
                 result.append(company)
         elif any(r.id == role_id for r in member.roles):
             result.append(company)
+
+    # ⚠️ Ruoli extra: danno accesso a Banchiere/Stato anche a chi non ha già
+    # il ruolo storico in COMPANY_ROLES ("insieme a quello che c'è già").
+    member_role_ids = {r.id for r in member.roles}
+    if EXTRA_ACCESSO_BANCHIERE_ROLE_ID in member_role_ids and "Banchiere" not in result:
+        result.append("Banchiere")
+    if EXTRA_ACCESSO_STATO_ROLE_ID in member_role_ids and "Stato" not in result:
+        result.append("Stato")
+
     return result
 
 

@@ -47,14 +47,31 @@ class PortafoglioSelect(discord.ui.Select):
             if not doc:
                 embed.description = "*Nessun documento registrato. Contatta le autorità.*"
             else:
-                embed.add_field(name="👤 Nome",            value=doc["nome"],          inline=True)
-                embed.add_field(name="👥 Cognome",         value=doc["cognome"],        inline=True)
-                embed.add_field(name="🎂 Età",             value=str(doc["eta"]),       inline=True)
-                embed.add_field(name="⚧ Sesso",            value=doc["sesso"],          inline=True)
-                embed.add_field(name="📍 Luogo di nascita",value=doc["luogo_nascita"],  inline=True)
-                embed.add_field(name="📅 Emesso il",       value=doc["created_at"],     inline=True)
+                # ⚠️ FIX: prima venivano mostrati solo alcuni campi (nome,
+                # cognome, età, sesso, luogo di nascita). Il documento ha
+                # anche ID PSN, data di nascita, nazionalità, colore capelli,
+                # colore occhi, carnagione, segni particolari e la foto
+                # (tutti salvati in "extra" da /documento) — ora li mostriamo
+                # tutti, esattamente come fa /mostra-documento.
+                extra = doc.get("extra") or {}
+                embed.add_field(name="🆔 ID PSN",            value=extra.get("psn_id", "—"),      inline=True)
+                embed.add_field(name="🔖 ID Discord",         value=self.target.mention,           inline=True)
+                embed.add_field(name="\u200b",                value="\u200b",                       inline=False)
+                embed.add_field(name="👤 Nome",               value=doc.get("nome", "—"),           inline=True)
+                embed.add_field(name="👥 Cognome",            value=doc.get("cognome", "—"),        inline=True)
+                embed.add_field(name="📅 Data di Nascita",    value=extra.get("data_nascita", "—"), inline=True)
+                embed.add_field(name="🎂 Età",                value=str(doc.get("eta", "—")),       inline=True)
+                embed.add_field(name="📍 Residenza",          value=doc.get("luogo_nascita", "—"),  inline=True)
+                embed.add_field(name="🌍 Nazionalità",        value=extra.get("nazionalita", "—"),  inline=True)
+                embed.add_field(name="⚧ Sesso",               value=doc.get("sesso", "—"),          inline=True)
+                embed.add_field(name="\u200b",                value="\u200b",                       inline=False)
+                embed.add_field(name="💇 Colore Capelli",     value=extra.get("capelli", "—"),      inline=True)
+                embed.add_field(name="👁️ Colore Occhi",       value=extra.get("occhi", "—"),        inline=True)
+                embed.add_field(name="🎨 Carnagione",         value=extra.get("carnagione", "—"),   inline=True)
+                embed.add_field(name="🔍 Segni Particolari",  value=extra.get("segni", "—"),        inline=True)
                 if doc.get("foto_url"):
                     embed.set_image(url=doc["foto_url"])
+                embed.add_field(name="📅 Emesso il", value=doc.get("created_at", "—"), inline=True)
             embed.set_footer(text="🤠 Red Dead Redemption II — Documento")
             label = "📜 Documento d'identità"
 
@@ -321,9 +338,6 @@ def setup_wallet_commands(bot):
     @bot.tree.command(name="portafoglio", description="Apri il tuo portafoglio personale")
     async def portafoglio(interaction: discord.Interaction):
         embed = discord.Embed(
-            # ⚠️ FIX: le menzioni (@utente) non vengono renderizzate nei TITOLI
-            # degli embed su Discord — mostrano solo il testo grezzo "<@123..>".
-            # Per questo si vedevano numeri e una @. Ora uso il display_name.
             title=f"<a:Portafoglio:1462442004569919629> 𝐏𝐨𝐫𝐭𝐚𝐟𝐨𝐠𝐥𝐢𝐨 𝐝𝐢 {interaction.user.display_name}",
             description=(
                 "Seleziona una sezione dal menu qui sotto per visualizzare\n"

@@ -17,6 +17,20 @@ COLOR_FC_CLOSE = 0xDAA520
 COLOR_FC_WIN   = 0x228B22
 COLOR_FC_VOID  = 0xB22222
 
+BAR_LENGTH = 20  # lunghezza della barra proporzionale scommesse (in "blocchi")
+
+
+def _build_proportion_bar(pool_a: int, pool_b: int, length: int = BAR_LENGTH) -> str:
+    """Barra visiva marrone/blu proporzionale al peso delle due pool di scommesse."""
+    totale = pool_a + pool_b
+    if totale == 0:
+        fill_a = length // 2
+    else:
+        fill_a = round((pool_a / totale) * length)
+    fill_a = max(0, min(length, fill_a))
+    fill_b = length - fill_a
+    return "🟫" * fill_a + "🟦" * fill_b
+
 
 def _has_fightclub_owner(interaction: discord.Interaction) -> bool:
     if not isinstance(interaction.user, discord.Member):
@@ -220,14 +234,17 @@ class FightBettingView(discord.ui.View):
             colore = COLOR_FC_WIN
 
         embed = discord.Embed(title=titolo, color=colore, timestamp=discord.utils.utcnow())
-        embed.add_field(name=f"🥊 {self.lottatore_a}", value=f"**${pool_a:,}**\n{cnt_a} scommettitori", inline=True)
+        embed.add_field(name=f"🐎 {self.lottatore_a}", value=f"**${pool_a:,}**\n{cnt_a} scommettitori", inline=True)
         embed.add_field(name="⚔️", value="vs", inline=True)
-        embed.add_field(name=f"🥊 {self.lottatore_b}", value=f"**${pool_b:,}**\n{cnt_b} scommettitori", inline=True)
+        embed.add_field(name=f"🐻 {self.lottatore_b}", value=f"**${pool_b:,}**\n{cnt_b} scommettitori", inline=True)
+
+        # ── Barra proporzionale — mostra visivamente chi sta raccogliendo più scommesse
+        embed.add_field(name="​", value=_build_proportion_bar(pool_a, pool_b), inline=False)
 
         quota_a = f"x{(totale/pool_a):.2f}" if pool_a > 0 else "—"
         quota_b = f"x{(totale/pool_b):.2f}" if pool_b > 0 else "—"
-        embed.add_field(name="💰 Monte premi totale", value=f"**${totale:,}**", inline=False)
         embed.add_field(name=f"📊 Quota {self.lottatore_a}", value=quota_a, inline=True)
+        embed.add_field(name="💰 Monte premi", value=f"**${totale:,}**", inline=True)
         embed.add_field(name=f"📊 Quota {self.lottatore_b}", value=quota_b, inline=True)
 
         if stato == "risolta" and match["vincitore"]:
@@ -240,16 +257,13 @@ class FightBettingView(discord.ui.View):
                     righe.append(f"<@{b['user_id']}> — puntati ${b['importo']:,} → vinti **${vincita:,}**")
             if righe:
                 embed.add_field(name="🏆 Vincitori", value="\n".join(righe)[:1024], inline=False)
+        else:
+            embed.add_field(
+                name="​",
+                value=f"*Servono almeno 2 scommettitori — sotto il minimo, rimborso automatico.*",
+                inline=False
+            )
 
-        embed.add_field(
-            name="ℹ️ Regole",
-            value=(
-                f"Scommessa minima **${SCOMMESSA_MIN}**, massima **${SCOMMESSA_MAX}**.\n"
-                "Servono almeno **2 scommettitori** — sotto il minimo, rimborso automatico.\n"
-                "Il montepremi totale viene ridistribuito ai vincitori in proporzione alla puntata."
-            ),
-            inline=False
-        )
         embed.set_footer(text="🤠 Red Dead Redemption II — Fight Club")
         return embed
 

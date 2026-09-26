@@ -24,16 +24,6 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 print("✅ Bot inizializzato", flush=True)
 
 # ── setup_hook ────────────────────────────────────────────────────────────────
-# ⚠️ QUESTO è il punto giusto (garantito da discord.py) per registrare le
-# persistent View: viene chiamato UNA SOLA VOLTA, subito dopo il login ma
-# PRIMA che il bot si connetta al gateway e possa quindi ricevere qualunque
-# interazione (click sul bottone incluso). A differenza di on_ready() — che
-# può essere richiamato più volte ad ogni riconnessione al gateway, o in
-# rarissimi casi di race condition potenzialmente dopo che un'interazione è
-# già arrivata — setup_hook() elimina del tutto la finestra di rischio in cui
-# il bottone "Inizia Background PG" potrebbe non avere ancora un handler
-# registrato, che è la causa esatta di "l'applicazione non ha risposto in
-# tempo" (Discord manda l'interazione, nessun listener risponde, timeout).
 async def _setup_hook():
     try:
         from commands_admin import BackgroundView
@@ -57,10 +47,6 @@ async def on_ready():
     asyncio.create_task(task_usura_giornaliera(bot))
     from commands_rp import task_decadimento_giornaliero
     asyncio.create_task(task_decadimento_giornaliero(bot))
-    # Rete di sicurezza extra: ri-registra la view anche qui. Non è più il
-    # punto critico (quello è setup_hook sopra), ma non costa nulla e copre
-    # anche il caso in cui il bot si riconnetta al gateway dopo un hiccup
-    # di rete senza che il processo venga riavviato da zero.
     try:
         from commands_admin import BackgroundView
         bot.add_view(BackgroundView(bot))
@@ -90,6 +76,7 @@ _modules = [
     ("commands_wipepg",          "setup_wipepg_commands"),
     ("commands_deposits",        "setup_deposits_commands"),
     ("commands_gazzetta",        "setup_gazzetta_commands"),
+    ("commands_fightclub",       "setup_fightclub_commands"),
 ]
 _loaded = {}
 for mod_name, func_name in _modules:

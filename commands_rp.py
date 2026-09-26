@@ -43,11 +43,16 @@ from constants import (
 # Canale dove va la notifica stipendio per lo staff
 STIPENDIO_CHANNEL_ID = 1422986030650228766
 
-# ── Canale annuncio decadimento fame/sete ─────────────────────────────────────
+# ── Decadimento giornaliero di Fame e Sete ────────────────────────────────────
 # https://discord.com/channels/1404051526116311141/1546058395071545404
+# ⚠️ Il decadimento si applica SOLO a chi ha questo ruolo Discord.
+FAME_DECAY_ROLE_ID       = 1404052056028772775
 DECADIMENTO_CHANNEL_ID   = 1546058395071545404
 DECADIMENTO_INTERVALLO_H = 24     # ogni quante ore scatta il decadimento
-DECADIMENTO_PERCENTUALE  = 5      # quanti punti % vengono tolti a fame e sete
+DECADIMENTO_PERC_MIN     = 1      # calo minimo (%) — estratto random ogni ciclo
+DECADIMENTO_PERC_MAX     = 3      # calo massimo (%) — estratto random ogni ciclo
+# Fame e Sete calano ENTRAMBE, ognuna con una % casuale indipendente estratta
+# allo stesso ciclo (possono quindi calare di valori diversi tra loro).
 
 # Turni attivi: ora persistenti nel DB (tabella turni_attivi)
 # Il dizionario in memoria serve solo come cache per i role object Discord
@@ -117,61 +122,130 @@ def _fuzzy(query: str, candidates: list) -> list:
     return r or [c for c in candidates if any(w in c.lower() for w in words)]
 
 
+def _has_fame_decay_role(member) -> bool:
+    """True se il member ha il ruolo Discord soggetto al decadimento fame."""
+    if not isinstance(member, discord.Member):
+        return False
+    return any(r.id == FAME_DECAY_ROLE_ID for r in member.roles)
+
+
+def _find_member_in_guilds(bot, user_id: str):
+    """Cerca un discord.Member per user_id in tutti i guild del bot."""
+    if not user_id.isdigit():
+        return None
+    uid_int = int(user_id)
+    for g in bot.guilds:
+        m = g.get_member(uid_int)
+        if m:
+            return m
+    return None
+
+
 # ══════════════════════════════════════════════════════════════════════════════
-#  TASK — Decadimento giornaliero di Fame e Sete
-#  Ogni DECADIMENTO_INTERVALLO_H ore abbassa fame e sete di TUTTI gli utenti
-#  del DECADIMENTO_PERCENTUALE%, e manda un annuncio formale con @everyone
-#  nel canale indicato.
+#  TASK — Decadimento giornaliero della Fame
+#  Ogni DECADIMENTO_INTERVALLO_H ore abbassa la fame SOLO di chi ha il ruolo
+#  FAME_DECAY_ROLE_ID, di una percentuale casuale tra DECADIMENTO_PERC_MIN e
+#  DECADIMENTO_PERC_MAX (estratta una volta per ciclo, applicata a tutti gli
+#  idonei), e manda un annuncio formale con @everyone nel canale indicato,
+#  specificando di quanto è calata la fame quella volta.
 # ══════════════════════════════════════════════════════════════════════════════
+def _decay_bar(v: int) -> str:
+    """Mini barra visiva per l'annuncio di decadimento (10 tacche)."""
+    f = round(max(0, min(100, v)) / 10)
+    return "▰" * f + "▱" * (10 - f)
+
+
 async def task_decadimento_giornaliero(bot):
     await bot.wait_until_ready()
-    print(f"🍔 Task decadimento fame/sete avviato (ogni {DECADIMENTO_INTERVALLO_H}h, -{DECADIMENTO_PERCENTUALE}%)", flush=True)
+    print(
+        f"🍔💦 Task decadimento fame/sete avviato (ogni {DECADIMENTO_INTERVALLO_H}h, "
+        f"-{DECADIMENTO_PERC_MIN}%~{DECADIMENTO_PERC_MAX}% ciascuna, solo ruolo {FAME_DECAY_ROLE_ID})",
+        flush=True
+    )
 
     while not bot.is_closed():
         await asyncio.sleep(DECADIMENTO_INTERVALLO_H * 3600)
         try:
+            perc_fame = random.randint(DECADIMENTO_PERC_MIN, DECADIMENTO_PERC_MAX)
+            perc_sete = random.randint(DECADIMENTO_PERC_MIN, DECADIMENTO_PERC_MAX)
             n_utenti = 0
+
+            # Per l'anteprima nell'embed: fame/sete medie prima → dopo (sugli idonei)
+            somma_fame_prima = somma_fame_dopo = 0
+            somma_sete_prima = somma_sete_dopo = 0
+
             async with aiosqlite.connect(DATABASE_NAME) as db:
                 db.row_factory = aiosqlite.Row
                 async with db.execute("SELECT user_id, hunger, thirst FROM users") as c:
                     rows = [dict(r) for r in await c.fetchall()]
 
                 for r in rows:
-                    nuova_fame = max(0, r["hunger"] - DECADIMENTO_PERCENTUALE)
-                    nuova_sete = max(0, r["thirst"] - DECADIMENTO_PERCENTUALE)
+                    member = _find_member_in_guilds(bot, r["user_id"])
+                    if not _has_fame_decay_role(member):
+                        continue  # non ha il ruolo → non subisce il decadimento
+
+                    nuova_fame = max(0, r["hunger"] - perc_fame)
+                    nuova_sete = max(0, r["thirst"] - perc_sete)
                     await db.execute(
                         "UPDATE users SET hunger=?, thirst=? WHERE user_id=?",
                         (nuova_fame, nuova_sete, r["user_id"])
                     )
+                    somma_fame_prima += r["hunger"];  somma_fame_dopo += nuova_fame
+                    somma_sete_prima += r["thirst"];  somma_sete_dopo += nuova_sete
+                    n_utenti += 1
+
                 await db.commit()
-                n_utenti = len(rows)
 
-            print(f"🍔 Decadimento applicato a {n_utenti} utenti (-{DECADIMENTO_PERCENTUALE}% fame/sete)", flush=True)
+            print(
+                f"🍔💦 Decadimento applicato a {n_utenti} utenti idonei "
+                f"(-{perc_fame}% fame, -{perc_sete}% sete)",
+                flush=True
+            )
 
-            # ── Annuncio formale nel canale dedicato ─────────────────────────
+            media_fame_prima = round(somma_fame_prima / n_utenti) if n_utenti else 100
+            media_fame_dopo  = round(somma_fame_dopo  / n_utenti) if n_utenti else 100
+            media_sete_prima = round(somma_sete_prima / n_utenti) if n_utenti else 100
+            media_sete_dopo  = round(somma_sete_dopo  / n_utenti) if n_utenti else 100
+
+            # ── Annuncio formale, immersivo, nel canale dedicato ─────────────
             try:
                 ch = bot.get_channel(DECADIMENTO_CHANNEL_ID)
                 if not ch:
                     ch = await bot.fetch_channel(DECADIMENTO_CHANNEL_ID)
                 if ch:
                     embed = discord.Embed(
-                        title="📉 𝐀𝐍𝐍𝐔𝐍𝐂𝐈𝐎 𝐔𝐅𝐅𝐈𝐂𝐈𝐀𝐋𝐄 — 𝐂𝐨𝐧𝐬𝐮𝐦𝐨 𝐆𝐢𝐨𝐫𝐧𝐚𝐥𝐢𝐞𝐫𝐨",
+                        title="🌄 𝐈𝐋 𝐒𝐎𝐋𝐄 𝐓𝐑𝐀𝐌𝐎𝐍𝐓𝐀 𝐒𝐔𝐋𝐋𝐀 𝐂𝐎𝐍𝐓𝐄𝐀",
                         description=(
-                            "Il tempo scorre inesorabile nelle terre del Far West.\n\n"
-                            f"Come da consuetudine, ogni **{DECADIMENTO_INTERVALLO_H} ore** il corpo di ogni "
-                            "abitante della contea consuma le proprie riserve naturali.\n\n"
-                            f"**Fame** e **Sete** di tutti i cittadini sono state ridotte del "
-                            f"**{DECADIMENTO_PERCENTUALE}%**.\n\n"
-                            "Si raccomanda a tutti i cittadini di provvedere a mangiare e bere "
-                            "con `/mangia` e `/bevi`, per evitare di incorrere in conseguenze "
-                            "legate alla disidratazione o alla fame."
+                            "*Un altro giorno si chiude nelle terre selvagge del Far West. "
+                            "Il viaggio, la fatica e il tempo che scorre lasciano il segno "
+                            "su ogni cittadino della contea.*\n\n"
+                            f"⏳ Ogni **{DECADIMENTO_INTERVALLO_H} ore**, chi porta il ruolo "
+                            f"<@&{FAME_DECAY_ROLE_ID}> consuma le proprie riserve naturali."
                         ),
-                        color=discord.Color(0x8B4513),
+                        color=discord.Color(0x6B3E26),
                         timestamp=discord.utils.utcnow()
                     )
-                    embed.set_footer(text="🤠 Red Dead Redemption II — Ufficio di Sussistenza della Contea")
+                    embed.add_field(
+                        name=f"🍔 Fame — calata del {perc_fame}%",
+                        value=f"{_decay_bar(media_fame_prima)}  →  {_decay_bar(media_fame_dopo)}\n"
+                              f"Media contea: **{media_fame_prima}% → {media_fame_dopo}%**",
+                        inline=False
+                    )
+                    embed.add_field(
+                        name=f"💦 Sete — calata del {perc_sete}%",
+                        value=f"{_decay_bar(media_sete_prima)}  →  {_decay_bar(media_sete_dopo)}\n"
+                              f"Media contea: **{media_sete_prima}% → {media_sete_dopo}%**",
+                        inline=False
+                    )
+                    embed.add_field(
+                        name="⚡ Consiglio dello sceriffo",
+                        value="Fai rifornimento con `/mangia` e `/bevi` prima che sia troppo tardi, cowboy.",
+                        inline=False
+                    )
+                    embed.set_thumbnail(url="https://em-content.zobj.net/source/microsoft-teams/363/cowboy-hat-face_1f920.png")
+                    embed.set_footer(text=f"🤠 Red Dead Redemption II — Ufficio di Sussistenza della Contea | {n_utenti} cittadini coinvolti")
                     await ch.send(content="@everyone", embed=embed)
-                    print("🍔 Annuncio decadimento inviato nel canale dedicato", flush=True)
+                    print("🍔💦 Annuncio decadimento inviato nel canale dedicato", flush=True)
                 else:
                     print(f"⚠️ Canale decadimento {DECADIMENTO_CHANNEL_ID} non trovato", flush=True)
             except Exception as e:
@@ -198,9 +272,9 @@ def setup_rp_commands(bot):
             )
             return
 
-        # ⚠️ Fame e Sete NON calano più ad ogni azione: calano automaticamente
-        # ogni 24 ore tramite task_decadimento_giornaliero. Qui mostriamo solo
-        # lo stato attuale, senza modificarlo.
+        # ⚠️ Fame e Sete NON calano più ad ogni azione: la Fame cala automaticamente
+        # ogni 24 ore tramite task_decadimento_giornaliero (solo per chi ha il
+        # ruolo dedicato). Qui mostriamo solo lo stato attuale, senza modificarlo.
         embed = discord.Embed(
             description=f"*{interaction.user.mention} : {azione}*",
             color=_color(user["hunger"], user["thirst"]),
@@ -228,12 +302,6 @@ def setup_rp_commands(bot):
     async def mangia(interaction: discord.Interaction, cibo: str):
         uid = str(interaction.user.id)
 
-        # ⚠️ FIX: prima si cerca il nome ESATTO così com'è nella bisaccia
-        # dell'utente (tollerante a piccole differenze di battitura), non si
-        # normalizza subito al nome "ufficiale" del listino FOOD_ITEMS — quel
-        # comportamento causava "non hai questo cibo" anche quando l'utente
-        # lo possedeva, semplicemente perché l'item nell'emporio era stato
-        # creato con un nome leggermente diverso (es. senza il "•").
         inventario   = await database.get_inventory(uid)
         nomi_bisaccia = [i["item_name"] for i in inventario]
 
@@ -245,9 +313,6 @@ def setup_rp_commands(bot):
         if not nome_reale:
             await interaction.response.send_message(f"❌ Non hai **{cibo}** nella bisaccia!", ephemeral=True); return
 
-        # Il valore nutrizionale si cerca nel listino ufficiale, con fuzzy
-        # match tollerante; se l'item non è nel listino, si usa un valore
-        # di default ragionevole invece di bloccare l'azione.
         if nome_reale in FOOD_ITEMS:
             rip = FOOD_ITEMS[nome_reale]
         else:
@@ -261,7 +326,6 @@ def setup_rp_commands(bot):
         await database.update_hunger_thirst(uid, hunger=new_h)
         await database.remove_item(uid, cibo, 1)
 
-        # ── Animazione progressiva con più embed ─────────────────────────────
         FRASI_MANGIA = [
             (0.10, "🍴 **{u}** dà il primo morso...",                  discord.Color(0xA0522D)),
             (0.25, "😋 **{u}** mastica con soddisfazione.",            discord.Color(0xCD853F)),
@@ -282,7 +346,6 @@ def setup_rp_commands(bot):
             progresso   = (idx + 1) / passi
             fame_attuale = min(100, old_h + round(step * (idx + 1)))
 
-            # Scegli frase in base al progresso
             frase_txt, colore = FRASI_MANGIA[0][1], FRASI_MANGIA[0][2]
             for soglia, testo, col in FRASI_MANGIA:
                 if progresso <= soglia:
@@ -308,7 +371,6 @@ def setup_rp_commands(bot):
             if idx < passi - 1:
                 await asyncio.sleep(1.2)
 
-        # Embed finale definitivo
         embed_finale = discord.Embed(
             title="🍖 𝐏𝐚𝐬𝐭𝐨 𝐜𝐨𝐧𝐬𝐮𝐦𝐚𝐭𝐨",
             color=discord.Color(0x228B22),
@@ -331,8 +393,6 @@ def setup_rp_commands(bot):
     async def bevi(interaction: discord.Interaction, bevanda: str):
         uid = str(interaction.user.id)
 
-        # ⚠️ Stesso fix di /mangia: si cerca il nome REALE nella bisaccia
-        # prima di tutto, non si normalizza subito al listino ufficiale.
         inventario    = await database.get_inventory(uid)
         nomi_bisaccia = [i["item_name"] for i in inventario]
 
@@ -350,8 +410,6 @@ def setup_rp_commands(bot):
             m2  = _fuzzy(nome_reale, list(DRINK_ITEMS.keys()))
             rip = DRINK_ITEMS[m2[0]] if m2 else 10
 
-        # Alcolico: controllo diretto + fuzzy sul nome reale, per tollerare
-        # piccole differenze di nome tra emporio e listino ALCOHOLIC.
         is_alc = nome_reale in ALCOHOLIC or bool(_fuzzy(nome_reale, list(ALCOHOLIC)))
 
         bevanda = nome_reale
@@ -364,7 +422,6 @@ def setup_rp_commands(bot):
             new_h = max(0, user["hunger"] - 5)
             await database.update_hunger_thirst(uid, hunger=new_h)
 
-        # ── Animazione progressiva con più embed ─────────────────────────────
         FRASI_BEVI = [
             (0.10, "💧 **{u}** assaggia il primo sorso...",            discord.Color(0x4169E1)),
             (0.25, "😌 **{u}** sente la gola inumidirsi.",            discord.Color(0x1E90FF)),
@@ -601,7 +658,6 @@ def setup_rp_commands(bot):
         await interaction.response.defer()
         uid = str(interaction.user.id)
 
-        # Blocco doppio turno — controlla nel DB
         turno_esistente = await database.get_turno(uid)
         if turno_esistente:
             from datetime import datetime as _dt
@@ -614,7 +670,6 @@ def setup_rp_commands(bot):
             )
             return
 
-        # Controllo: l'utente possiede il ruolo indicato
         if not isinstance(interaction.user, discord.Member) or \
            not any(r.id == lavoro.id for r in interaction.user.roles):
             await interaction.followup.send(
@@ -627,7 +682,7 @@ def setup_rp_commands(bot):
             await interaction.followup.send("❌ Lo stipendio orario deve essere positivo.", ephemeral=True); return
 
         now = datetime.now(timezone.utc)
-        _turni_cache[uid] = lavoro  # salva l'oggetto Role in cache
+        _turni_cache[uid] = lavoro
         await database.save_turno(uid, lavoro.id, lavoro.name, stipendio, now.timestamp())
 
         embed = discord.Embed(
@@ -672,7 +727,6 @@ def setup_rp_commands(bot):
         inizio       = _dt.fromtimestamp(turno_db["inizio_ts"], tz=timezone.utc)
         durata_s     = (now - inizio).total_seconds()
         ore_esatte    = durata_s / 3600
-        # Arrotonda alla mezz'ora più vicina (minimo 30 min = 0.5h)
         ore_fatturate = max(0.5, math.floor(ore_esatte * 2 + 0.5) / 2)
 
         stipendio_totale = round(turno_db["stipendio"] * ore_fatturate)
@@ -684,7 +738,6 @@ def setup_rp_commands(bot):
         await database.delete_turno(uid)
         _turni_cache.pop(uid, None)
 
-        # ── Embed fine turno (nel canale corrente) ───────────────────────────
         embed_fine = discord.Embed(
             title="<a:offline:1459628872197738641> 𝐓𝐔𝐑𝐍𝐎 𝐓𝐄𝐑𝐌𝐈𝐍𝐀𝐓𝐎 <a:offline:1459628872197738641>",
             color=discord.Color.red(),
@@ -707,9 +760,6 @@ def setup_rp_commands(bot):
 
         await interaction.followup.send(embed=embed_fine)
 
-        
-
-        # ── Embed notifica staff (canale stipendi) ───────────────────────────
         embed_staff = discord.Embed(
             title="💼 𝐑𝐈𝐂𝐇𝐈𝐄𝐒𝐓𝐀 𝐏𝐀𝐆𝐀𝐌𝐄𝐍𝐓𝐎 𝐒𝐓𝐈𝐏𝐄𝐍𝐃𝐈𝐎",
             color=discord.Color(0xDAA520),
@@ -766,11 +816,9 @@ def setup_rp_commands(bot):
     async def anonimo(interaction: discord.Interaction, messaggio: str):
         import re as _re
 
-        # Rileva menzioni ruoli (<@&ID>) e utenti (<@ID> o <@!ID>)
         role_ids  = _re.findall(r'<@&(\d+)>',  messaggio)
         user_ids  = _re.findall(r'<@!?(\d+)>', messaggio)
 
-        # Costruisce le mention string per il contenuto sopra l'embed
         guild = interaction.guild
         role_mentions  = []
         member_mentions = []
@@ -785,7 +833,6 @@ def setup_rp_commands(bot):
                 if member:
                     member_mentions.append(member.mention)
 
-        # Testo di avviso sopra l'embed
         avviso = ""
         if role_mentions and member_mentions:
             avviso = f"📝 In questo messaggio sono stati menzionati i ruoli e i membri: {' '.join(role_mentions)} {' '.join(member_mentions)}"
@@ -803,7 +850,6 @@ def setup_rp_commands(bot):
         else:
             await interaction.channel.send(embed=embed)
 
-        # Log — mostra chi ha usato il comando e in che canale
         try:
             ch = bot.get_channel(LOG_CHANNEL_ID)
             if ch:
@@ -842,7 +888,6 @@ def setup_rp_commands(bot):
             await interaction.response.send_message("❌ Quantità minima: 1.", ephemeral=True)
             return
 
-        # Verifica che l'utente abbia abbastanza item
         qty_in_bisaccia = await database.get_item_quantity(uid, oggetto)
         if qty_in_bisaccia < quantita:
             await interaction.response.send_message(
@@ -851,7 +896,6 @@ def setup_rp_commands(bot):
             )
             return
 
-        # Rimuove dalla bisaccia e mette in hidden_items
         await database.remove_item(uid, oggetto, quantita)
         hide_id = await database.hide_item(uid, oggetto, quantita, luogo)
 
@@ -869,7 +913,6 @@ def setup_rp_commands(bot):
         embed.set_footer(text="🤠 Red Dead Redemption II — Usa /recupera-oggetto per riprendere l'oggetto")
         await interaction.response.send_message(embed=embed)
 
-        # Log
         try:
             ch = bot.get_channel(LOG_CHANNEL_ID)
             if ch:
@@ -900,14 +943,12 @@ def setup_rp_commands(bot):
     async def recupera_oggetto(interaction: discord.Interaction, oggetto: str):
         uid = str(interaction.user.id)
 
-        # oggetto è l'ID del nascondiglio (stringa numerica dall'autocomplete)
         try:
             hide_id = int(oggetto)
         except ValueError:
             await interaction.response.send_message("❌ Seleziona un oggetto dalla lista.", ephemeral=True)
             return
 
-        # Verifica che esista e appartenga all'utente
         hidden_items = await database.get_hidden_items(uid)
         item = next((i for i in hidden_items if i["id"] == hide_id), None)
 
@@ -917,7 +958,6 @@ def setup_rp_commands(bot):
             )
             return
 
-        # Recupera: rimuove da hidden_items e rimette in bisaccia
         await database.recover_hidden_item(hide_id)
         await database.add_item(uid, item["item_name"], item["quantity"])
 
@@ -932,7 +972,6 @@ def setup_rp_commands(bot):
         embed.set_footer(text="🤠 Red Dead Redemption II — Bisaccia")
         await interaction.response.send_message(embed=embed)
 
-        # Log
         try:
             ch = bot.get_channel(LOG_CHANNEL_ID)
             if ch:
@@ -1002,7 +1041,6 @@ def setup_rp_commands(bot):
                         ephemeral=True
                     )
 
-                # Log
                 try:
                     ch = bot.get_channel(LOG_CHANNEL_ID)
                     if ch:

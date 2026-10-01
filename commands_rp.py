@@ -155,107 +155,192 @@ def _decay_bar(v: int) -> str:
     return "▰" * f + "▱" * (10 - f)
 
 
+async def _ensure_decadimento_state_table(db):
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS decadimento_state (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            last_run_ts REAL
+        )
+    """)
+
+
+async def _get_last_decay_ts() -> float:
+    """Legge l'ultimo timestamp (UTC) in cui è scattato il decadimento.
+    Se non esiste ancora una riga, la crea con il timestamp attuale (così il
+    PRIMO decadimento scatterà comunque dopo un intervallo pieno dall'avvio,
+    invece che subito)."""
+    async with aiosqlite.connect(DATABASE_NAME) as db:
+        await _ensure_decadimento_state_table(db)
+        await db.commit()
+        async with db.execute("SELECT last_run_ts FROM decadimento_state WHERE id=1") as c:
+            row = await c.fetchone()
+        if row is not None:
+            return row[0]
+        now_ts = datetime.now(timezone.utc).timestamp()
+        await db.execute(
+            "INSERT INTO decadimento_state (id, last_run_ts) VALUES (1, ?)", (now_ts,)
+        )
+        await db.commit()
+        return now_ts
+
+
+async def _set_last_decay_ts(ts: float):
+    async with aiosqlite.connect(DATABASE_NAME) as db:
+        await _ensure_decadimento_state_table(db)
+        await db.execute(
+            "INSERT INTO decadimento_state (id, last_run_ts) VALUES (1, ?) "
+            "ON CONFLICT(id) DO UPDATE SET last_run_ts=excluded.last_run_ts",
+            (ts,)
+        )
+        await db.commit()
+
+
+# Ogni quanto si RICONTROLLA se è ora di far scattare il decadimento.
+# ⚠️ Non è l'intervallo del decadimento stesso (quello resta DECADIMENTO_INTERVALLO_H),
+# è solo la frequenza del controllo — così, anche se il bot si riavvia o va in
+# sleep (es. su Render free) prima che passino le 24h intere, il decadimento
+# NON si resetta da capo: appena il bot torna online controlla quanto tempo è
+# TRASCORSO DAVVERO dall'ultimo decadimento (letto dal DB) e, se è il momento,
+# lo applica subito invece di aspettare altre 24h piene.
+DECADIMENTO_CHECK_INTERVAL_S = 300  # 5 minuti
+
+
 async def task_decadimento_giornaliero(bot):
     await bot.wait_until_ready()
     print(
-        f"🍔💦 Task decadimento fame/sete avviato (ogni {DECADIMENTO_INTERVALLO_H}h, "
+        f"🍔💦 Task decadimento fame/sete avviato (controllo ogni "
+        f"{DECADIMENTO_CHECK_INTERVAL_S // 60} min, scatta ogni {DECADIMENTO_INTERVALLO_H}h, "
         f"-{DECADIMENTO_PERC_MIN}%~{DECADIMENTO_PERC_MAX}% ciascuna, solo ruolo {FAME_DECAY_ROLE_ID})",
         flush=True
     )
 
+    last_run_ts = await _get_last_decay_ts()
+
     while not bot.is_closed():
-        await asyncio.sleep(DECADIMENTO_INTERVALLO_H * 3600)
+        await asyncio.sleep(DECADIMENTO_CHECK_INTERVAL_S)
         try:
-            perc_fame = random.randint(DECADIMENTO_PERC_MIN, DECADIMENTO_PERC_MAX)
-            perc_sete = random.randint(DECADIMENTO_PERC_MIN, DECADIMENTO_PERC_MAX)
-            n_utenti = 0
+            now_ts = datetime.now(timezone.utc).timestamp()
+            if now_ts - last_run_ts < DECADIMENTO_INTERVALLO_H * 3600:
+                continue  # non è ancora passato un intervallo pieno, ricontrolla più tardi
 
-            # Per l'anteprima nell'embed: fame/sete medie prima → dopo (sugli idonei)
-            somma_fame_prima = somma_fame_dopo = 0
-            somma_sete_prima = somma_sete_dopo = 0
-
-            async with aiosqlite.connect(DATABASE_NAME) as db:
-                db.row_factory = aiosqlite.Row
-                async with db.execute("SELECT user_id, hunger, thirst FROM users") as c:
-                    rows = [dict(r) for r in await c.fetchall()]
-
-                for r in rows:
-                    member = _find_member_in_guilds(bot, r["user_id"])
-                    if not _has_fame_decay_role(member):
-                        continue  # non ha il ruolo → non subisce il decadimento
-
-                    nuova_fame = max(0, r["hunger"] - perc_fame)
-                    nuova_sete = max(0, r["thirst"] - perc_sete)
-                    await db.execute(
-                        "UPDATE users SET hunger=?, thirst=? WHERE user_id=?",
-                        (nuova_fame, nuova_sete, r["user_id"])
-                    )
-                    somma_fame_prima += r["hunger"];  somma_fame_dopo += nuova_fame
-                    somma_sete_prima += r["thirst"];  somma_sete_dopo += nuova_sete
-                    n_utenti += 1
-
-                await db.commit()
-
-            print(
-                f"🍔💦 Decadimento applicato a {n_utenti} utenti idonei "
-                f"(-{perc_fame}% fame, -{perc_sete}% sete)",
-                flush=True
-            )
-
-            media_fame_prima = round(somma_fame_prima / n_utenti) if n_utenti else 100
-            media_fame_dopo  = round(somma_fame_dopo  / n_utenti) if n_utenti else 100
-            media_sete_prima = round(somma_sete_prima / n_utenti) if n_utenti else 100
-            media_sete_dopo  = round(somma_sete_dopo  / n_utenti) if n_utenti else 100
-
-            # ── Annuncio formale, immersivo, nel canale dedicato ─────────────
-            try:
-                ch = bot.get_channel(DECADIMENTO_CHANNEL_ID)
-                if not ch:
-                    ch = await bot.fetch_channel(DECADIMENTO_CHANNEL_ID)
-                if ch:
-                    embed = discord.Embed(
-                        title="🌄 𝐈𝐋 𝐒𝐎𝐋𝐄 𝐓𝐑𝐀𝐌𝐎𝐍𝐓𝐀 𝐒𝐔𝐋𝐋𝐀 𝐂𝐎𝐍𝐓𝐄𝐀",
-                        description=(
-                            "*Un altro giorno si chiude nelle terre selvagge del Far West. "
-                            "Il viaggio, la fatica e il tempo che scorre lasciano il segno "
-                            "su ogni cittadino della contea.*\n\n"
-                            f"⏳ Ogni **{DECADIMENTO_INTERVALLO_H} ore**, chi porta il ruolo "
-                            f"<@&{FAME_DECAY_ROLE_ID}> consuma le proprie riserve naturali."
-                        ),
-                        color=discord.Color(0x6B3E26),
-                        timestamp=discord.utils.utcnow()
-                    )
-                    embed.add_field(
-                        name=f"🍔 Fame — calata del {perc_fame}%",
-                        value=f"{_decay_bar(media_fame_prima)}  →  {_decay_bar(media_fame_dopo)}\n"
-                              f"Media contea: **{media_fame_prima}% → {media_fame_dopo}%**",
-                        inline=False
-                    )
-                    embed.add_field(
-                        name=f"💦 Sete — calata del {perc_sete}%",
-                        value=f"{_decay_bar(media_sete_prima)}  →  {_decay_bar(media_sete_dopo)}\n"
-                              f"Media contea: **{media_sete_prima}% → {media_sete_dopo}%**",
-                        inline=False
-                    )
-                    embed.add_field(
-                        name="⚡ Consiglio dello sceriffo",
-                        value="Fai rifornimento con `/mangia` e `/bevi` prima che sia troppo tardi, cowboy.",
-                        inline=False
-                    )
-                    embed.set_thumbnail(url="https://em-content.zobj.net/source/microsoft-teams/363/cowboy-hat-face_1f920.png")
-                    embed.set_footer(text=f"🤠 Red Dead Redemption II — Ufficio di Sussistenza della Contea | {n_utenti} cittadini coinvolti")
-                    await ch.send(content="@everyone", embed=embed)
-                    print("🍔💦 Annuncio decadimento inviato nel canale dedicato", flush=True)
-                else:
-                    print(f"⚠️ Canale decadimento {DECADIMENTO_CHANNEL_ID} non trovato", flush=True)
-            except Exception as e:
-                print(f"❌ Errore invio annuncio decadimento: {e}", flush=True)
+            await _esegui_decadimento(bot)
+            last_run_ts = now_ts
+            await _set_last_decay_ts(last_run_ts)
 
         except Exception as e:
             print(f"❌ Errore task decadimento fame/sete: {e}", flush=True)
 
 
+async def _esegui_decadimento(bot):
+    """Esegue un ciclo di decadimento fame/sete e manda l'annuncio.
+    Richiamata sia dal task automatico ogni 24h, sia dal comando
+    /forza-decadimento per i test manuali dello staff."""
+    perc_fame = random.randint(DECADIMENTO_PERC_MIN, DECADIMENTO_PERC_MAX)
+    perc_sete = random.randint(DECADIMENTO_PERC_MIN, DECADIMENTO_PERC_MAX)
+    n_utenti = 0
+
+    somma_fame_prima = somma_fame_dopo = 0
+    somma_sete_prima = somma_sete_dopo = 0
+
+    async with aiosqlite.connect(DATABASE_NAME) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute("SELECT user_id, hunger, thirst FROM users") as c:
+            rows = [dict(r) for r in await c.fetchall()]
+
+        for r in rows:
+            member = _find_member_in_guilds(bot, r["user_id"])
+            if not _has_fame_decay_role(member):
+                continue  # non ha il ruolo → non subisce il decadimento
+
+            nuova_fame = max(0, r["hunger"] - perc_fame)
+            nuova_sete = max(0, r["thirst"] - perc_sete)
+            await db.execute(
+                "UPDATE users SET hunger=?, thirst=? WHERE user_id=?",
+                (nuova_fame, nuova_sete, r["user_id"])
+            )
+            somma_fame_prima += r["hunger"];  somma_fame_dopo += nuova_fame
+            somma_sete_prima += r["thirst"];  somma_sete_dopo += nuova_sete
+            n_utenti += 1
+
+        await db.commit()
+
+    print(
+        f"🍔💦 Decadimento applicato a {n_utenti} utenti idonei "
+        f"(-{perc_fame}% fame, -{perc_sete}% sete)",
+        flush=True
+    )
+
+    media_fame_prima = round(somma_fame_prima / n_utenti) if n_utenti else 100
+    media_fame_dopo  = round(somma_fame_dopo  / n_utenti) if n_utenti else 100
+    media_sete_prima = round(somma_sete_prima / n_utenti) if n_utenti else 100
+    media_sete_dopo  = round(somma_sete_dopo  / n_utenti) if n_utenti else 100
+
+    # ── Annuncio formale, immersivo, nel canale dedicato ─────────────────────
+    try:
+        ch = bot.get_channel(DECADIMENTO_CHANNEL_ID)
+        if not ch:
+            ch = await bot.fetch_channel(DECADIMENTO_CHANNEL_ID)
+        if ch:
+            embed = discord.Embed(
+                title="🌄 𝐈𝐋 𝐒𝐎𝐋𝐄 𝐓𝐑𝐀𝐌𝐎𝐍𝐓𝐀 𝐒𝐔𝐋𝐋𝐀 𝐂𝐎𝐍𝐓𝐄𝐀",
+                description=(
+                    "*Un altro giorno si chiude nelle terre selvagge del Far West. "
+                    "Il viaggio, la fatica e il tempo che scorre lasciano il segno "
+                    "su ogni cittadino della contea.*\n\n"
+                    f"⏳ Ogni **{DECADIMENTO_INTERVALLO_H} ore**, chi porta il ruolo "
+                    f"<@&{FAME_DECAY_ROLE_ID}> consuma le proprie riserve naturali."
+                ),
+                color=discord.Color(0x6B3E26),
+                timestamp=discord.utils.utcnow()
+            )
+            embed.add_field(
+                name=f"🍔 Fame — calata del {perc_fame}%",
+                value=f"{_decay_bar(media_fame_prima)}  →  {_decay_bar(media_fame_dopo)}\n"
+                      f"Media contea: **{media_fame_prima}% → {media_fame_dopo}%**",
+                inline=False
+            )
+            embed.add_field(
+                name=f"💦 Sete — calata del {perc_sete}%",
+                value=f"{_decay_bar(media_sete_prima)}  →  {_decay_bar(media_sete_dopo)}\n"
+                      f"Media contea: **{media_sete_prima}% → {media_sete_dopo}%**",
+                inline=False
+            )
+            embed.add_field(
+                name="⚡ Consiglio dello sceriffo",
+                value="Fai rifornimento con `/mangia` e `/bevi` prima che sia troppo tardi, cowboy.",
+                inline=False
+            )
+            embed.set_thumbnail(url="https://em-content.zobj.net/source/microsoft-teams/363/cowboy-hat-face_1f920.png")
+            embed.set_footer(text=f"🤠 Red Dead Redemption II — Ufficio di Sussistenza della Contea | {n_utenti} cittadini coinvolti")
+            await ch.send(content="@everyone", embed=embed)
+            print("🍔💦 Annuncio decadimento inviato nel canale dedicato", flush=True)
+        else:
+            print(f"⚠️ Canale decadimento {DECADIMENTO_CHANNEL_ID} non trovato", flush=True)
+    except Exception as e:
+        print(f"❌ Errore invio annuncio decadimento: {e}", flush=True)
+
+    return n_utenti, perc_fame, perc_sete
+
+
 def setup_rp_commands(bot):
+
+    # ── /forza-decadimento [Staff] ──────────────────────────────────────────
+    @bot.tree.command(name="forza-decadimento", description="[Staff] Forza subito un ciclo di decadimento fame/sete (debug)")
+    async def forza_decadimento(interaction: discord.Interaction):
+        if not isinstance(interaction.user, discord.Member) or \
+           not any(r.id == STAFF_ROLE_ID for r in interaction.user.roles):
+            await interaction.response.send_message("❌ Solo lo Staff può forzare il decadimento.", ephemeral=True)
+            return
+
+        await interaction.response.defer(ephemeral=True)
+        n_utenti, perc_fame, perc_sete = await _esegui_decadimento(bot)
+        await _set_last_decay_ts(datetime.now(timezone.utc).timestamp())
+
+        await interaction.followup.send(
+            f"✅ Decadimento forzato eseguito: **{n_utenti}** cittadini idonei coinvolti "
+            f"(-{perc_fame}% fame, -{perc_sete}% sete). Annuncio inviato nel canale dedicato.",
+            ephemeral=True
+        )
 
     # ── /me ──────────────────────────────────────────────────────────────────
     @bot.tree.command(name="me", description="Esegui un'azione roleplay nel Far West")

@@ -17,6 +17,7 @@ COMPANY_EMOJI = {
     "Distilleria":  "🥃",
     "Macelleria":   "🥩",
     "FightClub":    "🥊",
+    "Agenzia Immobiliare": "🏘️",
 }
 
 # ── Ruoli extra con accesso al fondo cassa, oltre a quelli già in COMPANY_ROLES ──
@@ -29,6 +30,8 @@ EXTRA_ACCESSO_STATO_ROLE_ID      = 1480217343245287424
 # commands_fightclub.py. L'utente lo aggiornerà manualmente in entrambi i file
 # quando avrà l'ID definitivo.
 EXTRA_ACCESSO_FIGHTCLUB_ROLE_ID  = 1421169805968539699
+# ⚠️ Nuovo ruolo "Agenzia Immobiliare" — accesso diretto al fondo cassa dedicato.
+EXTRA_ACCESSO_IMMOBILIARE_ROLE_ID = 1404051965364670545
 
 _CHOICES = [
     app_commands.Choice(name="⭐ Sceriffo",     value="Sceriffo"),
@@ -44,6 +47,7 @@ _CHOICES = [
     app_commands.Choice(name="🥃 Distilleria",  value="Distilleria"),
     app_commands.Choice(name="🥩 Macelleria",   value="Macelleria"),
     app_commands.Choice(name="🥊 Fight Club",   value="FightClub"),
+    app_commands.Choice(name="🏘️ Agenzia Immobiliare", value="Agenzia Immobiliare"),
 ]
 
 
@@ -65,6 +69,8 @@ def _get_user_companies(member) -> list:
         result.append("Stato")
     if EXTRA_ACCESSO_FIGHTCLUB_ROLE_ID and EXTRA_ACCESSO_FIGHTCLUB_ROLE_ID in member_role_ids and "FightClub" not in result:
         result.append("FightClub")
+    if EXTRA_ACCESSO_IMMOBILIARE_ROLE_ID in member_role_ids and "Agenzia Immobiliare" not in result:
+        result.append("Agenzia Immobiliare")
 
     return result
 

@@ -41,12 +41,31 @@ async def on_ready():
     print(f"✅ Logged in as {bot.user} (ID: {bot.user.id})", flush=True)
     print(f"✅ Server: {len(bot.guilds)}", flush=True)
     await database.init_db()
-    from commands_usura import init_usura_table, task_usura_giornaliera
-    await init_usura_table()
     await database.init_hidden_items_table()
-    asyncio.create_task(task_usura_giornaliera(bot))
-    from commands_rp import task_decadimento_giornaliero
-    asyncio.create_task(task_decadimento_giornaliero(bot))
+
+    # ⚠️ FIX CRITICO: il task della fame va avviato PRIMA di qualunque import
+    # opzionale che potrebbe fallire. In precedenza l'import di commands_usura
+    # (sotto, ora protetto da try/except) NON era protetto: se quel modulo
+    # mancava, l'intero on_ready() si interrompeva lì senza eseguire il resto
+    # — compreso l'avvio del task di decadimento della fame, che per questo
+    # non partiva mai nonostante il codice fosse corretto.
+    try:
+        from commands_rp import task_decadimento_giornaliero
+        asyncio.create_task(task_decadimento_giornaliero(bot))
+        print("✅ Task decadimento fame schedulato", flush=True)
+    except Exception as e:
+        print(f"❌ Task decadimento fame NON avviato: {e}", flush=True)
+        import traceback; traceback.print_exc()
+
+    # ── Usura armi (opzionale: se il modulo manca, non deve bloccare il resto) ──
+    try:
+        from commands_usura import init_usura_table, task_usura_giornaliera
+        await init_usura_table()
+        asyncio.create_task(task_usura_giornaliera(bot))
+        print("✅ Task usura armi schedulato", flush=True)
+    except Exception as e:
+        print(f"⚠️ Modulo commands_usura non disponibile, usura armi disattivata: {e}", flush=True)
+
     try:
         from commands_admin import BackgroundView
         bot.add_view(BackgroundView(bot))

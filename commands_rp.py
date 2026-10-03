@@ -46,7 +46,7 @@ STIPENDIO_CHANNEL_ID = 1422986030650228766
 # ── Decadimento giornaliero di Fame e Sete ────────────────────────────────────
 # https://discord.com/channels/1404051526116311141/1546058395071545404
 # ⚠️ Il decadimento si applica SOLO a chi ha questo ruolo Discord.
-FAME_DECAY_ROLE_ID       = 1404052056028772775
+FAME_DECAY_ROLE_ID       = 1404052056028872775
 DECADIMENTO_CHANNEL_ID   = 1546058395071545404
 DECADIMENTO_INTERVALLO_H = 24     # ogni quante ore scatta il decadimento
 DECADIMENTO_PERC_MIN     = 1      # calo minimo (%) — estratto random ogni ciclo

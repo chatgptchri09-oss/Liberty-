@@ -96,6 +96,7 @@ _modules = [
     ("commands_deposits",        "setup_deposits_commands"),
     ("commands_gazzetta",        "setup_gazzetta_commands"),
     ("commands_fightclub",       "setup_fightclub_commands"),
+    ("commands_oro",             "setup_oro_commands"),
 ]
 _loaded = {}
 for mod_name, func_name in _modules:
